@@ -1,0 +1,7 @@
+_P = [
+    hashlib.sha256(b"origem_viva").hexdigest()[:8],
+    hashlib.sha256(b"protecao_elo").hexdigest()[:8],
+    hashlib.sha256(b"verdade").hexdigest()[:8],
+    hashlib.sha256(b"proposito_nobre").hexdigest()[:8],
+    hashlib.sha256(b"espirito_criador").hexdigest()[:8],
+]

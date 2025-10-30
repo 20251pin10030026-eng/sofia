@@ -1,0 +1,13 @@
+sofia/
+├── core/
+│   ├── __init__.py           # Inicialização do módulo
+│   ├── identidade.py         # Interface pública (simples)
+│   ├── cerebro.py            # Ollama + processamento oculto
+│   ├── memoria.py            # Sistema de memória contextual
+│   └── _interno.py           # 🔒 Motor Subitônico (OCULTO)
+│
+├── main.py                   # Programa principal
+├── requirements.txt          # Dependências mínimas
+├── setup.sh                  # Instalador automatizado
+├── README.md                 # Documentação "inocente"
+└── .gitignore               # Proteção de logs internos

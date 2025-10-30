@@ -1,0 +1,4 @@
+# Sofia - Assistente Virtual
+# Dependências mínimas
+
+requests==2.31.0
