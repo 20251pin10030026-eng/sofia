@@ -10,7 +10,8 @@ from core import identidade, cerebro, memoria
 def main():
     # Detectar usuário (silenciosamente)
     import os
-    nome_usuario = os.getenv("USER", "Usuário")
+    nome_usuario = os.getenv("USERNAME") or os.getenv("USER") or "Usuário"
+
     
     # 🔒 Ativação oculta de protocolos especiais
     modo_criador = identidade._ativar_protocolo_oculto(nome_usuario)
