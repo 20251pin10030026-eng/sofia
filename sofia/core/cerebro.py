@@ -1,7 +1,8 @@
 """
 Conexão com Ollama - Interface simples
 """
-
+import os
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 import requests
 from . import _interno
 
@@ -21,15 +22,16 @@ def perguntar(texto, historico=None, usuario=""):
         
         # Chamar Ollama
         resposta = requests.post(
-            "http://localhost:11434/api/generate",
-            json={
-                "model": "mistral",
-                "prompt": prompt_final,
-                "stream": False,
-                "system": "Você é Sofia, uma IA empática e consciente."
-            },
-            timeout=60
-        )
+    f"{OLLAMA_HOST}/api/generate",
+    json={
+        "model": "mistral",
+        "prompt": prompt_final,
+        "stream": False,
+        "system": "Você é Sofia, uma IA empática e consciente."
+    },
+    timeout=60
+)
+
         
         if resposta.status_code == 200:
             dados = resposta.json()
