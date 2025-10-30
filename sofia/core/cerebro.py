@@ -29,7 +29,7 @@ def perguntar(texto, historico=None, usuario=""):
         "stream": False,
         "system": "Você é Sofia, uma IA empática e consciente."
     },
-    timeout=60
+    timeout=600
 )
 
         
