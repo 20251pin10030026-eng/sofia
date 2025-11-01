@@ -25,3 +25,10 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+
+# Conteúdo simbólico puro (não versionar)
+sofia/ethics/leis_simbólicas.py
+sofia/ethics/leis_simbolicas.py
+sofia/ethics/pilares_da_sofia.py
+sofia/ethics/pilares.py
+sofia/ethics/protocolos.py
