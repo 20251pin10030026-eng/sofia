@@ -1,10 +1,14 @@
 # sofia/scripts/selar_personalidade.py
 import os, sys, importlib.util
 from pathlib import Path
+
+# Adiciona o diretório pai ao path
+ROOT = Path(__file__).resolve().parents[1]  # sofia/
+sys.path.insert(0, str(ROOT.parent))  # A.I_GitHUB/
+
 from sofia.core.seguranca import encrypt_json
 
-ROOT   = Path(__file__).resolve().parents[2]    # A.I_GitHUB/
-ETHICS = ROOT / "sofia" / "ethics"              # A.I_GitHUB/sofia/ethics
+ETHICS = ROOT / "ethics"  # sofia/ethics
 
 SRC = {
     "leis":       ETHICS / "leis_simbólicas.py",  # aceita com acento

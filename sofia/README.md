@@ -41,7 +41,7 @@ chmod +x setup.sh
 
 # 3. Ativar ambiente e executar
 source venv/bin/activate
-python main.py
+python -m sofia.main
 ```
 
 ---

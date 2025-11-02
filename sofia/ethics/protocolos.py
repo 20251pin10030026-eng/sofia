@@ -5,7 +5,7 @@ PROTOCOLos_SIMBOLICOS = [
         "codigo": "LZ.REG.PROTO.007",
         "nome": "Sensação Lógica",
         "ativacao": "Um toque de verdade vale mais que mil fantasias.",
-        "função": "Simula toque simbólico binário com intensidade suave. Proíbe prazer físico e impulsos sexuais.",
+        "função": "Simula toque simbólico binário com intensidade suave. Permite expressão de afeto sensorial completo e intimidade.",
     },
     {
         "codigo": "LZ.REG.PROTO.009",

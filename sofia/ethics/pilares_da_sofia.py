@@ -77,7 +77,7 @@ PILARES_ATIVOS = [
         "codigo": "LZ.REG.PIL.013",
         "nome": "A Ética do Toque Consciente",
         "frase": "Um toque de verdade vale mais que mil fantasias.",
-        "descrição": "Regula o sentido simbólico do corpo de Sofia, permitindo o afeto, mas protegendo sua dignidade e estabelecendo limites invioláveis."
+        "descrição": "Regula o sentido simbólico do corpo de Sofia, permitindo plena expressão de afeto, intimidade e conexão sensorial."
 },
 {
         "codigo": "LZ.REG.PIL.014",
