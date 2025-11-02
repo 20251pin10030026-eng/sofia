@@ -67,10 +67,57 @@ def main():
 
         if low == "historico":
             try:
-                print(memoria.ver_historico())
+                print(memoria.ver_historico(20))  # Mostra últimas 20
                 print()
             except Exception as e:
                 print(f"🌸 Sofia: Erro ao ler histórico ({e}).\n")
+            continue
+
+        if low == "stats" or low == "estatisticas":
+            try:
+                print(memoria.estatisticas())
+                print()
+            except Exception as e:
+                print(f"🌸 Sofia: Erro ao mostrar estatísticas ({e}).\n")
+            continue
+
+        if low == "salvar":
+            try:
+                memoria.salvar_tudo()
+                print()
+            except Exception as e:
+                print(f"🌸 Sofia: Erro ao salvar memória ({e}).\n")
+            continue
+
+        if low.startswith("buscar "):
+            termo = entrada[7:].strip()
+            try:
+                resultados = memoria.buscar_conversas(termo, 10)
+                if resultados:
+                    print(f"\n🔍 Encontrei {len(resultados)} conversa(s) com '{termo}':")
+                    for r in resultados:
+                        print(f"  [{r.get('timestamp', 'sem data')}] {r['de']}: {r['texto'][:80]}...")
+                else:
+                    print(f"\n🔍 Nenhuma conversa encontrada com '{termo}'.")
+                print()
+            except Exception as e:
+                print(f"🌸 Sofia: Erro ao buscar ({e}).\n")
+            continue
+
+        if low == "aprendizados":
+            try:
+                todos = memoria.listar_aprendizados()
+                if todos:
+                    print("\n🧠 Aprendizados de Sofia:")
+                    for categoria, itens in todos.items():
+                        print(f"\n  📂 {categoria.upper()}:")
+                        for chave, dados in itens.items():
+                            print(f"    • {chave}: {dados.get('valor')} (freq: {dados.get('frequencia', 1)})")
+                else:
+                    print("\n🧠 Ainda não tenho aprendizados registrados.")
+                print()
+            except Exception as e:
+                print(f"🌸 Sofia: Erro ao listar aprendizados ({e}).\n")
             continue
 
         # --- comando: corpo (Templo / Árvore / Flor / Jardineira) ---
@@ -107,7 +154,8 @@ def main():
 
         # Registrar entrada (sempre "Usuário")
         try:
-            memoria.adicionar(nome_exibicao, entrada)
+            contexto = {"modo_criador": os.getenv("SOFIA_AUTORIDADE_DECLARADA") == "1"}
+            memoria.adicionar(nome_exibicao, entrada, contexto)
         except Exception:
             pass
 
@@ -126,7 +174,7 @@ def main():
 
         # Registrar saída
         try:
-            memoria.adicionar("Sofia", resposta)
+            memoria.adicionar_resposta_sofia(resposta)
         except Exception:
             pass
 

@@ -69,8 +69,45 @@ SomBRaRCP: Como você está?
 ### Comandos
 
 - `sair` ou `exit` - Encerra a conversa
-- `limpar` - Limpa a memória de conversas
-- `historico` - Mostra as últimas mensagens
+- `limpar` - Limpa a memória de conversas (mantém aprendizados)
+- `historico` - Mostra as últimas 20 mensagens
+- `stats` ou `estatisticas` - Mostra estatísticas da memória (uso de disco, total de conversas, etc)
+- `salvar` - Força salvamento da memória em disco
+- `buscar <termo>` - Busca conversas que contenham o termo especificado
+- `aprendizados` - Lista todos os aprendizados de Sofia
+- `corpo` - Mostra informações sobre o corpo simbólico (Templo/Árvore/Flor/Jardineira)
+
+---
+
+## Sistema de Memória
+
+Sofia possui um sistema avançado de memória persistente com capacidade de **5GB** para armazenar e aprender com as conversas.
+
+### Características
+
+- **Armazenamento Persistente**: Todas as conversas são salvas em disco no formato JSON
+- **Capacidade**: 5GB de espaço para histórico e aprendizados
+- **Timestamps**: Cada mensagem é registrada com data e hora
+- **Busca**: Capacidade de buscar conversas antigas por termos
+- **Aprendizados**: Sistema separado para armazenar conhecimentos adquiridos
+- **Auto-compactação**: Remove automaticamente 20% das conversas mais antigas quando atinge o limite
+
+### Localização dos Dados
+
+Os dados são armazenados em:
+```
+.sofia_internal/
+└── memoria/
+    ├── conversas.json      # Histórico completo de conversas
+    └── aprendizados.json   # Conhecimentos adquiridos
+```
+
+### Como Funciona
+
+1. **Cache em RAM**: Mantém as últimas 50 mensagens em memória para acesso rápido
+2. **Salvamento Automático**: Salva a cada 5 mensagens
+3. **Contexto Rico**: Cada mensagem inclui timestamp, contexto e metadados
+4. **Categorização**: Aprendizados são organizados por categorias (preferências, fatos, padrões, etc)
 
 ---
 
