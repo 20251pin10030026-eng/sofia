@@ -36,10 +36,42 @@ except Exception:
 @app.route('/status', methods=['GET'])
 def status():
     """Verifica se a API está online"""
-    return jsonify({
+    # Verifica disponibilidade de bibliotecas
+    diagnostico = {
         'status': 'online',
-        'sofia': 'ready'
-    })
+        'sofia': 'ready',
+        'bibliotecas': {}
+    }
+    
+    # Testa PyPDF2
+    try:
+        import PyPDF2
+        diagnostico['bibliotecas']['PyPDF2'] = f'✅ Disponível (v{PyPDF2.__version__})'
+    except ImportError:
+        diagnostico['bibliotecas']['PyPDF2'] = '❌ Não disponível'
+    
+    # Testa Pillow
+    try:
+        from PIL import Image
+        diagnostico['bibliotecas']['Pillow'] = f'✅ Disponível'
+    except ImportError:
+        diagnostico['bibliotecas']['Pillow'] = '❌ Não disponível'
+    
+    # Testa pytesseract
+    try:
+        import pytesseract
+        diagnostico['bibliotecas']['pytesseract'] = '✅ Disponível'
+    except ImportError:
+        diagnostico['bibliotecas']['pytesseract'] = '❌ Não disponível'
+    
+    # Testa numpy
+    try:
+        import numpy
+        diagnostico['bibliotecas']['numpy'] = f'✅ Disponível (v{numpy.__version__})'
+    except ImportError:
+        diagnostico['bibliotecas']['numpy'] = '❌ Não disponível'
+    
+    return jsonify(diagnostico)
 
 @app.route('/chat', methods=['POST'])
 def chat():

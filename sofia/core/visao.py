@@ -21,8 +21,10 @@ except ImportError:
 
 try:
     import PyPDF2
+    PDF_DISPONIVEL = True
 except ImportError:
     PyPDF2 = None
+    PDF_DISPONIVEL = False
 
 # Importa analisador visual avançado
 try:
@@ -157,14 +159,21 @@ class SistemaVisao:
     
     def _extrair_texto_pdf(self, path: Path) -> str:
         """Extrai texto de PDF"""
-        if PyPDF2 is None:
-            return "[PyPDF2 não instalado - instale com: pip install PyPDF2]"
+        if not PDF_DISPONIVEL or PyPDF2 is None:
+            erro = "[ERRO INTERNO: PyPDF2 não está disponível]\n"
+            erro += "O servidor precisa ser reiniciado após a instalação do PyPDF2.\n"
+            erro += "Por favor, reinicie o servidor Flask (Ctrl+C e 'python api.py')"
+            return erro
         
         try:
             texto = []
             with open(path, 'rb') as f:
                 reader = PyPDF2.PdfReader(f)
                 num_paginas = len(reader.pages)
+                
+                if num_paginas == 0:
+                    return "PDF vazio ou sem páginas legíveis."
+                
                 # Lê TODAS as páginas
                 for i in range(num_paginas):
                     page = reader.pages[i]
@@ -172,13 +181,17 @@ class SistemaVisao:
                     if texto_pagina.strip():  # Só adiciona se tiver conteúdo
                         texto.append(f"=== Página {i+1} ===\n{texto_pagina}")
             
+            if not texto:
+                return f"PDF com {num_paginas} páginas, mas nenhum texto extraível encontrado (pode ser PDF de imagens/scaneado)."
+            
             resultado = '\n\n'.join(texto)
             
-            # Se muito grande, resumo as estatísticas mas mantém todo o texto
-            info = f"PDF com {num_paginas} páginas, {len(resultado)} caracteres extraídos\n\n"
+            # Informação sobre o PDF
+            info = f"PDF: {num_paginas} páginas, {len(resultado)} caracteres extraídos\n\n"
             return info + resultado
+            
         except Exception as e:
-            return f"Erro ao ler PDF: {str(e)}"
+            return f"Erro ao processar PDF: {str(e)}\nVerifique se o arquivo não está corrompido."
     
     def _analisar_imagem(self, path: Path) -> str:
         """Analisa imagem (dimensões, cores, OCR e descrição detalhada)"""
