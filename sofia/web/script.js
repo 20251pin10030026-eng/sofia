@@ -14,6 +14,7 @@ const quickBtns = document.querySelectorAll('.quick-btn');
 const statsBtn = document.getElementById('stats-btn');
 const memoryBtn = document.getElementById('memory-btn');
 const settingsBtn = document.getElementById('settings-btn');
+const worldBtn = document.getElementById('world-btn');
 const statsModal = document.getElementById('stats-modal');
 const memoryModal = document.getElementById('memory-modal');
 const settingsModal = document.getElementById('settings-modal');
@@ -63,6 +64,9 @@ quickBtns.forEach(btn => {
 statsBtn.addEventListener('click', () => openModal('stats'));
 memoryBtn.addEventListener('click', () => openModal('memory'));
 settingsBtn.addEventListener('click', () => openSettingsModal());
+worldBtn.addEventListener('click', () => {
+    window.open('mundo3d.html', '_blank');
+});
 
 document.querySelectorAll('.modal-close').forEach(btn => {
     btn.addEventListener('click', () => closeModals());
