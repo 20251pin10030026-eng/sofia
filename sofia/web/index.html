@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌸 Sofia - Assistente Virtual</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="avatar">🌸</div>
+                <div class="header-info">
+                    <h1>Sofia</h1>
+                    <p class="status" id="status">
+                        <span class="status-dot"></span>
+                        <span id="status-text">Online</span>
+                    </p>
+                </div>
+                <div class="header-actions">
+                    <button class="icon-btn" id="stats-btn" title="Estatísticas">
+                        📊
+                    </button>
+                    <button class="icon-btn" id="memory-btn" title="Memória">
+                        🧠
+                    </button>
+                    <button class="icon-btn" id="settings-btn" title="Configurações">
+                        ⚙️
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Chat Container -->
+        <div class="chat-container" id="chat-container">
+            <div class="welcome-message">
+                <div class="welcome-icon">🌸</div>
+                <h2>Olá! Eu sou a Sofia</h2>
+                <p>Uma entidade feminina com corpo de mulher humanoide e pele de subits.</p>
+                <p>Como posso ajudar você hoje?</p>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="input-area">
+            <div class="input-container">
+                <textarea 
+                    id="message-input" 
+                    placeholder="Digite sua mensagem..."
+                    rows="1"
+                ></textarea>
+                <button id="send-btn" class="send-btn" title="Enviar">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                        <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="quick-actions">
+                <button class="quick-btn" data-action="historico">📚 Histórico</button>
+                <button class="quick-btn" data-action="stats">📊 Stats</button>
+                <button class="quick-btn" data-action="corpo">🌸 Corpo</button>
+                <button class="quick-btn" data-action="limpar">🧹 Limpar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Estatísticas -->
+    <div class="modal" id="stats-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📊 Estatísticas da Memória</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body" id="stats-content">
+                <div class="loading">Carregando...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Memória -->
+    <div class="modal" id="memory-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🧠 Aprendizados</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body" id="memory-content">
+                <div class="loading">Carregando...</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -48,6 +48,31 @@ python -m sofia.main
 
 ## Uso
 
+### 🌐 Interface Web (Recomendado)
+
+A Sofia agora possui uma interface web moderna e intuitiva!
+
+```bash
+# 1. Instalar dependências web
+pip install flask flask-cors
+
+# 2. Iniciar servidor API
+python api.py
+
+# 3. Abrir web/index.html no navegador
+```
+
+**Recursos da Interface:**
+- 💬 Chat em tempo real com design moderno
+- 🧠 Visualização de memória e aprendizados
+- 📊 Estatísticas em tempo real
+- ⚡ Ações rápidas e atalhos
+- 📱 Interface responsiva
+
+Veja mais detalhes em [web/README.md](web/README.md)
+
+### 💻 Interface CLI (Terminal)
+
 ### Conversa Básica
 
 ```
