@@ -43,7 +43,11 @@ chmod +x setup.sh
 source venv/bin/activate
 python -m sofia.main
 ```
-
+# iniciar_sofia_web.bat
+  Método Manual:
+  cd D:\A.I_GitHUB\sofia
+  python api.py
+  Depois abra index.html no navegador!
 ---
 
 ## Uso
