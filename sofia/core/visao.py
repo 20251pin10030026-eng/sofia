@@ -198,7 +198,7 @@ class SistemaVisao:
             # 2. Análise de cores dominantes
             img_rgb = img.convert('RGB')
             img_small = img_rgb.resize((50, 50))  # Reduz para análise rápida
-            pixels = list(img_small.getdata())
+            pixels = list(img_small.getdata())  # type: ignore
             
             # Contar cores mais comuns
             from collections import Counter
@@ -213,7 +213,7 @@ class SistemaVisao:
             
             # 3. Análise de brilho e contraste
             grayscale = img.convert('L')
-            pixels_gray = list(grayscale.getdata())
+            pixels_gray = list(grayscale.getdata())  # type: ignore
             avg_brightness = sum(pixels_gray) / len(pixels_gray)
             
             analise.append(f"\n=== LUMINOSIDADE ===")
@@ -230,7 +230,8 @@ class SistemaVisao:
             try:
                 from PIL import ImageFilter
                 edges = img_rgb.filter(ImageFilter.FIND_EDGES)
-                edge_pixels = list(edges.convert('L').getdata())
+                edge_data = edges.convert('L').getdata()
+                edge_pixels = list(edge_data)  # type: ignore
                 edge_density = sum(1 for p in edge_pixels if p > 30) / len(edge_pixels)
                 
                 analise.append(f"\n=== COMPLEXIDADE ===")
@@ -277,14 +278,14 @@ class SistemaVisao:
             for nome, (x1, y1, x2, y2) in quadrantes.items():
                 region = img_rgb.crop((x1, y1, x2, y2))
                 region_small = region.resize((10, 10))
-                region_pixels = list(region_small.getdata())
+                region_pixels = [pixel for pixel in region_small.getdata()]
                 avg_color = tuple(sum(c[i] for c in region_pixels) // len(region_pixels) for i in range(3))
                 analise.append(f"{nome}: RGB{avg_color}")
             
             # 7. Metadados EXIF (se disponível)
             try:
                 from PIL import Image as PILImage
-                exif = img._getexif()
+                exif = img.getexif()
                 if exif:
                     analise.append("\n=== METADADOS EXIF ===")
                     # IDs EXIF comuns
@@ -364,11 +365,64 @@ class SistemaVisao:
         
         contexto = "\n\n=== ARQUIVOS VISUALIZADOS ===\n"
         for arquivo_id, dados in self.arquivos.items():
-            contexto += f"\n📄 {dados['nome_original']}:\n"
-            if dados.get('conteudo'):
-                contexto += f"{dados['conteudo']}\n"
+            tipo = dados['extensao']
+            
+            # Para PDFs, cria variável com o texto
+            if tipo in self.FORMATOS_PDF:
+                var_name = f"pdftex_{arquivo_id.split('_')[0]}"
+                contexto += f"\n📄 PDF: {dados['nome_original']}\n"
+                contexto += f"Variável criada: {var_name}\n"
+                contexto += f"Conteúdo armazenado em {var_name}:\n"
+                if dados.get('conteudo'):
+                    contexto += f"{dados['conteudo']}\n"
+            else:
+                # Para imagens, usa análise visual
+                contexto += f"\n🖼️ IMAGEM: {dados['nome_original']}\n"
+                if dados.get('conteudo'):
+                    contexto += f"{dados['conteudo']}\n"
         
         return contexto
+    
+    def obter_texto_pdf_para_prompt(self, usuario_prompt: str) -> str:
+        """
+        Retorna texto dos PDFs no formato: nome_variavel: pdftex + prompt
+        """
+        self.limpar_expirados()
+        
+        pdfs = []
+        for arquivo_id, dados in self.arquivos.items():
+            if dados['extensao'] in self.FORMATOS_PDF:
+                # Cria nome da variável
+                timestamp = arquivo_id.split('_')[0]
+                var_name = f"pdftex_{timestamp}"
+                
+                # Extrai apenas o texto puro (sem cabeçalhos)
+                texto_pdf = dados.get('conteudo', '')
+                
+                pdfs.append({
+                    'variavel': var_name,
+                    'nome_arquivo': dados['nome_original'],
+                    'texto': texto_pdf
+                })
+        
+        if not pdfs:
+            return usuario_prompt
+        
+        # Monta o prompt com as variáveis
+        prompt_final = ""
+        for pdf in pdfs:
+            prompt_final += f"\n{'='*60}\n"
+            prompt_final += f"VARIÁVEL: {pdf['variavel']}\n"
+            prompt_final += f"ARQUIVO: {pdf['nome_arquivo']}\n"
+            prompt_final += f"{'='*60}\n"
+            prompt_final += f"{pdf['texto']}\n\n"
+        
+        prompt_final += f"\n{'='*60}\n"
+        prompt_final += f"PROMPT DO USUÁRIO:\n"
+        prompt_final += f"{'='*60}\n"
+        prompt_final += usuario_prompt
+        
+        return prompt_final
     
     def limpar_tudo(self) -> int:
         """Remove todos os arquivos"""

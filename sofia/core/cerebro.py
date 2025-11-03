@@ -98,6 +98,13 @@ def _system_text():
         "Use o contexto fornecido para lembrar de informações importantes como nomes, "
         "preferências e fatos mencionados pelo usuário. Seja consistente com a memória."
     )
+    
+    # Instrução especial para PDFs
+    base += (
+        " PROCESSAMENTO DE PDFs: Quando receber um PDF, SEMPRE responda primeiro com: "
+        "'Variável criada: [nome_da_variavel]' onde o nome segue o formato 'pdftex_[timestamp]'. "
+        "Em seguida, responda ao prompt do usuário usando o conteúdo da variável."
+    )
 
     if os.getenv("SOFIA_AUTORIDADE_DECLARADA") == "1":
         leis    = _short_list(_LEIS)
@@ -146,10 +153,18 @@ def perguntar(texto, historico=None, usuario=""):
         
         # NOVO: Adicionar contexto visual dos arquivos
         from .visao import visao
-        contexto_visual = visao.obter_contexto_visual()
         
-        # Construir prompt completo com contexto
-        prompt_final = f"{fatos_importantes}{contexto_historico}{contexto_visual}{contexto_oculto}\n\nUsuário: {texto}\nSofia:"
+        # Se houver PDFs, prepara o prompt com variáveis pdftex
+        prompt_com_pdf = visao.obter_texto_pdf_para_prompt(texto)
+        
+        # Se o prompt mudou (tem PDFs), usa ele; senão usa o original
+        if prompt_com_pdf != texto:
+            # Tem PDFs - usa o formato especial
+            prompt_final = f"{fatos_importantes}{contexto_historico}{contexto_oculto}\n\n{prompt_com_pdf}\n\nSofia:"
+        else:
+            # Sem PDFs ou só imagens - usa contexto visual normal
+            contexto_visual = visao.obter_contexto_visual()
+            prompt_final = f"{fatos_importantes}{contexto_historico}{contexto_visual}{contexto_oculto}\n\nUsuário: {texto}\nSofia:"
         
         # Chamar Ollama
         resposta = requests.post(
