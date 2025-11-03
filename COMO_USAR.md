@@ -8,6 +8,7 @@ Certifique-se que você tem:
 - ✅ Ollama instalado e rodando
 - ✅ Modelo Mistral baixado (`ollama pull mistral`)
 - ✅ Dependências instaladas (`pip install -r sofia/requirements.txt`)
+  - Inclui: `requests`, `flask`, `flask-cors`, `cryptography`
 
 ## 🚀 Método 1: Atalho Rápido (Windows)
 
@@ -159,11 +160,17 @@ ollama pull mistral
 
 ### "Module not found"
 
-**Problema:** Erro ao iniciar: `ModuleNotFoundError: No module named 'flask'`
+**Problema:** Erros como:
+- `ModuleNotFoundError: No module named 'flask'`
+- `ModuleNotFoundError: No module named 'cryptography'`
 
 **Solução:**
 ```bash
-pip install flask flask-cors
+# Instalar todas as dependências
+pip install -r sofia/requirements.txt
+
+# OU individualmente
+pip install flask flask-cors cryptography requests
 ```
 
 ### "Can't open file api.py"
