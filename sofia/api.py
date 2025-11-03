@@ -175,6 +175,73 @@ def search():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/conversations', methods=['GET'])
+def get_conversations():
+    """Retorna todas as conversas"""
+    try:
+        import json
+        conversas = []
+        
+        if memoria.MEMORIA_ARQUIVO.exists():
+            with open(memoria.MEMORIA_ARQUIVO, 'r', encoding='utf-8') as f:
+                dados = json.load(f)
+                conversas = dados.get('conversas', [])
+        
+        # Retorna últimas 100 conversas
+        return jsonify({
+            'conversas': conversas[-100:] if len(conversas) > 100 else conversas,
+            'total': len(conversas)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/delete-conversation', methods=['POST'])
+def delete_conversation():
+    """Deleta uma conversa específica"""
+    try:
+        import json
+        data = request.json
+        index = data.get('index')
+        
+        if memoria.MEMORIA_ARQUIVO.exists():
+            with open(memoria.MEMORIA_ARQUIVO, 'r', encoding='utf-8') as f:
+                dados = json.load(f)
+                conversas = dados.get('conversas', [])
+            
+            if 0 <= index < len(conversas):
+                conversas.pop(index)
+                dados['conversas'] = conversas
+                dados['total_conversas'] = len(conversas)
+                
+                with open(memoria.MEMORIA_ARQUIVO, 'w', encoding='utf-8') as f:
+                    json.dump(dados, f, ensure_ascii=False, indent=2)
+                
+                return jsonify({'success': True})
+        
+        return jsonify({'error': 'Conversa não encontrada'}), 404
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/clear-conversations', methods=['POST'])
+def clear_conversations():
+    """Limpa todas as conversas mas mantém aprendizados"""
+    try:
+        memoria.limpar()
+        return jsonify({'success': True, 'message': 'Conversas limpas'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/clear-all', methods=['POST'])
+def clear_all():
+    """Limpa TUDO: conversas e aprendizados"""
+    try:
+        memoria.limpar_tudo()
+        return jsonify({'success': True, 'message': 'Tudo foi apagado'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     print("\n" + "="*50)
     print("🌸 Sofia Web API")

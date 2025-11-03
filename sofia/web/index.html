@@ -92,6 +92,119 @@
         </div>
     </div>
 
+    <!-- Modal de Configurações -->
+    <div class="modal" id="settings-modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>⚙️ Configurações</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-tabs">
+                <button class="tab-btn active" data-tab="memory-tab">📚 Memória</button>
+                <button class="tab-btn" data-tab="cleanup-tab">🧹 Limpeza</button>
+                <button class="tab-btn" data-tab="preferences-tab">🎨 Preferências</button>
+            </div>
+            <div class="modal-body">
+                <!-- Aba Memória -->
+                <div class="tab-content active" id="memory-tab">
+                    <h4>Histórico de Conversas</h4>
+                    <p class="text-muted">Visualize e gerencie suas conversas salvas</p>
+                    
+                    <div class="search-box">
+                        <input type="text" id="search-conversations" placeholder="🔍 Buscar conversas...">
+                        <button id="search-btn" class="btn-secondary">Buscar</button>
+                    </div>
+                    
+                    <div id="conversations-list" class="conversations-list">
+                        <div class="loading">Carregando conversas...</div>
+                    </div>
+                </div>
+
+                <!-- Aba Limpeza -->
+                <div class="tab-content" id="cleanup-tab">
+                    <h4>Gerenciar Memória</h4>
+                    <p class="text-muted">Limpe dados temporários ou permanentes</p>
+                    
+                    <div class="cleanup-section">
+                        <div class="cleanup-card">
+                            <div class="cleanup-icon">🔄</div>
+                            <div class="cleanup-info">
+                                <h5>Limpar Cache</h5>
+                                <p>Remove apenas o histórico da sessão atual. Mantém conversas e aprendizados salvos.</p>
+                            </div>
+                            <button class="btn-secondary" id="clear-cache-btn">Limpar Cache</button>
+                        </div>
+
+                        <div class="cleanup-card">
+                            <div class="cleanup-icon">📚</div>
+                            <div class="cleanup-info">
+                                <h5>Limpar Conversas</h5>
+                                <p>Remove todas as conversas salvas. Mantém aprendizados importantes.</p>
+                            </div>
+                            <button class="btn-warning" id="clear-conversations-btn">Limpar Conversas</button>
+                        </div>
+
+                        <div class="cleanup-card danger">
+                            <div class="cleanup-icon">⚠️</div>
+                            <div class="cleanup-info">
+                                <h5>Limpar Tudo</h5>
+                                <p><strong>ATENÇÃO:</strong> Remove TODAS as conversas e aprendizados permanentemente!</p>
+                            </div>
+                            <button class="btn-danger" id="clear-all-btn">Limpar Tudo</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Aba Preferências -->
+                <div class="tab-content" id="preferences-tab">
+                    <h4>Preferências</h4>
+                    <p class="text-muted">Personalize sua experiência</p>
+                    
+                    <div class="preference-group">
+                        <label for="language-select">
+                            <span class="preference-icon">🌐</span>
+                            Idioma
+                        </label>
+                        <select id="language-select" class="select-input">
+                            <option value="pt-BR" selected>🇧🇷 Português (Brasil)</option>
+                            <option value="en-US">🇺🇸 English (US)</option>
+                            <option value="es-ES">🇪🇸 Español</option>
+                            <option value="fr-FR">🇫🇷 Français</option>
+                        </select>
+                    </div>
+
+                    <div class="preference-group">
+                        <label for="theme-select">
+                            <span class="preference-icon">🎨</span>
+                            Tema
+                        </label>
+                        <select id="theme-select" class="select-input">
+                            <option value="dark" selected>🌙 Escuro</option>
+                            <option value="light">☀️ Claro</option>
+                            <option value="auto">🔄 Automático</option>
+                        </select>
+                    </div>
+
+                    <div class="preference-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="save-history" checked>
+                            <span>💾 Salvar histórico automaticamente</span>
+                        </label>
+                    </div>
+
+                    <div class="preference-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="show-timestamps" checked>
+                            <span>🕐 Mostrar horários nas mensagens</span>
+                        </label>
+                    </div>
+
+                    <button class="btn-primary" id="save-preferences-btn">💾 Salvar Preferências</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html>

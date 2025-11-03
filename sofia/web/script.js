@@ -9,8 +9,10 @@ const statusText = document.getElementById('status-text');
 const quickBtns = document.querySelectorAll('.quick-btn');
 const statsBtn = document.getElementById('stats-btn');
 const memoryBtn = document.getElementById('memory-btn');
+const settingsBtn = document.getElementById('settings-btn');
 const statsModal = document.getElementById('stats-modal');
 const memoryModal = document.getElementById('memory-modal');
+const settingsModal = document.getElementById('settings-modal');
 
 // Initialize
 let conversationHistory = [];
@@ -41,6 +43,7 @@ quickBtns.forEach(btn => {
 // Modal Controls
 statsBtn.addEventListener('click', () => openModal('stats'));
 memoryBtn.addEventListener('click', () => openModal('memory'));
+settingsBtn.addEventListener('click', () => openSettingsModal());
 
 document.querySelectorAll('.modal-close').forEach(btn => {
     btn.addEventListener('click', () => closeModals());
@@ -273,3 +276,233 @@ async function checkAPIStatus() {
 // Initialize
 checkAPIStatus();
 setInterval(checkAPIStatus, 30000); // Check every 30 seconds
+loadPreferences();
+
+// ========== SETTINGS MODAL FUNCTIONS ==========
+
+function openSettingsModal() {
+    settingsModal.classList.add('active');
+    loadConversationsList();
+}
+
+// Tab switching
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        // Remove active from all tabs and contents
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        
+        // Add active to clicked tab
+        btn.classList.add('active');
+        const tabId = btn.dataset.tab;
+        document.getElementById(tabId).classList.add('active');
+        
+        // Load data for specific tabs
+        if (tabId === 'memory-tab') {
+            loadConversationsList();
+        }
+    });
+});
+
+// Load conversations list
+async function loadConversationsList() {
+    const listEl = document.getElementById('conversations-list');
+    listEl.innerHTML = '<div class="loading">Carregando conversas...</div>';
+    
+    try {
+        const response = await fetch(`${API_URL}/conversations`);
+        const data = await response.json();
+        
+        if (data.conversas && data.conversas.length > 0) {
+            listEl.innerHTML = '';
+            data.conversas.forEach((conv, index) => {
+                const item = document.createElement('div');
+                item.className = 'conversation-item';
+                item.innerHTML = `
+                    <div class="conversation-info">
+                        <div class="conversation-text">
+                            <strong>${conv.de}:</strong> ${conv.texto.substring(0, 80)}${conv.texto.length > 80 ? '...' : ''}
+                        </div>
+                        <div class="conversation-meta">
+                            ${conv.timestamp ? new Date(conv.timestamp).toLocaleString('pt-BR') : 'Sem data'}
+                        </div>
+                    </div>
+                    <div class="conversation-actions">
+                        <button class="btn-icon" onclick="deleteConversation(${index})" title="Deletar">
+                            🗑️
+                        </button>
+                    </div>
+                `;
+                listEl.appendChild(item);
+            });
+        } else {
+            listEl.innerHTML = '<p class="text-muted">Nenhuma conversa salva ainda.</p>';
+        }
+    } catch (error) {
+        listEl.innerHTML = '<p class="text-muted">❌ Erro ao carregar conversas</p>';
+        console.error('Erro:', error);
+    }
+}
+
+// Search conversations
+document.getElementById('search-btn').addEventListener('click', async () => {
+    const searchTerm = document.getElementById('search-conversations').value.trim();
+    if (!searchTerm) {
+        loadConversationsList();
+        return;
+    }
+    
+    const listEl = document.getElementById('conversations-list');
+    listEl.innerHTML = '<div class="loading">Buscando...</div>';
+    
+    try {
+        const response = await fetch(`${API_URL}/search`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ termo: searchTerm, limite: 50 })
+        });
+        
+        const data = await response.json();
+        
+        if (data.resultados && data.resultados.length > 0) {
+            listEl.innerHTML = '';
+            data.resultados.forEach((conv) => {
+                const item = document.createElement('div');
+                item.className = 'conversation-item';
+                item.innerHTML = `
+                    <div class="conversation-info">
+                        <div class="conversation-text">
+                            <strong>${conv.de}:</strong> ${conv.texto.substring(0, 80)}${conv.texto.length > 80 ? '...' : ''}
+                        </div>
+                        <div class="conversation-meta">
+                            ${conv.timestamp ? new Date(conv.timestamp).toLocaleString('pt-BR') : 'Sem data'}
+                        </div>
+                    </div>
+                `;
+                listEl.appendChild(item);
+            });
+        } else {
+            listEl.innerHTML = `<p class="text-muted">Nenhuma conversa encontrada com "${searchTerm}"</p>`;
+        }
+    } catch (error) {
+        listEl.innerHTML = '<p class="text-muted">❌ Erro ao buscar</p>';
+        console.error('Erro:', error);
+    }
+});
+
+// Delete conversation
+async function deleteConversation(index) {
+    if (!confirm('Deseja realmente deletar esta conversa?')) return;
+    
+    try {
+        const response = await fetch(`${API_URL}/delete-conversation`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ index })
+        });
+        
+        if (response.ok) {
+            loadConversationsList();
+            alert('✅ Conversa deletada!');
+        }
+    } catch (error) {
+        alert('❌ Erro ao deletar conversa');
+        console.error('Erro:', error);
+    }
+}
+
+// Cleanup actions
+document.getElementById('clear-cache-btn').addEventListener('click', async () => {
+    if (!confirm('Limpar cache da sessão atual?')) return;
+    
+    try {
+        const response = await fetch(`${API_URL}/action`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'limpar' })
+        });
+        
+        if (response.ok) {
+            alert('✅ Cache limpo!');
+        }
+    } catch (error) {
+        alert('❌ Erro ao limpar cache');
+    }
+});
+
+document.getElementById('clear-conversations-btn').addEventListener('click', async () => {
+    if (!confirm('⚠️ Isso vai apagar TODAS as conversas salvas. Aprendizados serão mantidos. Continuar?')) return;
+    
+    try {
+        const response = await fetch(`${API_URL}/clear-conversations`, {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            loadConversationsList();
+            alert('✅ Conversas apagadas!');
+        }
+    } catch (error) {
+        alert('❌ Erro ao limpar conversas');
+    }
+});
+
+document.getElementById('clear-all-btn').addEventListener('click', async () => {
+    const confirmed = confirm('⚠️⚠️⚠️ ATENÇÃO!\n\nIsso vai apagar TUDO:\n- Todas as conversas\n- Todos os aprendizados\n- Todo o histórico\n\nEsta ação é IRREVERSÍVEL!\n\nDeseja realmente continuar?');
+    
+    if (!confirmed) return;
+    
+    const doubleCheck = prompt('Digite "APAGAR TUDO" para confirmar:');
+    if (doubleCheck !== 'APAGAR TUDO') {
+        alert('❌ Operação cancelada');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_URL}/clear-all`, {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            loadConversationsList();
+            conversationHistory = [];
+            alert('✅ Tudo foi apagado!');
+            location.reload();
+        }
+    } catch (error) {
+        alert('❌ Erro ao limpar tudo');
+    }
+});
+
+// Preferences
+function loadPreferences() {
+    const prefs = localStorage.getItem('sofia-preferences');
+    if (prefs) {
+        const preferences = JSON.parse(prefs);
+        document.getElementById('language-select').value = preferences.language || 'pt-BR';
+        document.getElementById('theme-select').value = preferences.theme || 'dark';
+        document.getElementById('save-history').checked = preferences.saveHistory !== false;
+        document.getElementById('show-timestamps').checked = preferences.showTimestamps !== false;
+    }
+}
+
+document.getElementById('save-preferences-btn').addEventListener('click', () => {
+    const preferences = {
+        language: document.getElementById('language-select').value,
+        theme: document.getElementById('theme-select').value,
+        saveHistory: document.getElementById('save-history').checked,
+        showTimestamps: document.getElementById('show-timestamps').checked
+    };
+    
+    localStorage.setItem('sofia-preferences', JSON.stringify(preferences));
+    alert('✅ Preferências salvas!');
+    
+    // Apply theme if changed
+    applyTheme(preferences.theme);
+});
+
+function applyTheme(theme) {
+    // Implementar mudança de tema no futuro
+    console.log('Tema selecionado:', theme);
+}
+
