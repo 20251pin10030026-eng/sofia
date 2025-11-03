@@ -123,7 +123,7 @@ function createRoom(scene) {
         scene
     );
     const groundMat = new BABYLON.StandardMaterial('groundMat', scene);
-    groundMat.diffuseColor = new BABYLON.Color3(0.6, 0.5, 0.4); // Cor de madeira
+    groundMat.diffuseColor = new BABYLON.Color3(1, 0.9, 0.2); // Amarelo
     groundMat.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
     ground.material = groundMat;
     ground.checkCollisions = true;
