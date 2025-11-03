@@ -155,16 +155,18 @@ class SistemaVisao:
             with open(path, 'rb') as f:
                 reader = PyPDF2.PdfReader(f)
                 num_paginas = len(reader.pages)
-                # Limita a 5 primeiras páginas
-                for i in range(min(5, num_paginas)):
+                # Lê TODAS as páginas
+                for i in range(num_paginas):
                     page = reader.pages[i]
-                    texto.append(page.extract_text())
+                    texto_pagina = page.extract_text()
+                    if texto_pagina.strip():  # Só adiciona se tiver conteúdo
+                        texto.append(f"=== Página {i+1} ===\n{texto_pagina}")
             
-            resultado = '\n'.join(texto)
-            # Limita tamanho
-            if len(resultado) > 5000:
-                resultado = resultado[:5000] + "... [texto truncado]"
-            return resultado
+            resultado = '\n\n'.join(texto)
+            
+            # Se muito grande, resumo as estatísticas mas mantém todo o texto
+            info = f"PDF com {num_paginas} páginas, {len(resultado)} caracteres extraídos\n\n"
+            return info + resultado
         except Exception as e:
             return f"Erro ao ler PDF: {str(e)}"
     
