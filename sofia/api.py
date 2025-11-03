@@ -362,6 +362,19 @@ def clear_files():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# Rota principal - Interface do Chat
+@app.route('/')
+def index():
+    """Página principal do chat"""
+    web_dir = Path(__file__).parent / 'web'
+    return send_from_directory(web_dir, 'index.html')
+
+@app.route('/<path:filename>')
+def serve_web_files(filename):
+    """Serve arquivos estáticos da interface web"""
+    web_dir = Path(__file__).parent / 'web'
+    return send_from_directory(web_dir, filename)
+
 # Rotas para o Jogo 3D
 @app.route('/jogo3d')
 def jogo3d():
@@ -379,8 +392,7 @@ if __name__ == '__main__':
     print("\n" + "="*50)
     print("🌸 Sofia Web API")
     print("="*50)
-    print("\n✅ Servidor iniciado em http://localhost:5000")
-    print("✅ Abra web/index.html no navegador para acessar a interface")
-    print("🎮 Jogo 3D disponível em http://localhost:5000/jogo3d\n")
+    print("\n✅ Chat Principal: http://localhost:5000")
+    print("🎮 Mundo 3D: http://localhost:5000/jogo3d\n")
     
     app.run(debug=True, host='0.0.0.0', port=5000)
