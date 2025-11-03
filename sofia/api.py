@@ -4,7 +4,7 @@
 Sofia Web API - Servidor Flask para interface web
 """
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import os
 import sys
@@ -362,11 +362,25 @@ def clear_files():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# Rotas para o Jogo 3D
+@app.route('/jogo3d')
+def jogo3d():
+    """Página principal do jogo 3D"""
+    jogo_dir = ROOT / 'jogo3d'
+    return send_from_directory(jogo_dir, 'index.html')
+
+@app.route('/jogo3d/<path:filename>')
+def jogo3d_files(filename):
+    """Serve arquivos do jogo 3D"""
+    jogo_dir = ROOT / 'jogo3d'
+    return send_from_directory(jogo_dir, filename)
+
 if __name__ == '__main__':
     print("\n" + "="*50)
     print("🌸 Sofia Web API")
     print("="*50)
     print("\n✅ Servidor iniciado em http://localhost:5000")
-    print("✅ Abra web/index.html no navegador para acessar a interface\n")
+    print("✅ Abra web/index.html no navegador para acessar a interface")
+    print("🎮 Jogo 3D disponível em http://localhost:5000/jogo3d\n")
     
     app.run(debug=True, host='0.0.0.0', port=5000)

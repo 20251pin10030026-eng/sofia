@@ -65,7 +65,7 @@ statsBtn.addEventListener('click', () => openModal('stats'));
 memoryBtn.addEventListener('click', () => openModal('memory'));
 settingsBtn.addEventListener('click', () => openSettingsModal());
 worldBtn.addEventListener('click', () => {
-    window.open('mundo3d.html', '_blank');
+    window.open('/jogo3d', '_blank');
 });
 
 document.querySelectorAll('.modal-close').forEach(btn => {
