@@ -5,19 +5,22 @@ const API_URL = 'http://localhost:5000';
 const chatContainer = document.getElementById('chat-container');
 const messageInput = document.getElementById('message-input');
 const sendBtn = document.getElementById('send-btn');
+const attachBtn = document.getElementById('attach-btn');
+const fileInputChat = document.getElementById('file-input-chat');
+const attachedFilesPreview = document.getElementById('attached-files-preview');
+const attachedFilesList = document.getElementById('attached-files-list');
 const statusText = document.getElementById('status-text');
 const quickBtns = document.querySelectorAll('.quick-btn');
 const statsBtn = document.getElementById('stats-btn');
 const memoryBtn = document.getElementById('memory-btn');
-const visionBtn = document.getElementById('vision-btn');
 const settingsBtn = document.getElementById('settings-btn');
 const statsModal = document.getElementById('stats-modal');
 const memoryModal = document.getElementById('memory-modal');
-const visionModal = document.getElementById('vision-modal');
 const settingsModal = document.getElementById('settings-modal');
 
 // Initialize
 let conversationHistory = [];
+let attachedFiles = []; // Array para armazenar arquivos anexados temporariamente
 
 // Event Listeners
 sendBtn.addEventListener('click', sendMessage);
@@ -26,6 +29,20 @@ messageInput.addEventListener('keypress', (e) => {
         e.preventDefault();
         sendMessage();
     }
+});
+
+// Attach button
+attachBtn.addEventListener('click', () => {
+    fileInputChat.click();
+});
+
+fileInputChat.addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files);
+    for (const file of files) {
+        await addAttachedFile(file);
+    }
+    fileInputChat.value = ''; // Reset
+    updateAttachedFilesUI();
 });
 
 // Auto-resize textarea
@@ -45,7 +62,6 @@ quickBtns.forEach(btn => {
 // Modal Controls
 statsBtn.addEventListener('click', () => openModal('stats'));
 memoryBtn.addEventListener('click', () => openModal('memory'));
-visionBtn.addEventListener('click', () => openVisionModal());
 settingsBtn.addEventListener('click', () => openSettingsModal());
 
 document.querySelectorAll('.modal-close').forEach(btn => {
@@ -59,9 +75,100 @@ document.querySelectorAll('.modal').forEach(modal => {
 });
 
 // Functions
+async function addAttachedFile(file) {
+    // Verifica se já tem 10 arquivos
+    if (attachedFiles.length >= 10) {
+        showNotification('❌ Limite de 10 arquivos atingido', 'error');
+        return;
+    }
+    
+    // Verifica tamanho (10MB)
+    if (file.size > 10 * 1024 * 1024) {
+        showNotification(`❌ ${file.name} muito grande (máx 10MB)`, 'error');
+        return;
+    }
+    
+    // Verifica formato
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/bmp', 'image/webp', 'application/pdf'];
+    if (!validTypes.includes(file.type)) {
+        showNotification(`❌ Formato não suportado: ${file.name}`, 'error');
+        return;
+    }
+    
+    // Upload para o servidor
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const response = await fetch(`${API_URL}/upload-file`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.sucesso) {
+            attachedFiles.push({
+                id: data.arquivo_id,
+                name: file.name,
+                type: data.tipo,
+                file: file
+            });
+            showNotification(`✅ ${file.name} anexado!`);
+        } else {
+            showNotification(`❌ ${data.erro}`, 'error');
+        }
+    } catch (error) {
+        showNotification(`❌ Erro ao anexar ${file.name}`, 'error');
+    }
+}
+
+function updateAttachedFilesUI() {
+    if (attachedFiles.length === 0) {
+        attachedFilesPreview.style.display = 'none';
+        attachBtn.classList.remove('has-files');
+        return;
+    }
+    
+    attachedFilesPreview.style.display = 'block';
+    attachBtn.classList.add('has-files');
+    
+    attachedFilesList.innerHTML = attachedFiles.map((file, index) => `
+        <div class="attached-file-item">
+            <span class="attached-file-icon">${file.type === 'imagem' ? '🖼️' : '📄'}</span>
+            <span class="attached-file-name" title="${file.name}">${file.name}</span>
+            <button class="attached-file-remove" onclick="removeAttachedFile(${index})">✕</button>
+        </div>
+    `).join('');
+}
+
+function removeAttachedFile(index) {
+    const file = attachedFiles[index];
+    
+    // Remove do servidor
+    fetch(`${API_URL}/delete-file`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ arquivo_id: file.id })
+    }).catch(err => console.error('Erro ao remover arquivo:', err));
+    
+    // Remove da lista local
+    attachedFiles.splice(index, 1);
+    updateAttachedFilesUI();
+}
+
 async function sendMessage() {
     const message = messageInput.value.trim();
-    if (!message) return;
+    
+    // Permite enviar só arquivos sem texto
+    if (!message && attachedFiles.length === 0) return;
+
+    // Cria mensagem a exibir (inclui info de arquivos)
+    let displayMessage = message || '';
+    if (attachedFiles.length > 0) {
+        const filesInfo = attachedFiles.map(f => `📎 ${f.name}`).join('\n');
+        displayMessage = displayMessage ? `${displayMessage}\n\n${filesInfo}` : filesInfo;
+    }
 
     // Clear input
     messageInput.value = '';
@@ -71,13 +178,21 @@ async function sendMessage() {
     const welcomeMsg = document.querySelector('.welcome-message');
     if (welcomeMsg) welcomeMsg.remove();
 
-    // Add user message
-    addMessage('user', message);
+    // Add user message (com indicação de arquivos)
+    addMessage('user', displayMessage);
+
+    // Limpa anexos da UI
+    const tempAttachedFiles = [...attachedFiles];
+    attachedFiles = [];
+    updateAttachedFilesUI();
 
     // Show typing indicator
     showTypingIndicator();
 
     try {
+        // Prepara mensagem incluindo contexto dos arquivos
+        let fullMessage = message || 'Veja os arquivos que enviei.';
+        
         // Send to API
         const response = await fetch(`${API_URL}/chat`, {
             method: 'POST',
@@ -85,7 +200,7 @@ async function sendMessage() {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                message: message,
+                message: fullMessage,
                 history: conversationHistory
             })
         });
@@ -509,158 +624,8 @@ function applyTheme(theme) {
     console.log('Tema selecionado:', theme);
 }
 
-// === VISION MODAL ===
-async function openVisionModal() {
-    visionModal.classList.add('active');
-    await loadFilesList();
-}
-
-async function loadFilesList() {
-    try {
-        const response = await fetch(`${API_URL}/list-files`);
-        const data = await response.json();
-        
-        const filesCount = document.getElementById('files-count');
-        const filesList = document.getElementById('files-list');
-        const clearFilesBtn = document.getElementById('clear-files-btn');
-        
-        filesCount.textContent = data.total;
-        
-        if (data.arquivos.length === 0) {
-            filesList.innerHTML = '<div class="empty-state">Nenhum arquivo enviado ainda</div>';
-            clearFilesBtn.disabled = true;
-        } else {
-            clearFilesBtn.disabled = false;
-            filesList.innerHTML = data.arquivos.map(arquivo => `
-                <div class="file-item" data-id="${arquivo.id}">
-                    <div class="file-icon">${arquivo.tipo === 'imagem' ? '🖼️' : '📄'}</div>
-                    <div class="file-info">
-                        <div class="file-name">${arquivo.nome}</div>
-                        <div class="file-meta">
-                            <span>${arquivo.tamanho}</span>
-                            <span>⏱️ ${arquivo.expira_em}</span>
-                        </div>
-                    </div>
-                    <div class="file-actions">
-                        <button class="btn-icon danger" onclick="deleteFile('${arquivo.id}')" title="Remover">
-                            🗑️
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        }
-    } catch (error) {
-        console.error('Erro ao carregar arquivos:', error);
-    }
-}
-
-// Upload Area
-const uploadArea = document.getElementById('upload-area');
-const fileInput = document.getElementById('file-input');
-const selectFilesBtn = document.getElementById('select-files-btn');
-
-selectFilesBtn.addEventListener('click', () => {
-    fileInput.click();
-});
-
-uploadArea.addEventListener('click', (e) => {
-    if (e.target === uploadArea || e.target.closest('.upload-icon, h4, p')) {
-        fileInput.click();
-    }
-});
-
-// Drag and Drop
-uploadArea.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    uploadArea.classList.add('drag-over');
-});
-
-uploadArea.addEventListener('dragleave', () => {
-    uploadArea.classList.remove('drag-over');
-});
-
-uploadArea.addEventListener('drop', async (e) => {
-    e.preventDefault();
-    uploadArea.classList.remove('drag-over');
-    
-    const files = Array.from(e.dataTransfer.files);
-    await uploadFiles(files);
-});
-
-fileInput.addEventListener('change', async (e) => {
-    const files = Array.from(e.target.files);
-    await uploadFiles(files);
-    fileInput.value = ''; // Reset input
-});
-
-async function uploadFiles(files) {
-    for (const file of files) {
-        await uploadSingleFile(file);
-    }
-}
-
-async function uploadSingleFile(file) {
-    try {
-        const formData = new FormData();
-        formData.append('file', file);
-        
-        const response = await fetch(`${API_URL}/upload-file`, {
-            method: 'POST',
-            body: formData
-        });
-        
-        const data = await response.json();
-        
-        if (data.sucesso) {
-            await loadFilesList();
-            showNotification(`✅ ${file.name} enviado com sucesso!`);
-        } else {
-            showNotification(`❌ ${data.erro}`, 'error');
-        }
-    } catch (error) {
-        showNotification(`❌ Erro ao enviar ${file.name}`, 'error');
-    }
-}
-
-async function deleteFile(fileId) {
-    if (!confirm('Deseja remover este arquivo?')) return;
-    
-    try {
-        const response = await fetch(`${API_URL}/delete-file`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ arquivo_id: fileId })
-        });
-        
-        if (response.ok) {
-            await loadFilesList();
-            showNotification('✅ Arquivo removido!');
-        }
-    } catch (error) {
-        showNotification('❌ Erro ao remover arquivo', 'error');
-    }
-}
-
-document.getElementById('clear-files-btn').addEventListener('click', async () => {
-    if (!confirm('Deseja remover TODOS os arquivos?')) return;
-    
-    try {
-        const response = await fetch(`${API_URL}/clear-files`, {
-            method: 'POST'
-        });
-        
-        const data = await response.json();
-        if (data.success) {
-            await loadFilesList();
-            showNotification(`✅ ${data.removidos} arquivo(s) removido(s)!`);
-        }
-    } catch (error) {
-        showNotification('❌ Erro ao limpar arquivos', 'error');
-    }
-});
-
 function showNotification(message, type = 'success') {
-    // Simple notification - você pode melhorar isso
+    // Simple notification
     const notification = document.createElement('div');
     notification.style.cssText = `
         position: fixed;

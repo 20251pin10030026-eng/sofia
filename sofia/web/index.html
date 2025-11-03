@@ -26,9 +26,6 @@
                     <button class="icon-btn" id="memory-btn" title="Memória">
                         🧠
                     </button>
-                    <button class="icon-btn" id="vision-btn" title="Visão (Arquivos)">
-                        👁️
-                    </button>
                     <button class="icon-btn" id="settings-btn" title="Configurações">
                         ⚙️
                     </button>
@@ -49,6 +46,10 @@
         <!-- Input Area -->
         <div class="input-area">
             <div class="input-container">
+                <button id="attach-btn" class="attach-btn" title="Anexar imagem ou PDF">
+                    📎
+                </button>
+                <input type="file" id="file-input-chat" accept="image/*,.pdf" multiple hidden>
                 <textarea 
                     id="message-input" 
                     placeholder="Digite sua mensagem..."
@@ -60,6 +61,12 @@
                     </svg>
                 </button>
             </div>
+            
+            <!-- Attached Files Preview -->
+            <div id="attached-files-preview" class="attached-files-preview" style="display: none;">
+                <div class="attached-files-list" id="attached-files-list"></div>
+            </div>
+            
             <div class="quick-actions">
                 <button class="quick-btn" data-action="historico">📚 Histórico</button>
                 <button class="quick-btn" data-action="stats">📊 Stats</button>
@@ -203,41 +210,6 @@
                     </div>
 
                     <button class="btn-primary" id="save-preferences-btn">💾 Salvar Preferências</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal de Visão -->
-    <div class="modal" id="vision-modal">
-        <div class="modal-content modal-large">
-            <div class="modal-header">
-                <h3>👁️ Sistema de Visão</h3>
-                <button class="modal-close">&times;</button>
-            </div>
-            <div class="modal-body">
-                <p class="text-muted">Envie até 10 imagens ou PDFs. Sofia conseguirá visualizar e analisar o conteúdo.<br>
-                Os arquivos são excluídos automaticamente após 30 minutos.</p>
-                
-                <!-- Upload Area -->
-                <div class="upload-area" id="upload-area">
-                    <div class="upload-icon">📤</div>
-                    <h4>Arraste arquivos aqui</h4>
-                    <p>ou clique para selecionar</p>
-                    <p class="upload-info">Imagens: JPG, PNG, GIF, BMP, WebP | PDFs: até 10 MB cada</p>
-                    <input type="file" id="file-input" accept="image/*,.pdf" multiple hidden>
-                    <button class="btn-primary" id="select-files-btn">📁 Selecionar Arquivos</button>
-                </div>
-
-                <!-- Files List -->
-                <div class="files-section">
-                    <div class="files-header">
-                        <h4>📂 Arquivos Visualizados (<span id="files-count">0</span>/10)</h4>
-                        <button class="btn-danger btn-sm" id="clear-files-btn">🗑️ Limpar Tudo</button>
-                    </div>
-                    <div id="files-list" class="files-list">
-                        <div class="empty-state">Nenhum arquivo enviado ainda</div>
-                    </div>
                 </div>
             </div>
         </div>
