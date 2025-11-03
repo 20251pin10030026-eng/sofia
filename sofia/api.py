@@ -367,12 +367,18 @@ def clear_files():
 def jogo3d():
     """Página principal do jogo 3D"""
     jogo_dir = ROOT / 'jogo3d'
-    return send_from_directory(jogo_dir, 'index.html')
+    print(f"[DEBUG] Servindo jogo de: {jogo_dir}")
+    print(f"[DEBUG] Existe? {jogo_dir.exists()}")
+    if jogo_dir.exists():
+        return send_from_directory(jogo_dir, 'index.html')
+    else:
+        return f"Diretório não encontrado: {jogo_dir}", 404
 
 @app.route('/jogo3d/<path:filename>')
 def jogo3d_files(filename):
     """Serve arquivos do jogo 3D"""
     jogo_dir = ROOT / 'jogo3d'
+    print(f"[DEBUG] Arquivo solicitado: {filename} de {jogo_dir}")
     return send_from_directory(jogo_dir, filename)
 
 if __name__ == '__main__':
