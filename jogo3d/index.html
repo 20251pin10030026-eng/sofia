@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mundo de Sofia - Jogo 3D</title>
+    <link rel="stylesheet" href="css/style.css">
+    
+    <!-- Babylon.js CDN -->
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+</head>
+<body>
+    <div id="loading-screen">
+        <div class="loading-content">
+            <h1>🌸 Mundo de Sofia</h1>
+            <div class="spinner"></div>
+            <p>Carregando...</p>
+        </div>
+    </div>
+
+    <canvas id="renderCanvas"></canvas>
+
+    <div id="hud">
+        <div id="info-panel">
+            <h3>🎮 Controles</h3>
+            <p><kbd>W A S D</kbd> - Mover</p>
+            <p><kbd>Mouse</kbd> - Olhar</p>
+            <p><kbd>Shift</kbd> - Correr</p>
+            <p><kbd>E</kbd> - Interagir</p>
+            <p><kbd>ESC</kbd> - Pausar</p>
+        </div>
+
+        <div id="interaction-prompt" style="display: none;">
+            <p>Pressione <kbd>E</kbd> para interagir</p>
+        </div>
+    </div>
+
+    <script src="js/game.js"></script>
+</body>
+</html>
