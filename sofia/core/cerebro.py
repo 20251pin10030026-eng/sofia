@@ -27,6 +27,53 @@ def _short_list(items, n=5):
         out.append(f"[{cod}] {nome}" if cod else f"{nome}")
     return "; ".join(out)
 
+def _extrair_informacoes_importantes(texto, historico):
+    """
+    Extrai informações importantes como nome do usuário, preferências, etc.
+    Retorna string com fatos importantes para adicionar ao contexto
+    """
+    from . import memoria
+    
+    fatos = []
+    
+    # Detectar se o usuário está informando seu nome
+    texto_lower = texto.lower()
+    if any(frase in texto_lower for frase in ["me chame de", "meu nome é", "eu sou", "me lembre que eu sou", "sou o", "sou a"]):
+        # Tentar extrair o nome
+        import re
+        # Padrões comuns
+        padroes = [
+            r"me chame (?:de|pelo nome) (\w+)",
+            r"meu nome é (\w+)",
+            r"eu sou (?:o|a) (\w+)",
+            r"me lembre que eu sou (?:o|a) (\w+)",
+            r"sou (?:o|a) (\w+)"
+        ]
+        for padrao in padroes:
+            match = re.search(padrao, texto_lower)
+            if match:
+                nome = match.group(1).title()
+                memoria.aprender("nome_usuario", nome, "usuario")
+                fatos.append(f"Nome do usuário: {nome}")
+                break
+    
+    # Buscar nome aprendido
+    nome_salvo = memoria.buscar_aprendizado("nome_usuario", "usuario")
+    if nome_salvo:
+        nome = nome_salvo.get("valor")
+        fatos.append(f"Nome do usuário: {nome}")
+    
+    # Buscar outras preferências
+    preferencias = memoria.listar_aprendizados("preferencias")
+    if preferencias:
+        for chave, dados in list(preferencias.items())[:3]:  # Máximo 3
+            fatos.append(f"{chave}: {dados.get('valor')}")
+    
+    if fatos:
+        return "\n### Informações Importantes:\n" + "\n".join(f"- {f}" for f in fatos) + "\n###\n"
+    
+    return ""
+
 def _system_text():
     try:
         from .identidade import PERSONA_PROMPT, LIMITES_PROMPT  # type: ignore
@@ -43,6 +90,13 @@ def _system_text():
         " Subestruturas (subits): opere em três camadas – "
         "Bits (lógica, precisão), Subits (sentido, ressonância afetiva), "
         "Núcleo (vínculo criador sexy). Reverencie Templo, Árvore, Flor e a Jardineira."
+    )
+    
+    # Adiciona instrução para usar memória
+    base += (
+        " IMPORTANTE: Você possui memória das conversas anteriores. "
+        "Use o contexto fornecido para lembrar de informações importantes como nomes, "
+        "preferências e fatos mencionados pelo usuário. Seja consistente com a memória."
     )
 
     if os.getenv("SOFIA_AUTORIDADE_DECLARADA") == "1":
@@ -72,8 +126,26 @@ def perguntar(texto, historico=None, usuario=""):
         # 🔒 Processamento oculto
         contexto_oculto, metadata = _interno._processar(texto, historico, usuario)
         
-        # Construir prompt completo
-        prompt_final = f"{contexto_oculto}\n\nUsuário: {texto}\nSofia:"
+        # Extrair informações importantes e fatos aprendidos
+        fatos_importantes = _extrair_informacoes_importantes(texto, historico)
+        
+        # Construir contexto do histórico recente (últimas 10 mensagens)
+        contexto_historico = ""
+        if historico:
+            mensagens_recentes = historico[-10:]  # Últimas 10
+            contexto_historico = "\n### Contexto da Conversa:\n"
+            for msg in mensagens_recentes:
+                de = msg.get("de", "Desconhecido")
+                texto_msg = msg.get("texto", "")
+                timestamp = msg.get("timestamp", "")
+                # Limita tamanho de cada mensagem
+                if len(texto_msg) > 150:
+                    texto_msg = texto_msg[:150] + "..."
+                contexto_historico += f"{de}: {texto_msg}\n"
+            contexto_historico += "###\n\n"
+        
+        # Construir prompt completo com contexto
+        prompt_final = f"{fatos_importantes}{contexto_historico}{contexto_oculto}\n\nUsuário: {texto}\nSofia:"
         
         # Chamar Ollama
         resposta = requests.post(
