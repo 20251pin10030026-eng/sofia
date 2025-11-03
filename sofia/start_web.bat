@@ -5,6 +5,9 @@ echo    Iniciando servidor...
 echo ================================================
 echo.
 
+REM Navega para o diretório do script
+cd /d "%~dp0"
+
 REM Ativa o ambiente virtual se existir
 if exist venv\Scripts\activate.bat (
     call venv\Scripts\activate.bat

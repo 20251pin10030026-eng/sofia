@@ -9,11 +9,16 @@
 
 2. **Execute o arquivo batch:**
    ```cmd
+   # Da raiz do projeto (A.I_GitHUB):
+   iniciar_sofia_web.bat
+   
+   # OU, de dentro da pasta sofia:
+   cd sofia
    start_web.bat
    ```
 
 3. **Abra o navegador:**
-   - Clique duas vezes em `web/index.html`
+   - Clique duas vezes em `sofia/web/index.html`
    - Ou acesse: `file:///D:/A.I_GitHUB/sofia/web/index.html`
 
 ## 📋 Pré-requisitos
@@ -32,19 +37,25 @@
 pip install -r requirements.txt
 
 # 2. Iniciar servidor
+cd sofia
 python api.py
 
 # 3. Abrir interface
-# Clique duas vezes em web/index.html
+# Clique duas vezes em sofia/web/index.html
 ```
 
 ### Uso normal
 
 ```bash
-# Windows
+# Windows (da raiz A.I_GitHUB)
+iniciar_sofia_web.bat
+
+# Windows (de dentro de sofia/)
+cd sofia
 start_web.bat
 
 # Linux/Mac
+cd sofia
 python api.py
 ```
 
@@ -72,6 +83,9 @@ python api.py
 ### "API Offline" na interface
 
 ```bash
+# Certifique-se de estar no diretório correto
+cd sofia
+
 # Verifique se o servidor está rodando
 python api.py
 
@@ -117,6 +131,7 @@ Depois de tudo funcionando:
 - Interface **salva automaticamente** a cada 5 mensagens
 - **Modo criador** ativa ao mencionar "SomBRaRCP" ou "SomBRaRPC"
 - Memória suporta até **5GB** de conversas
+- **Sempre execute** `python api.py` de dentro da pasta `sofia/`
 
 ## 🎨 Personalização
 

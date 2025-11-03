@@ -10,8 +10,8 @@ import os
 import sys
 from pathlib import Path
 
-# Adiciona o diretório pai ao path
-ROOT = Path(__file__).resolve().parent
+# Adiciona o diretório pai ao path para importar sofia como módulo
+ROOT = Path(__file__).resolve().parent.parent  # A.I_GitHUB/
 sys.path.insert(0, str(ROOT))
 
 from sofia.core import identidade, cerebro, memoria
@@ -39,6 +39,8 @@ def chat():
     """Processa mensagem e retorna resposta da Sofia"""
     try:
         data = request.json
+        if data is None:
+            return jsonify({'error': 'Invalid JSON'}), 400
         message = data.get('message', '')
         history = data.get('history', [])
         
@@ -73,12 +75,12 @@ def chat():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
-@app.route('/action', methods=['POST'])
 def action():
     """Executa ações rápidas"""
     try:
         data = request.json
+        if data is None:
+            return jsonify({'error': 'Invalid JSON'}), 400
         action_type = data.get('action', '')
         
         result = ""
@@ -156,6 +158,8 @@ def search():
     """Busca conversas"""
     try:
         data = request.json
+        if data is None:
+            return jsonify({'error': 'Invalid JSON'}), 400
         termo = data.get('termo', '')
         limite = data.get('limite', 10)
         
