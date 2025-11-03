@@ -11,11 +11,25 @@
     <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
 </head>
 <body>
-    <div id="loading-screen">
-        <div class="loading-content">
+    <div id="start-screen">
+        <div class="start-content">
             <h1>🌸 Mundo de Sofia</h1>
+            <p>Explore o quarto de Sofia em 3D</p>
+            <button id="start-button">COMEÇAR JOGO</button>
+            <div class="instructions">
+                <p><kbd>W A S D</kbd> - Mover</p>
+                <p><kbd>Mouse</kbd> - Olhar (arraste)</p>
+                <p><kbd>Shift</kbd> - Correr</p>
+                <p><kbd>E</kbd> - Interagir com Sofia</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="loading-screen" style="display: none;">
+        <div class="loading-content">
+            <h1>🌸 Carregando...</h1>
             <div class="spinner"></div>
-            <p>Carregando...</p>
+            <p>Preparando o mundo 3D</p>
         </div>
     </div>
 

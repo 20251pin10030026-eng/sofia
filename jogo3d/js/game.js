@@ -1,32 +1,44 @@
 // Configuração do jogo
 const canvas = document.getElementById('renderCanvas');
+const startScreen = document.getElementById('start-screen');
 const loadingScreen = document.getElementById('loading-screen');
+const startButton = document.getElementById('start-button');
 const interactionPrompt = document.getElementById('interaction-prompt');
 
 let engine, scene, camera, player, sofia;
 let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
 let isRunning = false;
 let canInteract = false;
+let gameStarted = false;
 
-// Inicializar o jogo
-window.addEventListener('DOMContentLoaded', () => {
+// Botão de iniciar
+startButton.addEventListener('click', () => {
+    startScreen.style.display = 'none';
+    loadingScreen.style.display = 'flex';
     initGame();
 });
 
 async function initGame() {
+    if (gameStarted) return;
+    gameStarted = true;
+    
+    console.log('Iniciando jogo...');
     // Criar engine
     engine = new BABYLON.Engine(canvas, true);
+    console.log('Engine criada');
     
     // Criar cena
     scene = createScene();
+    console.log('Cena criada');
     
     // Aguardar tudo carregar
     await scene.whenReadyAsync();
+    console.log('Cena pronta!');
     
     // Esconder loading screen
     setTimeout(() => {
-        loadingScreen.classList.add('hidden');
-        setTimeout(() => loadingScreen.remove(), 500);
+        loadingScreen.style.display = 'none';
+        console.log('Jogo iniciado!');
     }, 1000);
     
     // Renderizar
