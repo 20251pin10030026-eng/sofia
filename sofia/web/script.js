@@ -65,8 +65,8 @@ statsBtn.addEventListener('click', () => openModal('stats'));
 memoryBtn.addEventListener('click', () => openModal('memory'));
 settingsBtn.addEventListener('click', () => openSettingsModal());
 worldBtn.addEventListener('click', () => {
-    // Abre o jogo 3D em nova aba
-    window.open('jogo3d/index.html', '_blank');
+    // Abre o jogo 3D em nova aba usando a rota do Flask
+    window.open('/jogo3d', '_blank');
 });
 
 document.querySelectorAll('.modal-close').forEach(btn => {
