@@ -24,6 +24,12 @@ try:
 except ImportError:
     PyPDF2 = None
 
+# Importa analisador visual avançado
+try:
+    from .analisador_visual import analisador
+except ImportError:
+    analisador = None
+
 
 class SistemaVisao:
     """Gerencia visualização temporária de arquivos (imagens e PDFs)"""
@@ -140,7 +146,11 @@ class SistemaVisao:
             if extensao in self.FORMATOS_PDF:
                 return self._extrair_texto_pdf(path)
             elif extensao in self.FORMATOS_IMAGEM:
-                return self._analisar_imagem(path)
+                # Usa analisador visual avançado se disponível
+                if analisador is not None:
+                    return analisador.analisar_imagem_completa(path)
+                else:
+                    return self._analisar_imagem(path)
         except Exception as e:
             return f"Erro ao processar: {str(e)}"
         return ""
@@ -171,24 +181,130 @@ class SistemaVisao:
             return f"Erro ao ler PDF: {str(e)}"
     
     def _analisar_imagem(self, path: Path) -> str:
-        """Analisa imagem (dimensões e OCR se disponível)"""
+        """Analisa imagem (dimensões, cores, OCR e descrição detalhada)"""
         if Image is None:
             return "[PIL não instalado - instale com: pip install Pillow]"
         
         try:
             img = Image.open(path)
-            info = f"Imagem: {img.width}x{img.height}px, Modo: {img.mode}"
+            analise = []
             
-            # Tenta OCR se disponível
+            # 1. Informações básicas
+            analise.append(f"=== ANÁLISE DE IMAGEM ===")
+            analise.append(f"Dimensões: {img.width}x{img.height} pixels")
+            analise.append(f"Modo de cor: {img.mode}")
+            analise.append(f"Formato: {img.format}")
+            
+            # 2. Análise de cores dominantes
+            img_rgb = img.convert('RGB')
+            img_small = img_rgb.resize((50, 50))  # Reduz para análise rápida
+            pixels = list(img_small.getdata())
+            
+            # Contar cores mais comuns
+            from collections import Counter
+            color_counts = Counter(pixels)
+            top_colors = color_counts.most_common(5)
+            
+            analise.append("\n=== CORES DOMINANTES ===")
+            for i, (color, count) in enumerate(top_colors, 1):
+                percentage = (count / len(pixels)) * 100
+                r, g, b = color
+                analise.append(f"{i}. RGB({r}, {g}, {b}) - {percentage:.1f}%")
+            
+            # 3. Análise de brilho e contraste
+            grayscale = img.convert('L')
+            pixels_gray = list(grayscale.getdata())
+            avg_brightness = sum(pixels_gray) / len(pixels_gray)
+            
+            analise.append(f"\n=== LUMINOSIDADE ===")
+            analise.append(f"Brilho médio: {avg_brightness:.1f}/255")
+            
+            if avg_brightness < 85:
+                analise.append("Classificação: Imagem escura")
+            elif avg_brightness > 170:
+                analise.append("Classificação: Imagem clara")
+            else:
+                analise.append("Classificação: Brilho médio")
+            
+            # 4. Análise de complexidade (bordas/detalhes)
+            try:
+                from PIL import ImageFilter
+                edges = img_rgb.filter(ImageFilter.FIND_EDGES)
+                edge_pixels = list(edges.convert('L').getdata())
+                edge_density = sum(1 for p in edge_pixels if p > 30) / len(edge_pixels)
+                
+                analise.append(f"\n=== COMPLEXIDADE ===")
+                analise.append(f"Densidade de bordas: {edge_density*100:.1f}%")
+                
+                if edge_density > 0.3:
+                    analise.append("Classificação: Imagem detalhada/complexa")
+                elif edge_density > 0.15:
+                    analise.append("Classificação: Moderadamente detalhada")
+                else:
+                    analise.append("Classificação: Simples/uniforme")
+            except:
+                pass
+            
+            # 5. Detecção de texto com OCR (se disponível)
+            analise.append("\n=== TEXTO DETECTADO ===")
             if pytesseract is not None:
                 try:
                     texto = pytesseract.image_to_string(img, lang='por')
                     if texto.strip():
-                        info += f"\n\nTexto detectado:\n{texto[:1000]}"
-                except:
-                    info += "\n[OCR não disponível - instale Tesseract]"
+                        analise.append(f"Texto encontrado ({len(texto)} caracteres):")
+                        analise.append(texto[:500])  # Primeiros 500 chars
+                        if len(texto) > 500:
+                            analise.append("... [texto continua]")
+                    else:
+                        analise.append("Nenhum texto detectado na imagem")
+                except Exception as e:
+                    analise.append(f"OCR não disponível: {str(e)}")
+            else:
+                analise.append("[Tesseract OCR não instalado]")
+                analise.append("Para reconhecimento de texto, instale: pip install pytesseract")
+                analise.append("E instale o Tesseract: https://github.com/UB-Mannheim/tesseract/wiki")
             
-            return info
+            # 6. Análise de regiões (quadrantes)
+            analise.append("\n=== ANÁLISE POR QUADRANTES ===")
+            w, h = img.width, img.height
+            quadrantes = {
+                'Superior Esquerdo': (0, 0, w//2, h//2),
+                'Superior Direito': (w//2, 0, w, h//2),
+                'Inferior Esquerdo': (0, h//2, w//2, h),
+                'Inferior Direito': (w//2, h//2, w, h)
+            }
+            
+            for nome, (x1, y1, x2, y2) in quadrantes.items():
+                region = img_rgb.crop((x1, y1, x2, y2))
+                region_small = region.resize((10, 10))
+                region_pixels = list(region_small.getdata())
+                avg_color = tuple(sum(c[i] for c in region_pixels) // len(region_pixels) for i in range(3))
+                analise.append(f"{nome}: RGB{avg_color}")
+            
+            # 7. Metadados EXIF (se disponível)
+            try:
+                from PIL import Image as PILImage
+                exif = img._getexif()
+                if exif:
+                    analise.append("\n=== METADADOS EXIF ===")
+                    # IDs EXIF comuns
+                    exif_tags = {
+                        271: 'Fabricante',
+                        272: 'Modelo',
+                        306: 'Data/Hora',
+                        36867: 'Data Original',
+                        37378: 'Abertura',
+                        37385: 'Flash',
+                        42036: 'Lente'
+                    }
+                    for tag_id, tag_name in exif_tags.items():
+                        if tag_id in exif:
+                            analise.append(f"{tag_name}: {exif[tag_id]}")
+            except:
+                pass
+            
+            return '\n'.join(analise)
+            
         except Exception as e:
             return f"Erro ao analisar imagem: {str(e)}"
     
@@ -264,11 +380,12 @@ class SistemaVisao:
     @staticmethod
     def _formatar_tamanho(bytes: int) -> str:
         """Formata tamanho em bytes para legível"""
+        valor = float(bytes)
         for unidade in ['B', 'KB', 'MB']:
-            if bytes < 1024:
-                return f"{bytes:.1f} {unidade}"
-            bytes /= 1024
-        return f"{bytes:.1f} GB"
+            if valor < 1024:
+                return f"{valor:.1f} {unidade}"
+            valor /= 1024
+        return f"{valor:.1f} GB"
     
     @staticmethod
     def _formatar_tempo_expiracao(timestamp_ms: int) -> str:

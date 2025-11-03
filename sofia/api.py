@@ -209,6 +209,8 @@ def delete_conversation():
     try:
         import json
         data = request.json
+        if data is None:
+            return jsonify({'error': 'Invalid JSON'}), 400
         index = data.get('index')
         
         if memoria.MEMORIA_ARQUIVO.exists():
@@ -261,7 +263,7 @@ def upload_file():
         
         file = request.files['file']
         
-        if file.filename == '':
+        if not file.filename or file.filename == '':
             return jsonify({'error': 'Nome de arquivo vazio'}), 400
         
         # Salva temporariamente
