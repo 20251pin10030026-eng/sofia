@@ -4,13 +4,19 @@ Processa imagens pixel por pixel e gera descrições detalhadas
 """
 
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Any
 import numpy as np
+
+# Initialize to None to ensure it's always defined
+Image = None
+ImageDraw = None
+ImageFilter = None
+ImageStat = None
 
 try:
     from PIL import Image, ImageDraw, ImageFilter, ImageStat
 except ImportError:
-    Image = None
+    pass
 
 try:
     import pytesseract
@@ -48,11 +54,10 @@ class AnalisadorVisual:
             self._analisar_simetria(img)
             
             return '\n\n'.join(self.descricao_completa)
-            
         except Exception as e:
-            return f"Erro na análise visual: {str(e)}"
-    
-    def _analisar_propriedades_basicas(self, img: Image.Image):
+            return f"[Erro ao analisar imagem: {str(e)}]"
+            
+    def _analisar_propriedades_basicas(self, img: Any):
         """Propriedades fundamentais da imagem"""
         info = [
             "═══ PROPRIEDADES DA IMAGEM ═══",
@@ -73,7 +78,7 @@ class AnalisadorVisual:
         
         self.descricao_completa.append('\n'.join(info))
     
-    def _analisar_composicao_cores(self, img: Image.Image):
+    def _analisar_composicao_cores(self, img: Any):
         """Análise detalhada de cores"""
         info = ["═══ COMPOSIÇÃO DE CORES ═══"]
         
@@ -122,7 +127,7 @@ class AnalisadorVisual:
         
         self.descricao_completa.append('\n'.join(info))
     
-    def _analisar_distribuicao_luminosidade(self, img: Image.Image):
+    def _analisar_distribuicao_luminosidade(self, img: Any):
         """Análise de brilho e contraste"""
         info = ["═══ LUMINOSIDADE E CONTRASTE ═══"]
         
@@ -167,9 +172,14 @@ class AnalisadorVisual:
         
         self.descricao_completa.append('\n'.join(info))
     
-    def _analisar_padroes_visuais(self, img: Image.Image):
+    def _analisar_padroes_visuais(self, img: Any):
         """Detecta padrões e texturas"""
         info = ["═══ PADRÕES E DETALHES ═══"]
+        
+        if ImageFilter is None:
+            info.append("🔍 (Análise de padrões não disponível - Pillow necessário)")
+            self.descricao_completa.append('\n'.join(info))
+            return
         
         try:
             # Detecção de bordas
@@ -206,7 +216,7 @@ class AnalisadorVisual:
         
         self.descricao_completa.append('\n'.join(info))
     
-    def _analisar_regioes_interesse(self, img: Image.Image):
+    def _analisar_regioes_interesse(self, img: Any):
         """Analisa diferentes regiões da imagem"""
         info = ["═══ ANÁLISE POR REGIÕES ═══"]
         
@@ -238,9 +248,14 @@ class AnalisadorVisual:
         
         self.descricao_completa.append('\n'.join(info))
     
-    def _detectar_formas_geometricas(self, img: Image.Image):
+    def _detectar_formas_geometricas(self, img: Any):
         """Tentativa básica de detectar formas"""
         info = ["═══ ANÁLISE DE FORMAS ═══"]
+        
+        if ImageFilter is None:
+            info.append("📐 (Análise geométrica não disponível - Pillow necessário)")
+            self.descricao_completa.append('\n'.join(info))
+            return
         
         try:
             # Simplifica a imagem
@@ -269,7 +284,7 @@ class AnalisadorVisual:
         
         self.descricao_completa.append('\n'.join(info))
     
-    def _analisar_textura(self, img: Image.Image):
+    def _analisar_textura(self, img: Any):
         """Análise de textura da imagem"""
         info = ["═══ TEXTURA ═══"]
         
@@ -299,7 +314,7 @@ class AnalisadorVisual:
         
         self.descricao_completa.append('\n'.join(info))
     
-    def _extrair_texto(self, img: Image.Image):
+    def _extrair_texto(self, img: Any):
         """Extração de texto via OCR"""
         info = ["═══ TEXTO NA IMAGEM ═══"]
         
@@ -324,7 +339,7 @@ class AnalisadorVisual:
         
         self.descricao_completa.append('\n'.join(info))
     
-    def _analisar_simetria(self, img: Image.Image):
+    def _analisar_simetria(self, img: Any):
         """Analisa simetria horizontal e vertical"""
         info = ["═══ SIMETRIA ═══"]
         
