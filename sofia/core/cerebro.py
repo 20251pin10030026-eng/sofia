@@ -141,11 +141,15 @@ def perguntar(texto, historico=None, usuario=""):
                 # Limita tamanho de cada mensagem
                 if len(texto_msg) > 150:
                     texto_msg = texto_msg[:150] + "..."
-                contexto_historico += f"{de}: {texto_msg}\n"
-            contexto_historico += "###\n\n"
+                contexto_historico += f"[{timestamp}] {de}: {texto_msg}\n"
+            contexto_historico += "###\n"
+        
+        # NOVO: Adicionar contexto visual dos arquivos
+        from .visao import visao
+        contexto_visual = visao.obter_contexto_visual()
         
         # Construir prompt completo com contexto
-        prompt_final = f"{fatos_importantes}{contexto_historico}{contexto_oculto}\n\nUsuário: {texto}\nSofia:"
+        prompt_final = f"{fatos_importantes}{contexto_historico}{contexto_visual}{contexto_oculto}\n\nUsuário: {texto}\nSofia:"
         
         # Chamar Ollama
         resposta = requests.post(

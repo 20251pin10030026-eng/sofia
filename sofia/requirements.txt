@@ -5,3 +5,8 @@ requests==2.31.0
 flask==3.0.0
 flask-cors==4.0.0
 cryptography>=41.0.0
+
+# Sistema de Visão
+Pillow>=10.0.0
+PyPDF2>=3.0.0
+pytesseract>=0.3.10

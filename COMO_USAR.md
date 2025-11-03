@@ -8,7 +8,7 @@ Certifique-se que você tem:
 - ✅ Ollama instalado e rodando
 - ✅ Modelo Mistral baixado (`ollama pull mistral`)
 - ✅ Dependências instaladas (`pip install -r sofia/requirements.txt`)
-  - Inclui: `requests`, `flask`, `flask-cors`, `cryptography`
+  - Inclui: `requests`, `flask`, `flask-cors`, `cryptography`, `Pillow`, `PyPDF2`, `pytesseract`
 
 ## 🚀 Método 1: Atalho Rápido (Windows)
 
@@ -217,6 +217,24 @@ stats           → Ver estatísticas
 corpo           → Ver estrutura simbólica
 limpar          → Limpar histórico
 ```
+
+### Sistema de Visão 👁️
+
+Sofia agora pode visualizar imagens e PDFs!
+
+1. **Clique no ícone 👁️** no canto superior direito
+2. **Arraste arquivos** para a área de upload ou clique para selecionar
+3. **Formatos suportados:**
+   - Imagens: JPG, PNG, GIF, BMP, WebP
+   - PDFs: até 10 MB cada
+4. **Limite:** 10 arquivos simultâneos
+5. **Duração:** Arquivos são excluídos automaticamente após 30 minutos
+6. **OCR:** Sofia pode extrair texto de imagens (se Tesseract estiver instalado)
+
+**Nota sobre OCR:** Para reconhecimento de texto em imagens, instale o Tesseract:
+- Windows: https://github.com/UB-Mannheim/tesseract/wiki
+- Linux: `sudo apt-get install tesseract-ocr tesseract-ocr-por`
+- Mac: `brew install tesseract tesseract-lang`
 
 ### Modo Criador
 

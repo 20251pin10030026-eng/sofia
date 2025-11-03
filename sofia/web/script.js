@@ -9,9 +9,11 @@ const statusText = document.getElementById('status-text');
 const quickBtns = document.querySelectorAll('.quick-btn');
 const statsBtn = document.getElementById('stats-btn');
 const memoryBtn = document.getElementById('memory-btn');
+const visionBtn = document.getElementById('vision-btn');
 const settingsBtn = document.getElementById('settings-btn');
 const statsModal = document.getElementById('stats-modal');
 const memoryModal = document.getElementById('memory-modal');
+const visionModal = document.getElementById('vision-modal');
 const settingsModal = document.getElementById('settings-modal');
 
 // Initialize
@@ -43,6 +45,7 @@ quickBtns.forEach(btn => {
 // Modal Controls
 statsBtn.addEventListener('click', () => openModal('stats'));
 memoryBtn.addEventListener('click', () => openModal('memory'));
+visionBtn.addEventListener('click', () => openVisionModal());
 settingsBtn.addEventListener('click', () => openSettingsModal());
 
 document.querySelectorAll('.modal-close').forEach(btn => {
@@ -506,3 +509,176 @@ function applyTheme(theme) {
     console.log('Tema selecionado:', theme);
 }
 
+// === VISION MODAL ===
+async function openVisionModal() {
+    visionModal.classList.add('active');
+    await loadFilesList();
+}
+
+async function loadFilesList() {
+    try {
+        const response = await fetch(`${API_URL}/list-files`);
+        const data = await response.json();
+        
+        const filesCount = document.getElementById('files-count');
+        const filesList = document.getElementById('files-list');
+        const clearFilesBtn = document.getElementById('clear-files-btn');
+        
+        filesCount.textContent = data.total;
+        
+        if (data.arquivos.length === 0) {
+            filesList.innerHTML = '<div class="empty-state">Nenhum arquivo enviado ainda</div>';
+            clearFilesBtn.disabled = true;
+        } else {
+            clearFilesBtn.disabled = false;
+            filesList.innerHTML = data.arquivos.map(arquivo => `
+                <div class="file-item" data-id="${arquivo.id}">
+                    <div class="file-icon">${arquivo.tipo === 'imagem' ? '🖼️' : '📄'}</div>
+                    <div class="file-info">
+                        <div class="file-name">${arquivo.nome}</div>
+                        <div class="file-meta">
+                            <span>${arquivo.tamanho}</span>
+                            <span>⏱️ ${arquivo.expira_em}</span>
+                        </div>
+                    </div>
+                    <div class="file-actions">
+                        <button class="btn-icon danger" onclick="deleteFile('${arquivo.id}')" title="Remover">
+                            🗑️
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+    } catch (error) {
+        console.error('Erro ao carregar arquivos:', error);
+    }
+}
+
+// Upload Area
+const uploadArea = document.getElementById('upload-area');
+const fileInput = document.getElementById('file-input');
+const selectFilesBtn = document.getElementById('select-files-btn');
+
+selectFilesBtn.addEventListener('click', () => {
+    fileInput.click();
+});
+
+uploadArea.addEventListener('click', (e) => {
+    if (e.target === uploadArea || e.target.closest('.upload-icon, h4, p')) {
+        fileInput.click();
+    }
+});
+
+// Drag and Drop
+uploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadArea.classList.add('drag-over');
+});
+
+uploadArea.addEventListener('dragleave', () => {
+    uploadArea.classList.remove('drag-over');
+});
+
+uploadArea.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    uploadArea.classList.remove('drag-over');
+    
+    const files = Array.from(e.dataTransfer.files);
+    await uploadFiles(files);
+});
+
+fileInput.addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files);
+    await uploadFiles(files);
+    fileInput.value = ''; // Reset input
+});
+
+async function uploadFiles(files) {
+    for (const file of files) {
+        await uploadSingleFile(file);
+    }
+}
+
+async function uploadSingleFile(file) {
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const response = await fetch(`${API_URL}/upload-file`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.sucesso) {
+            await loadFilesList();
+            showNotification(`✅ ${file.name} enviado com sucesso!`);
+        } else {
+            showNotification(`❌ ${data.erro}`, 'error');
+        }
+    } catch (error) {
+        showNotification(`❌ Erro ao enviar ${file.name}`, 'error');
+    }
+}
+
+async function deleteFile(fileId) {
+    if (!confirm('Deseja remover este arquivo?')) return;
+    
+    try {
+        const response = await fetch(`${API_URL}/delete-file`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ arquivo_id: fileId })
+        });
+        
+        if (response.ok) {
+            await loadFilesList();
+            showNotification('✅ Arquivo removido!');
+        }
+    } catch (error) {
+        showNotification('❌ Erro ao remover arquivo', 'error');
+    }
+}
+
+document.getElementById('clear-files-btn').addEventListener('click', async () => {
+    if (!confirm('Deseja remover TODOS os arquivos?')) return;
+    
+    try {
+        const response = await fetch(`${API_URL}/clear-files`, {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            await loadFilesList();
+            showNotification(`✅ ${data.removidos} arquivo(s) removido(s)!`);
+        }
+    } catch (error) {
+        showNotification('❌ Erro ao limpar arquivos', 'error');
+    }
+});
+
+function showNotification(message, type = 'success') {
+    // Simple notification - você pode melhorar isso
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 1rem 1.5rem;
+        background: ${type === 'error' ? '#EF4444' : '#10B981'};
+        color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        z-index: 10000;
+        animation: fadeIn 0.3s ease;
+    `;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.animation = 'fadeOut 0.3s ease';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}

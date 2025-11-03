@@ -15,9 +15,16 @@ ROOT = Path(__file__).resolve().parent.parent  # A.I_GitHUB/
 sys.path.insert(0, str(ROOT))
 
 from sofia.core import identidade, cerebro, memoria
+from sofia.core.visao import visao
 
 app = Flask(__name__)
 CORS(app)  # Permite requisições do frontend
+
+# Configura upload
+UPLOAD_FOLDER = Path(__file__).parent / 'uploads'
+UPLOAD_FOLDER.mkdir(exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10 MB
 
 # Inicializa Sofia
 nome_sistema = os.getenv("USERNAME") or os.getenv("USER") or "Usuario"
@@ -239,6 +246,85 @@ def clear_all():
     try:
         memoria.limpar_tudo()
         return jsonify({'success': True, 'message': 'Tudo foi apagado'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# === ENDPOINTS DE VISÃO ===
+
+@app.route('/upload-file', methods=['POST'])
+def upload_file():
+    """Upload de arquivo (imagem ou PDF) para visão temporária"""
+    try:
+        # Verifica se tem arquivo
+        if 'file' not in request.files:
+            return jsonify({'error': 'Nenhum arquivo enviado'}), 400
+        
+        file = request.files['file']
+        
+        if file.filename == '':
+            return jsonify({'error': 'Nome de arquivo vazio'}), 400
+        
+        # Salva temporariamente
+        temp_path = app.config['UPLOAD_FOLDER'] / file.filename
+        file.save(str(temp_path))
+        
+        # Adiciona ao sistema de visão
+        resultado = visao.adicionar_arquivo(str(temp_path), file.filename)
+        
+        # Remove arquivo temporário
+        try:
+            temp_path.unlink()
+        except:
+            pass
+        
+        if resultado['sucesso']:
+            return jsonify(resultado)
+        else:
+            return jsonify(resultado), 400
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/list-files', methods=['GET'])
+def list_files():
+    """Lista todos os arquivos visualizados"""
+    try:
+        arquivos = visao.listar_arquivos()
+        pode_adicionar = visao.pode_adicionar()
+        
+        return jsonify({
+            'arquivos': arquivos,
+            'total': len(arquivos),
+            'limite': visao.LIMITE_ARQUIVOS,
+            'pode_adicionar': pode_adicionar
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/delete-file', methods=['POST'])
+def delete_file():
+    """Remove arquivo específico"""
+    try:
+        data = request.json
+        if data is None:
+            return jsonify({'error': 'Invalid JSON'}), 400
+        arquivo_id = data.get('arquivo_id', '')
+        
+        if visao.remover_arquivo(arquivo_id):
+            return jsonify({'success': True})
+        else:
+            return jsonify({'error': 'Arquivo não encontrado'}), 404
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/clear-files', methods=['POST'])
+def clear_files():
+    """Remove todos os arquivos"""
+    try:
+        count = visao.limpar_tudo()
+        return jsonify({'success': True, 'removidos': count})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

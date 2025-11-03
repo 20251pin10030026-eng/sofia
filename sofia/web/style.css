@@ -664,6 +664,145 @@ body {
     color: var(--text-muted);
 }
 
+/* Vision Modal */
+.upload-area {
+    border: 2px dashed var(--border-color);
+    border-radius: 12px;
+    padding: 3rem 2rem;
+    text-align: center;
+    background: rgba(255, 105, 180, 0.05);
+    margin-bottom: 2rem;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.upload-area:hover, .upload-area.drag-over {
+    border-color: var(--primary-color);
+    background: rgba(255, 105, 180, 0.1);
+}
+
+.upload-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.upload-area h4 {
+    color: var(--text-color);
+    margin-bottom: 0.5rem;
+}
+
+.upload-area p {
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+}
+
+.upload-info {
+    font-size: 0.75rem;
+    margin-top: 1rem !important;
+}
+
+.files-section {
+    margin-top: 2rem;
+}
+
+.files-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.files-header h4 {
+    color: var(--text-color);
+}
+
+.btn-sm {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+}
+
+.files-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.file-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    transition: all 0.2s ease;
+}
+
+.file-item:hover {
+    border-color: var(--primary-color);
+}
+
+.file-icon {
+    font-size: 2rem;
+    flex-shrink: 0;
+}
+
+.file-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.file-name {
+    font-weight: 500;
+    color: var(--text-color);
+    margin-bottom: 0.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.file-meta {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.file-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    border: none;
+    background: var(--border-color);
+    color: var(--text-color);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.btn-icon:hover {
+    background: var(--primary-color);
+    transform: scale(1.1);
+}
+
+.btn-icon.danger:hover {
+    background: #EF4444;
+}
+
 /* Animations */
 @keyframes fadeIn {
     from {
