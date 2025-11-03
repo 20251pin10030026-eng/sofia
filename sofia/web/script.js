@@ -65,8 +65,15 @@ statsBtn.addEventListener('click', () => openModal('stats'));
 memoryBtn.addEventListener('click', () => openModal('memory'));
 settingsBtn.addEventListener('click', () => openSettingsModal());
 worldBtn.addEventListener('click', () => {
-    // Abre o jogo 3D em nova aba usando a rota do Flask
-    window.open('/jogo3d', '_blank');
+    // Detecta se está rodando via file:// ou http://
+    if (window.location.protocol === 'file:') {
+        // Se abriu direto do disco, avisa e abre via localhost
+        alert('⚠️ Atenção!\n\nPara o jogo funcionar corretamente, acesse via:\nhttp://localhost:5000\n\nAbrindo o servidor agora...');
+        window.open('http://localhost:5000/jogo3d', '_blank');
+    } else {
+        // Se já está no servidor, usa caminho relativo
+        window.open('/jogo3d', '_blank');
+    }
 });
 
 document.querySelectorAll('.modal-close').forEach(btn => {
