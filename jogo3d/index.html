@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mundo de Sofia - Jogo 3D</title>
-    <link rel="stylesheet" href="/jogo3d/css/style.css">
+    <link rel="stylesheet" href="css/style.css">
     
     <!-- Babylon.js CDN -->
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
@@ -48,8 +48,23 @@
         <div id="interaction-prompt" style="display: none;">
             <p>Pressione <kbd>E</kbd> para interagir</p>
         </div>
+
+        <!-- Balão de fala para diálogos da Sofia -->
+        <div id="dialog-box" style="
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 8%;
+            background: rgba(0, 0, 0, 0.6);
+            color: #fff;
+            padding: 0.75rem 1rem;
+            border-radius: 12px;
+            max-width: 70%;
+            display: none;
+            z-index: 10;
+        "></div>
     </div>
 
-    <script src="/jogo3d/js/game.js"></script>
+    <script src="js/game.js"></script>
 </body>
 </html>

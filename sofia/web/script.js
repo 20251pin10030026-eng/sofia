@@ -65,7 +65,8 @@ statsBtn.addEventListener('click', () => openModal('stats'));
 memoryBtn.addEventListener('click', () => openModal('memory'));
 settingsBtn.addEventListener('click', () => openSettingsModal());
 worldBtn.addEventListener('click', () => {
-    window.open('http://localhost:5000/jogo3d', '_blank');
+    // Abre o jogo 3D em nova aba
+    window.open('jogo3d/index.html', '_blank');
 });
 
 document.querySelectorAll('.modal-close').forEach(btn => {

@@ -369,14 +369,9 @@ def index():
     web_dir = Path(__file__).parent / 'web'
     return send_from_directory(web_dir, 'index.html')
 
-@app.route('/<path:filename>')
-def serve_web_files(filename):
-    """Serve arquivos estáticos da interface web"""
-    web_dir = Path(__file__).parent / 'web'
-    return send_from_directory(web_dir, filename)
-
-# Rotas para o Jogo 3D
+# Rotas para o Jogo 3D (ANTES da rota genérica)
 @app.route('/jogo3d')
+@app.route('/jogo3d/')
 def jogo3d():
     """Página principal do jogo 3D"""
     jogo_dir = ROOT / 'jogo3d'
@@ -387,6 +382,16 @@ def jogo3d_files(filename):
     """Serve arquivos do jogo 3D"""
     jogo_dir = ROOT / 'jogo3d'
     return send_from_directory(jogo_dir, filename)
+
+# Rota genérica para arquivos do chat (DEPOIS das rotas específicas)
+@app.route('/<path:filename>')
+def serve_web_files(filename):
+    """Serve arquivos estáticos da interface web"""
+    # Não serve se for caminho do jogo3d (já tratado acima)
+    if filename.startswith('jogo3d'):
+        return "Not Found", 404
+    web_dir = Path(__file__).parent / 'web'
+    return send_from_directory(web_dir, filename)
 
 if __name__ == '__main__':
     print("\n" + "="*50)
