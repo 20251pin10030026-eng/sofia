@@ -75,6 +75,8 @@ def chat():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/action', methods=['POST'])
 def action():
     """Executa ações rápidas"""
     try:
