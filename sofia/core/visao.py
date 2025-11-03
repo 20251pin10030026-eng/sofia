@@ -291,9 +291,10 @@ class SistemaVisao:
             for nome, (x1, y1, x2, y2) in quadrantes.items():
                 region = img_rgb.crop((x1, y1, x2, y2))
                 region_small = region.resize((10, 10))
-                region_pixels = [pixel for pixel in region_small.getdata()]
-                avg_color = tuple(sum(c[i] for c in region_pixels) // len(region_pixels) for i in range(3))
-                analise.append(f"{nome}: RGB{avg_color}")
+                region_pixels = list(region_small.getdata())  # type: ignore
+                if region_pixels and isinstance(region_pixels[0], tuple):
+                    avg_color = tuple(sum(c[i] for c in region_pixels) // len(region_pixels) for i in range(3))
+                    analise.append(f"{nome}: RGB{avg_color}")
             
             # 7. Metadados EXIF (se disponível)
             try:
