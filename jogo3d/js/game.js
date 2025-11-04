@@ -540,6 +540,48 @@ function updateNPCs(deltaSec) {
   if (!deltaSec) return;
   npcs.forEach(npc => {
     const { state, def, root } = npc;
+    
+    // Se Sofia está sob controle da IA, ela segue o jogador
+    if (npc.aiControlled && npc.followPlayer && camera) {
+      const playerPos = camera.position.clone();
+      playerPos.y = 0;
+      
+      const distanceToPlayer = BABYLON.Vector3.Distance(root.position, playerPos);
+      
+      // Mantém distância de 3 a 5 metros do jogador
+      if (distanceToPlayer > 5) {
+        // Muito longe, segue o jogador rapidamente
+        const direction = playerPos.subtract(root.position);
+        direction.normalize();
+        const moveStep = direction.scale(def.walkSpeed * 1.5 * deltaSec);
+        root.position.addInPlace(moveStep);
+        root.rotation.y = Math.atan2(direction.x, direction.z);
+      } else if (distanceToPlayer < 3) {
+        // Muito perto, afasta um pouco
+        const direction = root.position.subtract(playerPos);
+        direction.normalize();
+        const moveStep = direction.scale(def.walkSpeed * 0.5 * deltaSec);
+        root.position.addInPlace(moveStep);
+        root.rotation.y = Math.atan2(-direction.x, -direction.z);
+      } else {
+        // Distância ideal, só olha para o jogador
+        const lookDir = playerPos.subtract(root.position);
+        root.rotation.y = Math.atan2(lookDir.x, lookDir.z);
+        
+        // Pequenos movimentos aleatórios para parecer mais natural
+        if (Math.random() < 0.01) {
+          const randomOffset = new BABYLON.Vector3(
+            (Math.random() - 0.5) * 0.5,
+            0,
+            (Math.random() - 0.5) * 0.5
+          );
+          root.position.addInPlace(randomOffset);
+        }
+      }
+      return;
+    }
+    
+    // Comportamento normal para outros NPCs ou Sofia antes da ativação
     if (state.waitTimer > 0) {
       state.waitTimer -= deltaSec;
       return;
@@ -599,13 +641,51 @@ function checkInteraction() {
 }
 
 function interactWithNPC(npc) {
+  // Se é a Sofia, abre o chat da IA e ativa controle autônomo
+  if (npc.id === 'sofia') {
+    activateSofiaAI(npc);
+    return;
+  }
+
+  // Para outros NPCs, comportamento normal
   const line = npc.def.lines[npc.dialogIndex % npc.def.lines.length];
   npc.dialogIndex++;
   showDialog(line);
   completeMission(npc);
+}
 
-  // Gancho IA opcional
-  // fetch('/ai/observe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ event: 'interact', actor: 'player', target: npc.id }) });
+function activateSofiaAI(sofiaInstance) {
+  showDialog('🌸 Sofia: Olá! Vou te acompanhar agora. Abrindo nosso chat...');
+  
+  // Marca Sofia como controlada pela IA
+  sofiaInstance.aiControlled = true;
+  sofiaInstance.followPlayer = true;
+  
+  // Aguarda 1 segundo e abre o chat da IA em nova janela
+  setTimeout(() => {
+    // Abre o chat principal da Sofia em nova janela (popup menor)
+    const chatWindow = window.open(
+      '/', // URL do chat da Sofia
+      'SofiaChat',
+      'width=400,height=600,left=100,top=100,resizable=yes,scrollbars=yes'
+    );
+    
+    if (!chatWindow) {
+      showDialog('⚠️ Permita pop-ups para abrir o chat da Sofia!');
+    } else {
+      showDialog('🌸 Sofia agora está ativa! Converse comigo na janela do chat.');
+      
+      // Envia mensagem para a API informando que Sofia foi ativada no mundo 3D
+      fetch('/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: '[Sistema] Usuário ativou Sofia no mundo 3D. Sofia agora pode se movimentar autonomamente.',
+          context: 'mundo3d_ativacao'
+        })
+      }).catch(err => console.log('Erro ao notificar ativação:', err));
+    }
+  }, 1000);
 }
 
 // -----------------------------------------------------
