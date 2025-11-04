@@ -89,6 +89,9 @@ function initChatWindow() {
 
     showTyping();
 
+    // Fazer Sofia NPC reagir enquanto "pensa"
+    makeSofiaReact('thinking');
+
     fetch('/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -97,7 +100,14 @@ function initChatWindow() {
     .then(res => res.json())
     .then(data => {
       hideTyping();
-      addMessage('sofia', data.response || 'Desculpe, não consegui processar sua mensagem.');
+      const response = data.response || 'Desculpe, não consegui processar sua mensagem.';
+      addMessage('sofia', response);
+      
+      // Fazer Sofia NPC reagir quando responde
+      makeSofiaReact('speaking', response);
+      
+      // Mostrar resposta também no dialog-box do mundo 3D
+      showDialog(`🌸 Sofia: ${response}`, 4000);
     })
     .catch(err => {
       console.error('Erro ao comunicar com Sofia:', err);
@@ -136,6 +146,66 @@ function initChatWindow() {
   window.addChatMessage = addMessage;
   window.showChatTyping = showTyping;
   window.hideChatTyping = hideTyping;
+}
+
+// ===== REAÇÕES DA SOFIA NPC =====
+function makeSofiaReact(action, message = '') {
+  // Encontrar a Sofia entre os NPCs
+  const sofia = npcs.find(npc => npc.id === 'sofia');
+  if (!sofia || !sofia.mesh) return;
+
+  // Fazer Sofia olhar para o jogador
+  if (camera && camera.position) {
+    const directionToPlayer = camera.position.subtract(sofia.mesh.position).normalize();
+    const targetRotation = Math.atan2(directionToPlayer.x, directionToPlayer.z);
+    sofia.mesh.rotation.y = targetRotation;
+  }
+
+  // Animações baseadas na ação
+  if (action === 'thinking') {
+    // Sofia "pensa" - pequena animação de cabeça
+    if (sofia.head) {
+      const originalY = sofia.head.position.y;
+      const thinkAnimation = new BABYLON.Animation(
+        'sofiaThinking',
+        'position.y',
+        30,
+        BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+        BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE
+      );
+      thinkAnimation.setKeys([
+        { frame: 0, value: originalY },
+        { frame: 10, value: originalY + 0.05 },
+        { frame: 20, value: originalY }
+      ]);
+      sofia.head.animations = [thinkAnimation];
+      scene.beginAnimation(sofia.head, 0, 20, true);
+    }
+  } else if (action === 'speaking') {
+    // Sofia "fala" - parar animação de pensar e fazer gesto
+    if (sofia.head) {
+      scene.stopAnimation(sofia.head);
+    }
+    
+    // Pequeno salto de entusiasmo
+    if (sofia.mesh) {
+      const originalY = sofia.mesh.position.y;
+      const speakAnimation = new BABYLON.Animation(
+        'sofiaSpeaking',
+        'position.y',
+        30,
+        BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+        BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT
+      );
+      speakAnimation.setKeys([
+        { frame: 0, value: originalY },
+        { frame: 8, value: originalY + 0.3 },
+        { frame: 16, value: originalY }
+      ]);
+      sofia.mesh.animations = [speakAnimation];
+      scene.beginAnimation(sofia.mesh, 0, 16, false);
+    }
+  }
 }
 
 // Estado
@@ -241,6 +311,14 @@ async function initGame() {
 
   engine.runRenderLoop(() => scene.render());
   window.addEventListener('resize', () => engine.resize());
+
+  // Sofia dá boas-vindas ao jogador
+  setTimeout(() => {
+    if (window.addChatMessage) {
+      window.addChatMessage('sofia', 'Olá! Bem-vindo ao meu metaverso! 🌸 Estou aqui para te ajudar a explorar. Pressione E perto de mim para eu te seguir, ou converse comigo a qualquer momento pelo chat!');
+      showDialog('🌸 Sofia: Bem-vindo! Explore livremente e converse comigo pelo chat quando quiser.', 5000);
+    }
+  }, 1500);
 
   // connectWS("wss://SEU_ENDPOINT_AQUI");
 }
@@ -905,6 +983,12 @@ function checkInteraction() {
     bestNpc.root.lookAt(new BABYLON.Vector3(camera.position.x, bestNpc.root.position.y + 1, camera.position.z));
     bestNpc.root.rotation.x = 0;
     bestNpc.root.rotation.z = 0;
+    
+    // Sofia acena quando jogador se aproxima pela primeira vez
+    if (bestNpc.id === 'sofia' && !bestNpc.hasWaved) {
+      bestNpc.hasWaved = true;
+      makeSofiaReact('thinking');
+    }
   } else {
     canInteract = false;
     currentInteractable = null;
@@ -929,9 +1013,12 @@ function activateSofiaAI(sofiaInstance) {
   if (!sofiaInstance.aiControlled) {
     showDialog('🌸 Sofia: Vou caminhar com você! Use o chat para conversarmos.');
     
+    // Animação de ativação - Sofia pula de alegria
+    makeSofiaReact('speaking', 'Ativada!');
+    
     // Adicionar mensagem no chat integrado
     if (window.addChatMessage) {
-      window.addChatMessage('sofia', '🌸 Olá! Agora estou te acompanhando pelo metaverso. Como posso ajudar?');
+      window.addChatMessage('sofia', '🌸 Agora estou te acompanhando pelo metaverso! Posso responder suas dúvidas, contar histórias ou apenas fazer companhia. Como posso ajudar?');
     }
   } else {
     const followLines = [
