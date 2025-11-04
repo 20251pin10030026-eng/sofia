@@ -25,6 +25,9 @@ function initChatWindow() {
   const closeBtn = document.getElementById('close-btn');
   const typingIndicator = document.getElementById('typing-indicator');
 
+  // Mostrar janela de chat quando o jogo iniciar
+  chatWindow.classList.add('active');
+
   // Variáveis para drag & drop
   let isDragging = false;
   let currentX, currentY, initialX, initialY;

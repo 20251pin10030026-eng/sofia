@@ -199,10 +199,14 @@
       border: 2px solid rgba(127, 90, 240, 0.6);
       border-radius: 16px;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
-      display: flex;
+      display: none; /* Inicialmente escondido, aparece quando o jogo inicia */
       flex-direction: column;
       z-index: 1000;
       backdrop-filter: blur(10px);
+    }
+
+    #sofia-chat-window.active {
+      display: flex;
     }
 
     #sofia-chat-window.minimized {
