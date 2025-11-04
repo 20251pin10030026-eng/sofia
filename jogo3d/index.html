@@ -1,70 +1,147 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
+﻿<!DOCTYPE html>
+<html lang="pt-br">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mundo de Sofia - Jogo 3D</title>
-    <link rel="stylesheet" href="/jogo3d/css/style.css">
-    
-    <!-- Babylon.js CDN -->
-    <script src="https://cdn.babylonjs.com/babylon.js"></script>
-    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Metaverso  Sala da Sofia</title>
+  <style>
+    body, html {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #0b1020;
+      color: white;
+    }
+
+    #renderCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+    }
+
+    #start-screen, #loading-screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      background: linear-gradient(135deg, rgba(10,15,25,0.92), rgba(20,30,50,0.92));
+      z-index: 5;
+    }
+
+    #start-screen button {
+      padding: 12px 32px;
+      background: linear-gradient(135deg, #7f5af0, #2cb67d);
+      border: none;
+      border-radius: 999px;
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: white;
+      cursor: pointer;
+      box-shadow: 0 0 24px rgba(127, 90, 240, 0.4);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    #start-screen button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 32px rgba(127, 90, 240, 0.45);
+    }
+
+    #loading-screen {
+      display: none;
+      font-size: 1.2rem;
+      letter-spacing: 1px;
+    }
+
+    #interaction-prompt {
+      position: absolute;
+      bottom: 120px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 20, 35, 0.85);
+      padding: 12px 28px;
+      border-radius: 999px;
+      border: 1px solid rgba(127, 90, 240, 0.5);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+      font-weight: 600;
+      display: none;
+      z-index: 4;
+    }
+
+    #dialog-box {
+      position: absolute;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(10, 15, 26, 0.9);
+      padding: 18px 26px;
+      border-radius: 20px;
+      border: 1px solid rgba(127, 90, 240, 0.4);
+      max-width: min(480px, 90vw);
+      font-size: 1rem;
+      line-height: 1.45;
+      display: none;
+      z-index: 4;
+      text-align: center;
+    }
+
+    #mission-tracker {
+      position: absolute;
+      top: 24px;
+      left: 24px;
+      background: rgba(10, 15, 26, 0.88);
+      border: 1px solid rgba(44, 182, 125, 0.4);
+      border-radius: 16px;
+      padding: 16px 20px;
+      max-width: 260px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+      z-index: 4;
+    }
+
+    #mission-tracker h3 {
+      margin: 0 0 8px;
+      font-size: 1rem;
+      color: #2cb67d;
+    }
+
+    #mission-tracker p {
+      margin: 0;
+      font-size: 0.9rem;
+      color: rgba(255, 255, 255, 0.85);
+    }
+
+    .logo-glow {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: #e0e8ff;
+      text-shadow: 0 0 18px rgba(127, 90, 240, 0.8);
+    }
+  </style>
+  <script src="https://cdn.babylonjs.com/babylon.js"></script>
+  <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
 </head>
 <body>
-    <div id="start-screen">
-        <div class="start-content">
-            <h1>🌸 Mundo de Sofia</h1>
-            <p>Explore o quarto de Sofia em 3D</p>
-            <button id="start-button">COMEÇAR JOGO</button>
-            <div class="instructions">
-                <p><kbd>W A S D</kbd> - Mover</p>
-                <p><kbd>Mouse</kbd> - Olhar (arraste)</p>
-                <p><kbd>Shift</kbd> - Correr</p>
-                <p><kbd>E</kbd> - Interagir com Sofia</p>
-            </div>
-        </div>
-    </div>
+  <div id="start-screen">
+    <div class="logo-glow"> Sala da Sofia</div>
+    <p>Entre na praça central do metaverso, explore e conheça NPCs com histórias únicas.</p>
+    <button id="start-button">Entrar no Metaverso</button>
+  </div>
 
-    <div id="loading-screen" style="display: none;">
-        <div class="loading-content">
-            <h1>🌸 Carregando...</h1>
-            <div class="spinner"></div>
-            <p>Preparando o mundo 3D</p>
-        </div>
-    </div>
+  <div id="loading-screen">Carregando o mundo virtual...</div>
 
-    <canvas id="renderCanvas"></canvas>
+  <div id="mission-tracker"></div>
+  <div id="interaction-prompt"></div>
+  <div id="dialog-box"></div>
 
-    <div id="hud">
-        <div id="info-panel">
-            <h3>🎮 Controles</h3>
-            <p><kbd>W A S D</kbd> - Mover</p>
-            <p><kbd>Mouse</kbd> - Olhar</p>
-            <p><kbd>Shift</kbd> - Correr</p>
-            <p><kbd>E</kbd> - Interagir</p>
-            <p><kbd>ESC</kbd> - Pausar</p>
-        </div>
+  <canvas id="renderCanvas"></canvas>
 
-        <div id="interaction-prompt" style="display: none;">
-            <p>Pressione <kbd>E</kbd> para interagir</p>
-        </div>
-
-        <!-- Balão de fala para diálogos da Sofia -->
-        <div id="dialog-box" style="
-            position: absolute;
-            left: 50%;
-            transform: translateX(-50%);
-            bottom: 8%;
-            background: rgba(0, 0, 0, 0.6);
-            color: #fff;
-            padding: 0.75rem 1rem;
-            border-radius: 12px;
-            max-width: 70%;
-            display: none;
-            z-index: 10;
-        "></div>
-    </div>
-
-    <script src="/jogo3d/js/game.js"></script>
+  <script src="/jogo3d/js/game.js"></script>
 </body>
 </html>
