@@ -14,6 +14,127 @@ const missionTracker = document.getElementById('mission-tracker');
 const controlsHelp = document.getElementById('controls-help');
 const crosshair = document.getElementById('crosshair');
 
+// ===== CHAT INTEGRADO =====
+function initChatWindow() {
+  const chatWindow = document.getElementById('sofia-chat-window');
+  const chatHeader = document.getElementById('chat-header');
+  const chatMessages = document.getElementById('chat-messages');
+  const chatInput = document.getElementById('chat-input');
+  const sendBtn = document.getElementById('send-btn');
+  const minimizeBtn = document.getElementById('minimize-btn');
+  const closeBtn = document.getElementById('close-btn');
+  const typingIndicator = document.getElementById('typing-indicator');
+
+  // Variáveis para drag & drop
+  let isDragging = false;
+  let currentX, currentY, initialX, initialY;
+  let xOffset = 0, yOffset = 0;
+
+  // Funções de arrastar
+  function dragStart(e) {
+    initialX = e.clientX - xOffset;
+    initialY = e.clientY - yOffset;
+    if (e.target === chatHeader || chatHeader.contains(e.target)) {
+      isDragging = true;
+    }
+  }
+
+  function drag(e) {
+    if (isDragging) {
+      e.preventDefault();
+      currentX = e.clientX - initialX;
+      currentY = e.clientY - initialY;
+      xOffset = currentX;
+      yOffset = currentY;
+      setTranslate(currentX, currentY, chatWindow);
+    }
+  }
+
+  function dragEnd() {
+    initialX = currentX;
+    initialY = currentY;
+    isDragging = false;
+  }
+
+  function setTranslate(xPos, yPos, el) {
+    el.style.transform = `translate(calc(-50% + ${xPos}px), calc(-50% + ${yPos}px))`;
+  }
+
+  // Event listeners para drag
+  chatHeader.addEventListener('mousedown', dragStart);
+  document.addEventListener('mousemove', drag);
+  document.addEventListener('mouseup', dragEnd);
+
+  // Minimizar
+  minimizeBtn.addEventListener('click', () => {
+    chatWindow.classList.toggle('minimized');
+  });
+
+  // Fechar
+  closeBtn.addEventListener('click', () => {
+    chatWindow.style.display = 'none';
+  });
+
+  // Enviar mensagem
+  function sendMessage() {
+    const text = chatInput.value.trim();
+    if (!text) return;
+
+    addMessage('user', text);
+    chatInput.value = '';
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    showTyping();
+
+    fetch('/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text })
+    })
+    .then(res => res.json())
+    .then(data => {
+      hideTyping();
+      addMessage('sofia', data.response || 'Desculpe, não consegui processar sua mensagem.');
+    })
+    .catch(err => {
+      console.error('Erro ao comunicar com Sofia:', err);
+      hideTyping();
+      addMessage('sofia', 'Ops! Tive um problema ao processar sua mensagem. Tente novamente.');
+    });
+  }
+
+  sendBtn.addEventListener('click', sendMessage);
+  chatInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendMessage();
+  });
+
+  // Funções auxiliares
+  function addMessage(sender, text) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${sender}`;
+    messageDiv.innerHTML = `
+      <div class="message-avatar">${sender === 'user' ? '👤' : '🌸'}</div>
+      <div class="message-content">${text}</div>
+    `;
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  function showTyping() {
+    typingIndicator.style.display = 'flex';
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  function hideTyping() {
+    typingIndicator.style.display = 'none';
+  }
+
+  // Expor funções globalmente para uso em outras partes
+  window.addChatMessage = addMessage;
+  window.showChatTyping = showTyping;
+  window.hideChatTyping = hideTyping;
+}
+
 // Estado
 let engine, scene, camera, player, shadowGen;
 let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, isRunning = false;
@@ -102,6 +223,9 @@ startButton.addEventListener('click', async () => {
 async function initGame() {
   if (gameStarted) return;
   gameStarted = true;
+
+  // Inicializar chat integrado
+  initChatWindow();
 
   engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true, antialias: true });
   engine.displayLoadingUI();
@@ -800,7 +924,12 @@ function interactWithNPC(npc) {
 
 function activateSofiaAI(sofiaInstance) {
   if (!sofiaInstance.aiControlled) {
-    showDialog('🌸 Sofia: Vou caminhar com você e abrir nosso chat. Me chame se quiser dicas!');
+    showDialog('🌸 Sofia: Vou caminhar com você! Use o chat para conversarmos.');
+    
+    // Adicionar mensagem no chat integrado
+    if (window.addChatMessage) {
+      window.addChatMessage('sofia', '🌸 Olá! Agora estou te acompanhando pelo metaverso. Como posso ajudar?');
+    }
   } else {
     const followLines = [
       '🌸 Sofia: Estou ao seu lado, vamos explorar mais um pouco?',
@@ -809,41 +938,16 @@ function activateSofiaAI(sofiaInstance) {
     const line = followLines[sofiaInstance.dialogIndex % followLines.length];
     sofiaInstance.dialogIndex++;
     showDialog(line, 3200);
+    
+    // Adicionar no chat também
+    if (window.addChatMessage) {
+      window.addChatMessage('sofia', line.replace('🌸 Sofia: ', ''));
+    }
   }
 
   sofiaInstance.aiControlled = true;
   sofiaInstance.followPlayer = true;
   sofiaInstance.state.waitTimer = 0;
-
-  if (sofiaInstance.chatOpened) {
-    return;
-  }
-
-  sofiaInstance.chatOpened = true;
-  setTimeout(() => {
-    const chatWindow = window.open(
-      '/',
-      'SofiaChat',
-      'width=420,height=640,left=120,top=120,resizable=yes,scrollbars=yes'
-    );
-
-    if (!chatWindow) {
-      sofiaInstance.chatOpened = false;
-      showDialog('⚠️ Permita pop-ups para abrir o chat da Sofia!');
-      return;
-    }
-
-    fetch('/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: '[Sistema] Sofia foi ativada dentro do metaverso e acompanha o explorador.',
-        context: 'mundo3d_ativacao'
-      })
-    }).catch(() => {
-      // Silencia erros de rede para não interromper a experiência offline
-    });
-  }, 800);
 }
 
 // -----------------------------------------------------
@@ -872,220 +976,3 @@ function connectWS(url) {
   };
   ws.onclose = () => console.log('[WS] desconectado');
 }
-metaverso.html
-Novo
-+212
--0
-
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Metaverso — Sala da Sofia</title>
-  <link rel="stylesheet" href="css/estilos.css">
-  <style>
-    body, html {
-      width: 100%;
-      height: 100%;
-      margin: 0;
-      overflow: hidden;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #0b1020;
-      color: white;
-    }
-
-    #renderCanvas {
-      width: 100%;
-      height: 100%;
-      display: block;
-      touch-action: none;
-    }
-
-    #start-screen, #loading-screen {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 18px;
-      background: linear-gradient(135deg, rgba(10,15,25,0.92), rgba(20,30,50,0.92));
-      z-index: 5;
-    }
-
-    #start-screen button {
-      padding: 12px 32px;
-      background: linear-gradient(135deg, #7f5af0, #2cb67d);
-      border: none;
-      border-radius: 999px;
-      font-size: 1.05rem;
-      font-weight: 600;
-      color: white;
-      cursor: pointer;
-      box-shadow: 0 0 24px rgba(127, 90, 240, 0.4);
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    #start-screen button:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 12px 32px rgba(127, 90, 240, 0.45);
-    }
-
-    #loading-screen {
-      display: none;
-      font-size: 1.2rem;
-      letter-spacing: 1px;
-    }
-
-    #interaction-prompt {
-      position: absolute;
-      bottom: 120px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(15, 20, 35, 0.85);
-      padding: 12px 28px;
-      border-radius: 999px;
-      border: 1px solid rgba(127, 90, 240, 0.5);
-      box-shadow: 0 12px 30px rgba(0,0,0,0.35);
-      font-weight: 600;
-      display: none;
-      z-index: 4;
-    }
-
-    #dialog-box {
-      position: absolute;
-      bottom: 32px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(10, 15, 26, 0.9);
-      padding: 18px 26px;
-      border-radius: 20px;
-      border: 1px solid rgba(127, 90, 240, 0.4);
-      max-width: min(480px, 90vw);
-      font-size: 1rem;
-      line-height: 1.45;
-      display: none;
-      z-index: 4;
-      text-align: center;
-    }
-
-    #mission-tracker {
-      position: absolute;
-      top: 24px;
-      left: 24px;
-      background: rgba(10, 15, 26, 0.88);
-      border: 1px solid rgba(44, 182, 125, 0.4);
-      border-radius: 16px;
-      padding: 16px 20px;
-      max-width: 280px;
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
-      z-index: 4;
-      backdrop-filter: blur(8px);
-    }
-
-    #mission-tracker h3 {
-      margin: 0 0 8px;
-      font-size: 1rem;
-      color: #2cb67d;
-    }
-
-    #mission-tracker p {
-      margin: 0;
-      font-size: 0.9rem;
-      color: rgba(255, 255, 255, 0.85);
-    }
-
-    #mission-tracker ul {
-      margin: 10px 0 0;
-      padding-left: 18px;
-      font-size: 0.85rem;
-      color: rgba(255, 255, 255, 0.7);
-    }
-
-    #mission-tracker li.completed {
-      text-decoration: line-through;
-      color: rgba(44, 182, 125, 0.8);
-    }
-
-    .logo-glow {
-      font-size: 2rem;
-      font-weight: 700;
-      letter-spacing: 4px;
-      text-transform: uppercase;
-      color: #e0e8ff;
-      text-shadow: 0 0 18px rgba(127, 90, 240, 0.8);
-    }
-
-    #controls-help {
-      position: absolute;
-      right: 24px;
-      top: 24px;
-      background: rgba(12, 18, 32, 0.85);
-      border: 1px solid rgba(127, 90, 240, 0.35);
-      border-radius: 16px;
-      padding: 16px 20px;
-      max-width: 260px;
-      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
-      font-size: 0.85rem;
-      line-height: 1.45;
-      z-index: 4;
-      backdrop-filter: blur(8px);
-      transition: opacity 0.3s ease;
-    }
-
-    #controls-help h3 {
-      margin: 0 0 10px;
-      font-size: 0.95rem;
-      color: #7f5af0;
-    }
-
-    #controls-help p {
-      margin: 0 0 6px;
-    }
-
-    #controls-help kbd {
-      background: rgba(255, 255, 255, 0.12);
-      padding: 2px 6px;
-      border-radius: 6px;
-      font-size: 0.8rem;
-      border: 1px solid rgba(255, 255, 255, 0.18);
-    }
-
-    #crosshair {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      transform: translate(-50%, -50%);
-      border: 2px solid rgba(224, 232, 255, 0.75);
-      box-shadow: 0 0 12px rgba(127, 90, 240, 0.7);
-      z-index: 3;
-      pointer-events: none;
-    }
-  </style>
-  <script src="https://cdn.babylonjs.com/babylon.js"></script>
-  <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
-</head>
-<body>
-  <div id="start-screen">
-    <div class="logo-glow">Sala da Sofia</div>
-    <p>Entre na praça central do metaverso, explore e conheça NPCs com histórias únicas.</p>
-    <button id="start-button">Entrar no Metaverso</button>
-  </div>
-
-  <div id="loading-screen">Carregando o mundo virtual...</div>
-
-  <div id="mission-tracker"></div>
-  <div id="controls-help"></div>
-  <div id="interaction-prompt"></div>
-  <div id="dialog-box"></div>
-
-  <canvas id="renderCanvas"></canvas>
-  <div id="crosshair"></div>
-
-  <script src="js/metaverso.js"></script>
-</body>
-</html>

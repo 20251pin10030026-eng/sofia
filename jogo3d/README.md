@@ -1,53 +1,67 @@
-# 🎮 Mundo 3D de Sofia
+# 🎮 Metaverso de Sofia
 
-Jogo 3D em primeira pessoa onde você pode explorar o quarto da Sofia e interagir com ela.
+Mundo 3D de exploração livre em primeira pessoa com NPCs inteligentes e chat integrado com IA.
 
 ## 🚀 Como Executar
 
-### Opção 1: Servidor Local Simples (Python)
+### Método Recomendado: Via Servidor Flask
+
+1. Inicie o servidor da Sofia:
+```bash
+cd d:\A.I_GitHUB
+.\.venv\Scripts\python.exe -m sofia.api
+```
+
+2. Acesse no navegador:
+```
+http://localhost:5000/jogo3d
+```
+
+### Método Alternativo: Servidor Python Simples
 
 1. Abra o terminal na pasta `jogo3d`
 2. Execute:
 ```bash
 python -m http.server 8080
 ```
-3. Abra o navegador em: `http://localhost:8080`
+3. Abra: `http://localhost:8080/metaverso.html`
 
-### Opção 2: Live Server (VS Code)
-
-1. Instale a extensão "Live Server" no VS Code
-2. Clique com botão direito em `index.html`
-3. Selecione "Open with Live Server"
-
-### Opção 3: Qualquer servidor web
-
-Basta servir os arquivos da pasta `jogo3d` em qualquer servidor web.
+**Nota**: O chat integrado só funciona com o servidor Flask rodando.
 
 ## 🎮 Controles
 
-- **W A S D** - Mover pelo quarto
-- **Mouse** - Olhar ao redor (arraste o mouse)
+- **W A S D** - Mover pelo mundo
+- **Mouse** - Olhar ao redor (clique para travar ponteiro)
 - **Shift** - Correr
-- **E** - Interagir com Sofia (quando estiver perto)
-- **ESC** - Pausar/Liberar mouse
+- **E** - Interagir com NPCs (quando aparecer prompt)
+- **ESC** - Liberar ponteiro do mouse
+
+## 💬 Chat Integrado
+
+### Funcionalidades
+- ✅ **Janela Arrastável** - Clique e segure no header roxo para mover
+- ✅ **Minimizar** - Botão **−** para colapsar janela
+- ✅ **Fechar** - Botão **×** para esconder completamente
+- ✅ **Chat em Tempo Real** - Converse com Sofia IA durante exploração
+- ✅ **Sincronização** - Mensagens do NPC Sofia aparecem no chat
+
+### Como Usar
+1. A janela de chat aparece automaticamente ao entrar no metaverso
+2. Digite sua mensagem no campo de texto
+3. Pressione **Enter** ou clique em **"Enviar"**
+4. Sofia responderá através da IA (indicador de digitação animado)
+5. Arraste a janela para qualquer posição da tela
+6. Minimize quando não precisar, reabra clicando no header
+
+### Integração com NPC
+- Pressione **E** próximo à Sofia no mundo 3D
+- Ela começará a te seguir pelo mundo
+- Uma mensagem de ativação aparecerá no chat
+- Todas interações com o NPC também aparecem no chat
 
 ## 🌟 Recursos Implementados
 
 ### Ambiente 3D
-- ✅ Quarto completo com paredes, chão e teto
-- ✅ Sistema de colisão (não atravessa paredes)
-- ✅ Iluminação realista (luz hemisférica + direcional)
-- ✅ Física e gravidade
-
-### Móveis
-- ✅ Cama com cabeceira (roxa - cor da Sofia)
-- ✅ Mesa com 4 pernas
-- ✅ Cadeira com encosto
-- ✅ Armário
-
-### Personagens
-- ✅ **Sofia** - Personagem humanóide feminina
-  - Corpo roxo
   - Cabeça com tom de pele
   - Cabelo marrom
   - Olhos pretos
