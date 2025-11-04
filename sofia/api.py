@@ -375,7 +375,7 @@ def index():
 def jogo3d():
     """Página principal do jogo 3D"""
     jogo_dir = ROOT / 'jogo3d'
-    return send_from_directory(jogo_dir, 'index.html')
+    return send_from_directory(jogo_dir, 'metaverso.html')
 
 @app.route('/jogo3d/<path:filename>')
 def jogo3d_files(filename):
