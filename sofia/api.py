@@ -312,12 +312,16 @@ def upload_file():
         if not file.filename or file.filename == '':
             return jsonify({'error': 'Nome de arquivo vazio'}), 400
         
+        print(f"[DEBUG API] Upload recebido: {file.filename}")
+        
         # Salva temporariamente
         temp_path = app.config['UPLOAD_FOLDER'] / file.filename
         file.save(str(temp_path))
+        print(f"[DEBUG API] Arquivo salvo em: {temp_path}")
         
         # Adiciona ao sistema de visão
         resultado = visao.adicionar_arquivo(str(temp_path), file.filename)
+        print(f"[DEBUG API] Resultado do processamento: {resultado}")
         
         # Remove arquivo temporário
         try:
@@ -331,6 +335,7 @@ def upload_file():
             return jsonify(resultado), 400
         
     except Exception as e:
+        print(f"[DEBUG API ERRO] Erro no upload: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/list-files', methods=['GET'])

@@ -88,6 +88,8 @@ class SistemaVisao:
         Adiciona arquivo ao sistema de visão temporária
         Returns: Dict com sucesso e informações do arquivo
         """
+        print(f"[DEBUG adicionar_arquivo] Recebido: {nome_original} ({arquivo_path})")
+        
         if not self.pode_adicionar():
             return {
                 'sucesso': False,
@@ -96,6 +98,8 @@ class SistemaVisao:
         
         # Verifica extensão
         extensao = Path(nome_original).suffix.lower()
+        print(f"[DEBUG adicionar_arquivo] Extensão detectada: {extensao}")
+        
         if extensao not in (self.FORMATOS_IMAGEM | self.FORMATOS_PDF):
             return {
                 'sucesso': False,
@@ -104,6 +108,8 @@ class SistemaVisao:
         
         # Verifica tamanho
         tamanho = os.path.getsize(arquivo_path)
+        print(f"[DEBUG adicionar_arquivo] Tamanho: {tamanho} bytes")
+        
         if tamanho > self.TAMANHO_MAXIMO:
             return {
                 'sucesso': False,
@@ -115,12 +121,16 @@ class SistemaVisao:
         arquivo_id = f"{timestamp}_{nome_original}"
         destino = self.temp_dir / arquivo_id
         
+        print(f"[DEBUG adicionar_arquivo] Copiando para: {destino}")
+        
         # Copia arquivo
         import shutil
         shutil.copy2(arquivo_path, destino)
         
         # Processa conteúdo
+        print(f"[DEBUG adicionar_arquivo] Processando conteúdo...")
         conteudo = self._processar_arquivo(destino, extensao)
+        print(f"[DEBUG adicionar_arquivo] Conteúdo processado: {len(conteudo)} caracteres")
         
         # Salva metadata
         self.arquivos[arquivo_id] = {
@@ -134,6 +144,8 @@ class SistemaVisao:
         }
         self._salvar_metadata()
         
+        print(f"[DEBUG adicionar_arquivo] Arquivo adicionado com sucesso! ID: {arquivo_id}")
+        
         return {
             'sucesso': True,
             'arquivo_id': arquivo_id,
@@ -144,9 +156,13 @@ class SistemaVisao:
     
     def _processar_arquivo(self, path: Path, extensao: str) -> str:
         """Extrai texto/descrição do arquivo"""
+        print(f"[DEBUG] _processar_arquivo chamado: path={path}, extensao={extensao}")
         try:
             if extensao in self.FORMATOS_PDF:
-                return self._extrair_texto_pdf(path)
+                print(f"[DEBUG] Detectado como PDF. PDF_DISPONIVEL={PDF_DISPONIVEL}, PyPDF2={PyPDF2 is not None}")
+                resultado = self._extrair_texto_pdf(path)
+                print(f"[DEBUG] Resultado da extração: {len(resultado)} caracteres")
+                return resultado
             elif extensao in self.FORMATOS_IMAGEM:
                 # Usa analisador visual avançado se disponível
                 if analisador is not None:
@@ -154,22 +170,29 @@ class SistemaVisao:
                 else:
                     return self._analisar_imagem(path)
         except Exception as e:
-            return f"Erro ao processar: {str(e)}"
+            erro = f"Erro ao processar: {str(e)}"
+            print(f"[DEBUG ERRO] {erro}")
+            return erro
         return ""
     
     def _extrair_texto_pdf(self, path: Path) -> str:
         """Extrai texto de PDF"""
+        print(f"[DEBUG PDF] Iniciando extração: PDF_DISPONIVEL={PDF_DISPONIVEL}, PyPDF2={PyPDF2 is not None}")
+        
         if not PDF_DISPONIVEL or PyPDF2 is None:
             erro = "[ERRO INTERNO: PyPDF2 não está disponível]\n"
             erro += "O servidor precisa ser reiniciado após a instalação do PyPDF2.\n"
             erro += "Por favor, reinicie o servidor Flask (Ctrl+C e 'python api.py')"
+            print(f"[DEBUG PDF] {erro}")
             return erro
         
         try:
+            print(f"[DEBUG PDF] Abrindo arquivo: {path}")
             texto = []
             with open(path, 'rb') as f:
                 reader = PyPDF2.PdfReader(f)
                 num_paginas = len(reader.pages)
+                print(f"[DEBUG PDF] PDF tem {num_paginas} páginas")
                 
                 if num_paginas == 0:
                     return "PDF vazio ou sem páginas legíveis."
@@ -178,20 +201,26 @@ class SistemaVisao:
                 for i in range(num_paginas):
                     page = reader.pages[i]
                     texto_pagina = page.extract_text()
+                    print(f"[DEBUG PDF] Página {i+1}: {len(texto_pagina)} caracteres extraídos")
                     if texto_pagina.strip():  # Só adiciona se tiver conteúdo
                         texto.append(f"=== Página {i+1} ===\n{texto_pagina}")
             
             if not texto:
-                return f"PDF com {num_paginas} páginas, mas nenhum texto extraível encontrado (pode ser PDF de imagens/scaneado)."
+                msg = f"PDF com {num_paginas} páginas, mas nenhum texto extraível encontrado (pode ser PDF de imagens/scaneado)."
+                print(f"[DEBUG PDF] {msg}")
+                return msg
             
             resultado = '\n\n'.join(texto)
             
             # Informação sobre o PDF
             info = f"PDF: {num_paginas} páginas, {len(resultado)} caracteres extraídos\n\n"
+            print(f"[DEBUG PDF] Sucesso! {len(resultado)} caracteres totais")
             return info + resultado
             
         except Exception as e:
-            return f"Erro ao processar PDF: {str(e)}\nVerifique se o arquivo não está corrompido."
+            erro = f"Erro ao processar PDF: {str(e)}\nVerifique se o arquivo não está corrompido."
+            print(f"[DEBUG PDF ERRO] {erro}")
+            return erro
     
     def _analisar_imagem(self, path: Path) -> str:
         """Analisa imagem (dimensões, cores, OCR e descrição detalhada)"""
@@ -404,7 +433,10 @@ class SistemaVisao:
         self.limpar_expirados()
         
         pdfs = []
+        print(f"[DEBUG obter_texto_pdf_para_prompt] Total de arquivos: {len(self.arquivos)}")
+        
         for arquivo_id, dados in self.arquivos.items():
+            print(f"[DEBUG] Processando arquivo: {arquivo_id}, extensao={dados['extensao']}")
             if dados['extensao'] in self.FORMATOS_PDF:
                 # Cria nome da variável
                 timestamp = arquivo_id.split('_')[0]
@@ -412,6 +444,7 @@ class SistemaVisao:
                 
                 # Extrai apenas o texto puro (sem cabeçalhos)
                 texto_pdf = dados.get('conteudo', '')
+                print(f"[DEBUG] PDF encontrado! Variável: {var_name}, Tamanho conteúdo: {len(texto_pdf)} chars")
                 
                 pdfs.append({
                     'variavel': var_name,
@@ -419,7 +452,10 @@ class SistemaVisao:
                     'texto': texto_pdf
                 })
         
+        print(f"[DEBUG obter_texto_pdf_para_prompt] Total de PDFs processados: {len(pdfs)}")
+        
         if not pdfs:
+            print(f"[DEBUG obter_texto_pdf_para_prompt] Nenhum PDF encontrado, retornando prompt original")
             return usuario_prompt
         
         # Monta o prompt com as variáveis

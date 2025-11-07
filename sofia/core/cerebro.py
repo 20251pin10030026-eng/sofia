@@ -155,14 +155,18 @@ def perguntar(texto, historico=None, usuario=""):
         from .visao import visao
         
         # Se houver PDFs, prepara o prompt com variáveis pdftex
+        print(f"[DEBUG cerebro] Verificando PDFs no prompt...")
         prompt_com_pdf = visao.obter_texto_pdf_para_prompt(texto)
+        print(f"[DEBUG cerebro] Prompt original: {len(texto)} chars, Prompt com PDF: {len(prompt_com_pdf)} chars")
         
         # Se o prompt mudou (tem PDFs), usa ele; senão usa o original
         if prompt_com_pdf != texto:
             # Tem PDFs - usa o formato especial
+            print(f"[DEBUG cerebro] PDFs detectados! Usando formato especial")
             prompt_final = f"{fatos_importantes}{contexto_historico}{contexto_oculto}\n\n{prompt_com_pdf}\n\nSofia:"
         else:
             # Sem PDFs ou só imagens - usa contexto visual normal
+            print(f"[DEBUG cerebro] Sem PDFs, usando contexto visual normal")
             contexto_visual = visao.obter_contexto_visual()
             prompt_final = f"{fatos_importantes}{contexto_historico}{contexto_visual}{contexto_oculto}\n\nUsuário: {texto}\nSofia:"
         
