@@ -98,6 +98,23 @@ def _salvar_memoria():
     except Exception as e:
         print(f"⚠️ Erro ao salvar memória: {e}")
 
+def _salvar_memoria_forcado(conversas_para_salvar):
+    """Salva conversas específicas forçadamente (usado por limpar)"""
+    _garantir_diretorio()
+    
+    try:
+        dados = {
+            'conversas': conversas_para_salvar,
+            'total_conversas': len(conversas_para_salvar),
+            'ultima_atualizacao': datetime.now().isoformat(),
+            'tamanho_bytes': _calcular_tamanho_memoria()
+        }
+        
+        with open(MEMORIA_ARQUIVO, 'w', encoding='utf-8') as f:
+            json.dump(dados, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"⚠️ Erro ao salvar memória: {e}")
+
 def _salvar_aprendizados():
     """Salva aprendizados no disco"""
     _garantir_diretorio()
@@ -312,7 +329,7 @@ def limpar():
     """Limpa o histórico (mantém aprendizados)"""
     global historico
     historico = []
-    _salvar_memoria()
+    _salvar_memoria_forcado([])  # Força salvamento de lista vazia
     print("🧹 Memória de conversas limpa! (Aprendizados mantidos)")
 
 def limpar_tudo():

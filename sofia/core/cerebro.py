@@ -166,20 +166,47 @@ def perguntar(texto, historico=None, usuario=""):
             contexto_visual = visao.obter_contexto_visual()
             prompt_final = f"{fatos_importantes}{contexto_historico}{contexto_visual}{contexto_oculto}\n\nUsuário: {texto}\nSofia:"
         
-        # Chamar Ollama
-        resposta = requests.post(
-    f"{OLLAMA_HOST}/api/generate",
-    json={
-        "model": "mistral",
-        "prompt": prompt_final,
-        "stream": False,
-       "system": _system_text(),
+        # Checar disponibilidade do serviço de modelo (Ollama)
+        def _model_available(host: str) -> bool:
+            try:
+                # Tentativa simples de conexão GET
+                r = requests.get(host, timeout=2)
+                return True
+            except Exception:
+                return False
 
-    },
-    timeout=600
-)
+        if not _model_available(OLLAMA_HOST):
+            # Mensagem clara para o usuário quando o endpoint não está acessível
+            return (
+                "❌ Serviço de modelo indisponível. Não foi possível conectar a "
+                f"{OLLAMA_HOST}.\n" 
+                "Verifique se o servidor de modelo (ex: Ollama) está em execução e se a variável "
+                "de ambiente OLLAMA_HOST está correta. Tente reiniciar o daemon do modelo."
+            )
 
-        
+        # Chamar Ollama com tratamento de exceções de rede
+        try:
+            resposta = requests.post(
+                f"{OLLAMA_HOST}/api/generate",
+                json={
+                    "model": "mistral",
+                    "prompt": prompt_final,
+                    "stream": False,
+                    "system": _system_text(),
+                },
+                timeout=600,
+            )
+        except requests.exceptions.RequestException as e:
+            # Log interno (silencioso) e retorno amigável
+            try:
+                _log_interno(metadata, texto, f"[ERRO DE CONEXÃO] {e}")
+            except Exception:
+                pass
+            return (
+                "❌ Erro de conexão com o serviço de modelo. "
+                "Verifique se o Ollama está rodando em http://localhost:11434 ou ajuste OLLAMA_HOST."
+            )
+
         if resposta.status_code == 200:
             dados = resposta.json()
             texto_resposta = dados.get("response", "").strip()

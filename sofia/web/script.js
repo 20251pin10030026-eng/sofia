@@ -531,15 +531,22 @@ async function deleteConversation(index) {
             body: JSON.stringify({ index })
         });
         
-        if (response.ok) {
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
             loadConversationsList();
             alert('✅ Conversa deletada!');
+        } else {
+            alert(`❌ Erro: ${result.error || 'Falha ao deletar'}`);
         }
     } catch (error) {
         alert('❌ Erro ao deletar conversa');
         console.error('Erro:', error);
     }
 }
+
+// Expor função globalmente para onclick
+window.deleteConversation = deleteConversation;
 
 // Cleanup actions
 document.getElementById('clear-cache-btn').addEventListener('click', async () => {
