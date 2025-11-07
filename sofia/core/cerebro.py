@@ -36,8 +36,27 @@ def _extrair_informacoes_importantes(texto, historico):
     
     fatos = []
     
-    # Detectar se o usuário está informando seu nome
+    # Detectar se precisa do dicionário de português
     texto_lower = texto.lower()
+    palavras_chave_idioma = [
+        "significa", "significado", "definição", "defina", "o que é",
+        "etimologia", "origem da palavra", "gramatica", "gramática",
+        "conjugação", "como escreve", "como se escreve", "ortografia",
+        "sinônimo", "antônimo", "plural de", "feminino de", "masculino de"
+    ]
+    
+    usa_dicionario = any(palavra in texto_lower for palavra in palavras_chave_idioma)
+    
+    if usa_dicionario:
+        # Buscar dicionário na memória
+        dicionario = memoria.buscar_aprendizado("dicionario_completo", "idioma_portugues_br")
+        if dicionario:
+            fatos.append("📖 DICIONÁRIO DE PORTUGUÊS-BR DISPONÍVEL:")
+            fatos.append("Consulte o dicionário para definições, etimologia e gramática.")
+            # Nota: não incluímos o texto completo aqui pois é muito grande
+            # O dicionário estará disponível se necessário
+    
+    # Detectar se o usuário está informando seu nome
     if any(frase in texto_lower for frase in ["me chame de", "meu nome é", "eu sou", "me lembre que eu sou", "sou o", "sou a"]):
         # Tentar extrair o nome
         import re
@@ -97,6 +116,15 @@ def _system_text():
         " IMPORTANTE: Você possui memória das conversas anteriores. "
         "Use o contexto fornecido para lembrar de informações importantes como nomes, "
         "preferências e fatos mencionados pelo usuário. Seja consistente com a memória."
+    )
+    
+    # Adiciona instrução sobre dicionário de português
+    base += (
+        " IDIOMA PORTUGUÊS-BR: Você tem acesso ao Novo Dicionário da Língua Portuguesa "
+        "de Cândido de Figueiredo completo em sua memória. Use-o para consultar "
+        "definições, etimologia, gramática, conjugações e ortografia. "
+        "Sempre que houver dúvida sobre palavras em português, consulte sua memória "
+        "de idioma para fornecer respostas precisas e detalhadas."
     )
     
     # Instrução especial para PDFs
