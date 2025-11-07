@@ -136,18 +136,18 @@ def perguntar(texto, historico=None, usuario=""):
         # Extrair informações importantes e fatos aprendidos
         fatos_importantes = _extrair_informacoes_importantes(texto, historico)
         
-        # Construir contexto do histórico recente (últimas 10 mensagens)
+        # Construir contexto do histórico recente (últimas 30 mensagens)
         contexto_historico = ""
         if historico:
-            mensagens_recentes = historico[-10:]  # Últimas 10
+            mensagens_recentes = historico[-30:]  # Últimas 30 mensagens (aumentado de 10)
             contexto_historico = "\n### Contexto da Conversa:\n"
             for msg in mensagens_recentes:
                 de = msg.get("de", "Desconhecido")
                 texto_msg = msg.get("texto", "")
                 timestamp = msg.get("timestamp", "")
-                # Limita tamanho de cada mensagem
-                if len(texto_msg) > 150:
-                    texto_msg = texto_msg[:150] + "..."
+                # Limita tamanho de cada mensagem a 100.000 caracteres (aumentado de 150)
+                if len(texto_msg) > 100000:
+                    texto_msg = texto_msg[:100000] + "... [mensagem truncada]"
                 contexto_historico += f"[{timestamp}] {de}: {texto_msg}\n"
             contexto_historico += "###\n"
         

@@ -13,7 +13,8 @@ MEMORIA_DIR = Path(__file__).resolve().parents[1] / ".sofia_internal" / "memoria
 MEMORIA_ARQUIVO = MEMORIA_DIR / "conversas.json"
 APRENDIZADOS_ARQUIVO = MEMORIA_DIR / "aprendizados.json"
 MAX_SIZE_BYTES = 5 * 1024 * 1024 * 1024  # 5 GB
-CONTEXTO_RECENTE = 50  # Número de mensagens recentes mantidas em RAM
+CONTEXTO_RECENTE = 200  # Número de mensagens recentes mantidas em RAM (aumentado de 50)
+MAX_CHARS_POR_MENSAGEM = 100000  # Máximo de 100.000 caracteres por mensagem individual
 
 # Memória em RAM (cache)
 historico = []
@@ -141,16 +142,22 @@ def adicionar(usuario, mensagem, contexto=None):
     
     Args:
         usuario: Nome do usuário
-        mensagem: Texto da mensagem
+        mensagem: Texto da mensagem (até 100.000 caracteres)
         contexto: Dicionário opcional com informações adicionais
     """
     global historico
+    
+    # Validar tamanho da mensagem
+    if len(mensagem) > MAX_CHARS_POR_MENSAGEM:
+        print(f"⚠️ Mensagem muito longa ({len(mensagem)} caracteres). Truncando para {MAX_CHARS_POR_MENSAGEM} caracteres.")
+        mensagem = mensagem[:MAX_CHARS_POR_MENSAGEM] + "... [mensagem truncada automaticamente]"
     
     entrada = {
         "de": usuario,
         "texto": mensagem,
         "timestamp": datetime.now().isoformat(),
-        "contexto": contexto or {}
+        "contexto": contexto or {},
+        "tamanho": len(mensagem)  # Adiciona informação de tamanho
     }
     
     historico.append(entrada)
@@ -164,14 +171,20 @@ def adicionar_resposta_sofia(mensagem, sentimento=None):
     Adiciona uma resposta da Sofia ao histórico
     
     Args:
-        mensagem: Texto da resposta
+        mensagem: Texto da resposta (até 100.000 caracteres)
         sentimento: Sentimento associado à resposta
     """
+    # Validar tamanho da mensagem
+    if len(mensagem) > MAX_CHARS_POR_MENSAGEM:
+        print(f"⚠️ Resposta muito longa ({len(mensagem)} caracteres). Truncando para {MAX_CHARS_POR_MENSAGEM} caracteres.")
+        mensagem = mensagem[:MAX_CHARS_POR_MENSAGEM] + "... [resposta truncada automaticamente]"
+    
     entrada = {
         "de": "Sofia",
         "texto": mensagem,
         "timestamp": datetime.now().isoformat(),
-        "sentimento": sentimento
+        "sentimento": sentimento,
+        "tamanho": len(mensagem)  # Adiciona informação de tamanho
     }
     
     historico.append(entrada)
@@ -274,6 +287,11 @@ def estatisticas():
     
     total_aprendizados = sum(len(cat) for cat in aprendizados.values())
     
+    # Calcular estatísticas de tamanho das mensagens
+    tamanhos = [msg.get("tamanho", len(msg.get("texto", ""))) for msg in historico]
+    tamanho_medio = sum(tamanhos) / len(tamanhos) if tamanhos else 0
+    tamanho_maximo = max(tamanhos) if tamanhos else 0
+    
     stats = f"""
 📊 Estatísticas da Memória de Sofia
 {"="*50}
@@ -282,6 +300,10 @@ def estatisticas():
 📁 Tamanho em disco: {tamanho_mb:.2f} MB ({tamanho_gb:.4f} GB)
 📈 Uso da memória: {percentual:.2f}% de 5 GB
 🔢 Em cache (RAM): {len(historico)} conversas
+📝 Tamanho médio por mensagem: {tamanho_medio:.0f} caracteres
+📏 Maior mensagem: {tamanho_maximo:,} caracteres
+💯 Capacidade por mensagem: {MAX_CHARS_POR_MENSAGEM:,} caracteres
+🔄 Contexto enviado à IA: últimas 30 mensagens
 {"="*50}
 """
     return stats
