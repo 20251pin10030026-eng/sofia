@@ -445,9 +445,10 @@ async function loadConversationsList() {
         
         if (data.conversas && data.conversas.length > 0) {
             listEl.innerHTML = '';
-            data.conversas.forEach((conv, index) => {
+            data.conversas.forEach((conv) => {
                 const item = document.createElement('div');
                 item.className = 'conversation-item';
+                const absoluteIndex = conv._index !== undefined ? conv._index : 0;
                 item.innerHTML = `
                     <div class="conversation-info">
                         <div class="conversation-text">
@@ -458,7 +459,7 @@ async function loadConversationsList() {
                         </div>
                     </div>
                     <div class="conversation-actions">
-                        <button class="btn-icon" onclick="deleteConversation(${index})" title="Deletar">
+                        <button class="btn-icon" onclick="deleteConversation(${absoluteIndex})" title="Deletar">
                             🗑️
                         </button>
                     </div>

@@ -226,9 +226,18 @@ def get_conversations():
                 dados = json.load(f)
                 conversas = dados.get('conversas', [])
         
-        # Retorna últimas 100 conversas
+        # Adiciona índice absoluto a cada conversa para referência
+        conversas_com_indice = []
+        for i, conv in enumerate(conversas):
+            conv_copia = conv.copy()
+            conv_copia['_index'] = i  # Índice absoluto no array completo
+            conversas_com_indice.append(conv_copia)
+        
+        # Retorna últimas 100 conversas com índice absoluto
+        ultimas = conversas_com_indice[-100:] if len(conversas_com_indice) > 100 else conversas_com_indice
+        
         return jsonify({
-            'conversas': conversas[-100:] if len(conversas) > 100 else conversas,
+            'conversas': ultimas,
             'total': len(conversas)
         })
         
@@ -251,14 +260,19 @@ def delete_conversation():
                 conversas = dados.get('conversas', [])
             
             if 0 <= index < len(conversas):
+                # Deletar conversa específica
                 conversas.pop(index)
                 dados['conversas'] = conversas
                 dados['total_conversas'] = len(conversas)
                 
+                # Salvar no disco
                 with open(memoria.MEMORIA_ARQUIVO, 'w', encoding='utf-8') as f:
                     json.dump(dados, f, ensure_ascii=False, indent=2)
                 
-                return jsonify({'success': True})
+                # Recarregar memória em cache (RAM)
+                memoria._carregar_memoria()
+                
+                return jsonify({'success': True, 'message': 'Conversa deletada com sucesso'})
         
         return jsonify({'error': 'Conversa não encontrada'}), 404
         
