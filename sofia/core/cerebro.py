@@ -218,14 +218,29 @@ def perguntar(texto, historico=None, usuario=""):
 
         # Chamar Ollama com tratamento de exceções de rede
         try:
+            # Usa modelo otimizado: llama3.1:8b (mais rápido que mistral)
+            modelo_preferido = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
+            
+            # Configurações otimizadas para usar GPU
+            payload = {
+                "model": modelo_preferido,
+                "prompt": prompt_final,
+                "stream": False,
+                "system": _system_text(),
+                "options": {
+                    "num_gpu": 999,  # Usa todas as camadas possíveis na GPU
+                    "num_thread": 8,  # Threads da CPU para paralelismo  
+                    "num_ctx": 4096,  # Contexto de 4K tokens
+                    "temperature": 0.7,
+                    "top_p": 0.9,
+                }
+            }
+            
+            print(f"[DEBUG cerebro] Usando modelo: {modelo_preferido} com GPU habilitada (num_gpu=999)")
+            
             resposta = requests.post(
                 f"{OLLAMA_HOST}/api/generate",
-                json={
-                    "model": "mistral",
-                    "prompt": prompt_final,
-                    "stream": False,
-                    "system": _system_text(),
-                },
+                json=payload,
                 timeout=600,
             )
         except requests.exceptions.RequestException as e:
