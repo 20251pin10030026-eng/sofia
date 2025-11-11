@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Teste - Botões de Ação</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 2rem;
+            margin: 0;
+        }
+        
+        .demo-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+        
+        h1 {
+            color: #667eea;
+            margin-bottom: 1rem;
+        }
+        
+        .instruction {
+            background: #f0f4ff;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            border-left: 4px solid #667eea;
+        }
+        
+        .message {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            align-items: flex-start;
+        }
+        
+        .message.user {
+            flex-direction: row-reverse;
+        }
+        
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+        
+        .message.user .message-avatar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .message-content {
+            max-width: 70%;
+            padding: 1rem 1.25rem;
+            border-radius: 16px;
+            line-height: 1.5;
+            position: relative;
+        }
+        
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .message-time {
+            font-size: 0.75rem;
+            opacity: 0.7;
+        }
+        
+        .message-time-container {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        
+        .message-icons {
+            display: flex;
+            gap: 0.25rem;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        
+        .message:hover .message-icons {
+            opacity: 1;
+        }
+        
+        .message-icon {
+            font-size: 0.9rem;
+            cursor: pointer;
+            padding: 0.15rem;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .message-icon:hover {
+            transform: scale(1.2);
+        }
+        
+        .stop-icon:hover {
+            background: rgba(255, 68, 68, 0.2);
+        }
+        
+        .edit-icon:hover {
+            background: rgba(76, 175, 80, 0.2);
+        }
+        
+        .message-icon:active {
+            transform: scale(1);
+        }
+        
+        .demo-tip {
+            background: #fff3cd;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 2rem;
+            border-left: 4px solid #ffc107;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <h1>🧪 Demonstração - Botões de Ação</h1>
+        
+        <div class="instruction">
+            <strong>📌 Instruções:</strong><br>
+            Passe o mouse sobre a mensagem do usuário abaixo para ver os botões aparecerem!
+        </div>
+        
+        <div class="message user">
+            <div class="message-avatar">👤</div>
+            <div class="message-content">
+                <div>Olá Sofia! Como você está hoje?</div>
+                <div class="message-time-container">
+                    <div class="message-time">14:30</div>
+                    <div class="message-icons">
+                        <span class="message-icon stop-icon" onclick="alert('⏹️ Resposta interrompida!')" title="Parar">⏹️</span>
+                        <span class="message-icon edit-icon" onclick="alert('✏️ Modo de edição ativado!')" title="Editar">✏️</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="message user">
+            <div class="message-avatar">👤</div>
+            <div class="message-content">
+                <div>Preciso de ajuda com um projeto de IA</div>
+                <div class="message-time-container">
+                    <div class="message-time">14:32</div>
+                    <div class="message-icons">
+                        <span class="message-icon stop-icon" onclick="alert('⏹️ Resposta interrompida!')" title="Parar">⏹️</span>
+                        <span class="message-icon edit-icon" onclick="alert('✏️ Modo de edição ativado!')" title="Editar">✏️</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="demo-tip">
+            <strong>💡 Dica:</strong> No chat real, os ícones funcionam assim:<br><br>
+            <strong>⏹️</strong> Interrompe a resposta da Sofia em tempo real<br>
+            <strong>✏️</strong> Permite editar e reenviar sua mensagem<br><br>
+            Os ícones aparecem discretamente ao lado da hora ao passar o mouse!
+        </div>
+    </div>
+</body>
+</html>

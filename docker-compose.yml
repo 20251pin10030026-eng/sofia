@@ -1,0 +1,39 @@
+# 🌸 Sofia - Docker Compose
+# Para desenvolvimento e testes locais
+
+version: '3.8'
+
+services:
+  sofia:
+    build: .
+    container_name: sofia-app
+    ports:
+      - "8000:8000"
+    environment:
+      - SOFIA_USE_CLOUD=${SOFIA_USE_CLOUD:-true}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_MODEL=${GITHUB_MODEL:-gpt-4o}
+      - PORT=8000
+      - HOST=0.0.0.0
+      - ENVIRONMENT=development
+      - DEBUG=true
+    env_file:
+      - .env
+    volumes:
+      - ./sofia:/app/sofia:ro
+      - ./web:/app/web:ro
+      - sofia-data:/app/.sofia_internal
+      - sofia-logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  sofia-data:
+    driver: local
+  sofia-logs:
+    driver: local

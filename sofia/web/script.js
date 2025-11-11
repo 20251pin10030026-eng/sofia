@@ -1,10 +1,21 @@
 // API Configuration
-const API_URL = 'http://localhost:5000';
+const API_URL = 'http://localhost:8000';
+const WS_URL = 'ws://localhost:8000';
+
+// WebSocket
+let ws = null;
+let sessionId = null;
+let isConnected = false;
+let reconnectAttempts = 0;
+let maxReconnectAttempts = 5;
+let reconnectDelay = 2000;
+let messageQueue = [];
 
 // DOM Elements
 const chatContainer = document.getElementById('chat-container');
 const messageInput = document.getElementById('message-input');
 const sendBtn = document.getElementById('send-btn');
+const webSearchBtn = document.getElementById('web-search-btn');
 const attachBtn = document.getElementById('attach-btn');
 const fileInputChat = document.getElementById('file-input-chat');
 const attachedFilesPreview = document.getElementById('attached-files-preview');
@@ -12,19 +23,216 @@ const attachedFilesList = document.getElementById('attached-files-list');
 const statusText = document.getElementById('status-text');
 const quickBtns = document.querySelectorAll('.quick-btn');
 const statsBtn = document.getElementById('stats-btn');
-const memoryBtn = document.getElementById('memory-btn');
 const settingsBtn = document.getElementById('settings-btn');
-const worldBtn = document.getElementById('world-btn');
 const statsModal = document.getElementById('stats-modal');
-const memoryModal = document.getElementById('memory-modal');
 const settingsModal = document.getElementById('settings-modal');
 
 // Initialize
 let conversationHistory = [];
 let attachedFiles = []; // Array para armazenar arquivos anexados temporariamente
+let webSearchMode = false; // Estado do modo de busca web
+
+// Inicializar WebSocket ao carregar
+document.addEventListener('DOMContentLoaded', async () => {
+    await initializeWebSocket();
+});
+
+// Função para criar sessão
+async function createSession() {
+    try {
+        const response = await fetch(`${API_URL}/api/session/create`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                user_name: 'Usuário'
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Falha ao criar sessão');
+        }
+
+        const data = await response.json();
+        sessionId = data.session_id;
+        console.log('Sessão criada:', sessionId);
+        return sessionId;
+    } catch (error) {
+        console.error('Erro ao criar sessão:', error);
+        updateStatus('disconnected', 'Erro ao conectar');
+        throw error;
+    }
+}
+
+// Função para inicializar WebSocket
+async function initializeWebSocket() {
+    try {
+        await createSession();
+        connectWebSocket();
+    } catch (error) {
+        console.error('Erro ao inicializar:', error);
+        updateStatus('disconnected', 'Erro ao conectar');
+    }
+}
+
+// Função para conectar WebSocket
+function connectWebSocket() {
+    if (!sessionId) {
+        console.error('Session ID não disponível');
+        return;
+    }
+
+    updateStatus('connecting', 'Conectando...');
+
+    try {
+        ws = new WebSocket(`${WS_URL}/ws/${sessionId}`);
+
+        ws.onopen = () => {
+            console.log('WebSocket conectado');
+            isConnected = true;
+            reconnectAttempts = 0;
+            updateStatus('connected', 'Online');
+            processMessageQueue();
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                handleWebSocketMessage(data);
+            } catch (error) {
+                console.error('Erro ao processar mensagem:', error);
+            }
+        };
+
+        ws.onerror = (error) => {
+            console.error('WebSocket erro:', error);
+            updateStatus('disconnected', 'Erro de conexão');
+        };
+
+        ws.onclose = () => {
+            console.log('WebSocket desconectado');
+            isConnected = false;
+            updateStatus('disconnected', 'Desconectada');
+            attemptReconnect();
+        };
+    } catch (error) {
+        console.error('Erro ao criar WebSocket:', error);
+        updateStatus('disconnected', 'Erro ao conectar');
+    }
+}
+
+// Função para tentar reconexão
+function attemptReconnect() {
+    if (reconnectAttempts < maxReconnectAttempts) {
+        reconnectAttempts++;
+        console.log(`Tentativa de reconexão ${reconnectAttempts}/${maxReconnectAttempts}`);
+        updateStatus('connecting', `Reconectando (${reconnectAttempts})...`);
+        
+        setTimeout(() => {
+            connectWebSocket();
+        }, reconnectDelay * reconnectAttempts);
+    } else {
+        updateStatus('disconnected', 'Falha ao reconectar');
+        showNotification('Não foi possível reconectar. Recarregue a página.', 'error');
+    }
+}
+
+// Processar fila de mensagens
+function processMessageQueue() {
+    while (messageQueue.length > 0 && isConnected && ws.readyState === WebSocket.OPEN) {
+        const message = messageQueue.shift();
+        try {
+            ws.send(JSON.stringify(message));
+        } catch (error) {
+            console.error('Erro ao processar fila:', error);
+            messageQueue.unshift(message);
+            break;
+        }
+    }
+}
+
+// Tratar mensagens do WebSocket
+function handleWebSocketMessage(data) {
+    switch (data.type) {
+        case 'system':
+            console.log('Sistema:', data.content);
+            break;
+        
+        case 'ack':
+            console.log('Ack:', data.content);
+            showTypingIndicator();
+            break;
+        
+        case 'response':
+            hideTypingIndicator();
+            addMessage('sofia', data.content);
+            // Adicionar ao histórico
+            conversationHistory.push(
+                { de: 'Sofia', texto: data.content }
+            );
+            break;
+        
+        case 'cancelled':
+            hideTypingIndicator();
+            console.log('⏹️ Processamento cancelado:', data.content);
+            showNotification(data.content, 'warning');
+            break;
+        
+        case 'error':
+            hideTypingIndicator();
+            showNotification(data.content, 'error');
+            break;
+        
+        default:
+            console.log('Mensagem desconhecida:', data);
+    }
+}
+
+// Atualizar status de conexão
+function updateStatus(status, text) {
+    const statusElement = document.querySelector('.status');
+    const statusTextElement = document.getElementById('status-text');
+    
+    if (statusElement) {
+        statusElement.className = `status ${status}`;
+    }
+    
+    if (statusTextElement) {
+        statusTextElement.textContent = text;
+    }
+}
+
+// Indicador de digitação
+function showTypingIndicator() {
+    const existingIndicator = document.querySelector('.typing-indicator');
+    if (!existingIndicator) {
+        const indicator = document.createElement('div');
+        indicator.className = 'typing-indicator';
+        indicator.innerHTML = `
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+            <span style="margin-left: 10px;">Sofia está digitando...</span>
+        `;
+        chatContainer.appendChild(indicator);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+}
+
+function hideTypingIndicator() {
+    const indicator = document.querySelector('.typing-indicator');
+    if (indicator) {
+        indicator.remove();
+    }
+}
 
 // Event Listeners
 sendBtn.addEventListener('click', sendMessage);
+
+// Web Search Button
+webSearchBtn.addEventListener('click', toggleWebSearchMode);
+
 messageInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -62,19 +270,7 @@ quickBtns.forEach(btn => {
 
 // Modal Controls
 statsBtn.addEventListener('click', () => openModal('stats'));
-memoryBtn.addEventListener('click', () => openModal('memory'));
 settingsBtn.addEventListener('click', () => openSettingsModal());
-worldBtn.addEventListener('click', () => {
-    // Detecta se está rodando via file:// ou http://
-    if (window.location.protocol === 'file:') {
-        // Se abriu direto do disco, avisa e abre via localhost
-        alert('⚠️ Atenção!\n\nPara o jogo funcionar corretamente, acesse via:\nhttp://localhost:5000\n\nAbrindo o servidor agora...');
-        window.open('http://localhost:5000/jogo3d', '_blank');
-    } else {
-        // Se já está no servidor, usa caminho relativo
-        window.open('/jogo3d', '_blank');
-    }
-});
 
 document.querySelectorAll('.modal-close').forEach(btn => {
     btn.addEventListener('click', () => closeModals());
@@ -169,6 +365,41 @@ function removeAttachedFile(index) {
     updateAttachedFilesUI();
 }
 
+// Toggle Web Search Mode
+function toggleWebSearchMode() {
+    webSearchMode = !webSearchMode;
+    
+    if (webSearchMode) {
+        webSearchBtn.classList.add('active');
+        webSearchBtn.title = 'Modo Web ATIVO - Clique para desativar';
+        showNotification('🌐 Modo Web ATIVADO - Sofia buscará na internet');
+        
+        // Envia comando para ativar no backend
+        fetch(`${API_URL}/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                message: 'web on',
+                history: []
+            })
+        }).catch(err => console.error('Erro ao ativar modo web:', err));
+    } else {
+        webSearchBtn.classList.remove('active');
+        webSearchBtn.title = 'Buscar na Web';
+        showNotification('🌐 Modo Web DESATIVADO');
+        
+        // Envia comando para desativar no backend
+        fetch(`${API_URL}/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                message: 'web off',
+                history: []
+            })
+        }).catch(err => console.error('Erro ao desativar modo web:', err));
+    }
+}
+
 async function sendMessage() {
     const message = messageInput.value.trim();
     
@@ -198,45 +429,42 @@ async function sendMessage() {
     attachedFiles = [];
     updateAttachedFilesUI();
 
-    // Show typing indicator
-    showTypingIndicator();
-
     try {
         // Prepara mensagem incluindo contexto dos arquivos
         let fullMessage = message || 'Veja os arquivos que enviei.';
         
-        // Send to API
-        const response = await fetch(`${API_URL}/chat`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                message: fullMessage,
-                history: conversationHistory
-            })
-        });
+        // Enviar via WebSocket
+        const wsMessage = {
+            type: 'message',
+            content: fullMessage,
+            user_name: 'Usuário',
+            web_search_mode: webSearchMode  // Incluir estado do modo web
+        };
 
-        const data = await response.json();
+        console.log('📤 Tentando enviar:', wsMessage);
+        console.log('🌐 Modo Web:', webSearchMode);
+        console.log('🔌 WebSocket state:', ws ? ws.readyState : 'NULL');
+        console.log('✅ isConnected:', isConnected);
 
-        // Remove typing indicator
-        removeTypingIndicator();
-
-        if (data.response) {
-            // Add Sofia's response
-            addMessage('sofia', data.response);
-            
-            // Update history
-            conversationHistory.push(
-                { de: 'Usuário', texto: message },
-                { de: 'Sofia', texto: data.response }
-            );
+        if (isConnected && ws.readyState === WebSocket.OPEN) {
+            console.log('✉️ Enviando via WebSocket...');
+            ws.send(JSON.stringify(wsMessage));
+            console.log('✅ Mensagem enviada!');
         } else {
-            addMessage('sofia', '❌ Desculpe, ocorreu um erro ao processar sua mensagem.');
+            console.log('⚠️ WebSocket não conectado, adicionando à fila');
+            // Adicionar à fila se não conectado
+            messageQueue.push(wsMessage);
+            showNotification('Mensagem enviada. Aguardando conexão...', 'warning');
+            updateStatus('connecting', 'Reconectando...');
         }
+        
+        // Update history
+        conversationHistory.push(
+            { de: 'Usuário', texto: message }
+        );
     } catch (error) {
-        removeTypingIndicator();
-        addMessage('sofia', '❌ Não foi possível conectar ao servidor. Certifique-se de que a API está rodando.');
+        hideTypingIndicator();
+        addMessage('sofia', '❌ Não foi possível enviar a mensagem. Tentando reconectar...');
         console.error('Erro:', error);
     }
 }
@@ -253,6 +481,10 @@ function addMessage(sender, text) {
     content.className = 'message-content';
     content.innerHTML = formatMessage(text);
 
+    // Criar container para hora + ícones
+    const timeContainer = document.createElement('div');
+    timeContainer.className = 'message-time-container';
+
     const time = document.createElement('div');
     time.className = 'message-time';
     time.textContent = new Date().toLocaleTimeString('pt-BR', { 
@@ -260,7 +492,34 @@ function addMessage(sender, text) {
         minute: '2-digit' 
     });
 
-    content.appendChild(time);
+    timeContainer.appendChild(time);
+
+    // Adicionar ícones de ação apenas para mensagens do usuário
+    if (sender === 'user') {
+        const iconsDiv = document.createElement('div');
+        iconsDiv.className = 'message-icons';
+
+        // Ícone Stop
+        const stopIcon = document.createElement('span');
+        stopIcon.className = 'message-icon stop-icon';
+        stopIcon.innerHTML = '⏹️';
+        stopIcon.title = 'Parar resposta';
+        stopIcon.onclick = () => stopResponse();
+
+        // Ícone Editar
+        const editIcon = document.createElement('span');
+        editIcon.className = 'message-icon edit-icon';
+        editIcon.innerHTML = '✏️';
+        editIcon.title = 'Editar mensagem';
+        editIcon.onclick = () => editMessage(messageDiv, text);
+
+        iconsDiv.appendChild(stopIcon);
+        iconsDiv.appendChild(editIcon);
+        timeContainer.appendChild(iconsDiv);
+    }
+
+    content.appendChild(timeContainer);
+
     messageDiv.appendChild(avatar);
     messageDiv.appendChild(content);
     chatContainer.appendChild(messageDiv);
@@ -277,32 +536,171 @@ function formatMessage(text) {
         .replace(/\n/g, '<br>');
 }
 
-function showTypingIndicator() {
-    const typingDiv = document.createElement('div');
-    typingDiv.className = 'message sofia typing';
-    typingDiv.id = 'typing-indicator';
-
-    const avatar = document.createElement('div');
-    avatar.className = 'message-avatar';
-    avatar.textContent = '🌸';
-
-    const content = document.createElement('div');
-    content.className = 'message-content';
-    
-    const indicator = document.createElement('div');
-    indicator.className = 'typing-indicator';
-    indicator.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
-    
-    content.appendChild(indicator);
-    typingDiv.appendChild(avatar);
-    typingDiv.appendChild(content);
-    chatContainer.appendChild(typingDiv);
-    chatContainer.scrollTop = chatContainer.scrollHeight;
+// Função para parar a resposta da Sofia
+function stopResponse() {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        // Envia comando de stop para o servidor
+        try {
+            ws.send(JSON.stringify({
+                type: 'stop',
+                session_id: sessionId
+            }));
+        } catch (error) {
+            console.error('Erro ao enviar comando de stop:', error);
+        }
+        
+        // Fecha a conexão WebSocket para forçar interrupção
+        ws.close();
+        hideTypingIndicator();
+        showNotification('⏹️ Processamento interrompido', 'warning');
+        
+        // Reconecta após 500ms
+        setTimeout(() => {
+            connectWebSocket();
+        }, 500);
+    } else {
+        hideTypingIndicator();
+        showNotification('⏹️ Resposta cancelada', 'info');
+    }
 }
 
-function removeTypingIndicator() {
-    const indicator = document.getElementById('typing-indicator');
-    if (indicator) indicator.remove();
+// Função para editar mensagem do usuário
+function editMessage(messageDiv, originalText) {
+    // Remove o conteúdo formatado e mostra um textarea
+    const contentDiv = messageDiv.querySelector('.message-content');
+    const actionsDiv = contentDiv.querySelector('.message-actions');
+    const timeDiv = contentDiv.querySelector('.message-time');
+    
+    // Cria textarea para edição
+    const textarea = document.createElement('textarea');
+    textarea.className = 'edit-textarea';
+    textarea.value = originalText;
+    textarea.rows = 3;
+    
+    // Limpa o conteúdo atual
+    contentDiv.innerHTML = '';
+    contentDiv.appendChild(textarea);
+    
+    // Cria botões de confirmação
+    const editActionsDiv = document.createElement('div');
+    editActionsDiv.className = 'message-actions edit-actions';
+    
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'message-action-btn save-btn';
+    saveBtn.innerHTML = '✅ Salvar';
+    saveBtn.onclick = () => saveEditedMessage(messageDiv, textarea.value, originalText);
+    
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'message-action-btn cancel-btn';
+    cancelBtn.innerHTML = '❌ Cancelar';
+    cancelBtn.onclick = () => cancelEdit(messageDiv, originalText);
+    
+    editActionsDiv.appendChild(saveBtn);
+    editActionsDiv.appendChild(cancelBtn);
+    contentDiv.appendChild(editActionsDiv);
+    
+    // Foca no textarea
+    textarea.focus();
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+}
+
+// Salvar mensagem editada e reenviar
+function saveEditedMessage(messageDiv, newText, oldText) {
+    if (!newText.trim()) {
+        showNotification('❌ A mensagem não pode estar vazia', 'error');
+        return;
+    }
+    
+    // Primeiro, encontra e remove a resposta da Sofia se existir
+    const allMessages = Array.from(chatContainer.querySelectorAll('.message'));
+    const messageIndex = allMessages.indexOf(messageDiv);
+    
+    // Remove a resposta da Sofia que veio depois desta mensagem
+    if (messageIndex !== -1 && messageIndex + 1 < allMessages.length) {
+        const nextMessage = allMessages[messageIndex + 1];
+        if (nextMessage.classList.contains('sofia')) {
+            nextMessage.remove();
+            
+            // Remove do histórico de conversação
+            // Encontra e remove a resposta correspondente
+            const lastSofiaResponse = conversationHistory.findIndex(
+                (msg, idx) => idx > 0 && msg.de === 'Sofia' && 
+                conversationHistory[idx - 1].texto === oldText
+            );
+            if (lastSofiaResponse !== -1) {
+                conversationHistory.splice(lastSofiaResponse, 1);
+            }
+        }
+    }
+    
+    // Remove a mensagem antiga do usuário
+    messageDiv.remove();
+    
+    // Remove do histórico a mensagem antiga do usuário
+    const oldMessageIndex = conversationHistory.findIndex(
+        msg => msg.de === 'Usuário' && msg.texto === oldText
+    );
+    if (oldMessageIndex !== -1) {
+        conversationHistory.splice(oldMessageIndex, 1);
+    }
+    
+    // Atualiza o input com o novo texto
+    messageInput.value = newText;
+    
+    // Envia a mensagem editada como uma nova pergunta
+    sendMessage();
+    
+    showNotification('✏️ Mensagem reenviada', 'success');
+}
+
+// Cancelar edição
+function cancelEdit(messageDiv, originalText) {
+    const contentDiv = messageDiv.querySelector('.message-content');
+    
+    // Restaura o conteúdo original
+    contentDiv.innerHTML = formatMessage(originalText);
+    
+    // Recria container de hora + ícones
+    const timeContainer = document.createElement('div');
+    timeContainer.className = 'message-time-container';
+
+    const time = document.createElement('div');
+    time.className = 'message-time';
+    time.textContent = new Date().toLocaleTimeString('pt-BR', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+    });
+    
+    timeContainer.appendChild(time);
+    
+    // Recria os ícones de ação
+    const iconsDiv = document.createElement('div');
+    iconsDiv.className = 'message-icons';
+    
+    const stopIcon = document.createElement('span');
+    stopIcon.className = 'message-icon stop-icon';
+    stopIcon.innerHTML = '⏹️';
+    stopIcon.title = 'Parar resposta';
+    stopIcon.onclick = () => stopResponse();
+    
+    const editIcon = document.createElement('span');
+    editIcon.className = 'message-icon edit-icon';
+    editIcon.innerHTML = '✏️';
+    editIcon.title = 'Editar mensagem';
+    editIcon.onclick = () => editMessage(messageDiv, originalText);
+    
+    iconsDiv.appendChild(stopIcon);
+    iconsDiv.appendChild(editIcon);
+    timeContainer.appendChild(iconsDiv);
+    
+    contentDiv.appendChild(timeContainer);
+}
+
+function toggleWebSearchMode() {
+    webSearchMode = !webSearchMode;
+    webSearchBtn.classList.toggle('active', webSearchMode);
+    const status = webSearchMode ? 'Modo Web Ativado' : 'Modo Web Desativado';
+    showNotification(`🌍 ${status}`, webSearchMode ? 'success' : 'info');
 }
 
 async function handleQuickAction(action) {
@@ -327,26 +725,20 @@ async function handleQuickAction(action) {
 }
 
 async function openModal(type) {
-    const modal = type === 'stats' ? statsModal : memoryModal;
-    const contentEl = type === 'stats' ? 
-        document.getElementById('stats-content') : 
-        document.getElementById('memory-content');
+    const modal = statsModal;
+    const contentEl = document.getElementById('stats-content');
 
     modal.classList.add('active');
-    contentEl.innerHTML = '<div class="loading">Carregando...</div>';
+    contentEl.innerHTML = '<div class="loading">Carregando estatísticas...</div>';
 
     try {
-        const response = await fetch(`${API_URL}/${type}`);
+        const response = await fetch(`${API_URL}/stats`);
         const data = await response.json();
 
-        if (type === 'stats') {
-            contentEl.innerHTML = formatStats(data);
-        } else {
-            contentEl.innerHTML = formatMemory(data);
-        }
+        contentEl.innerHTML = formatStats(data);
     } catch (error) {
-        contentEl.innerHTML = '<div class="loading">❌ Erro ao carregar dados</div>';
-        console.error('Erro:', error);
+        contentEl.innerHTML = '<div class="loading">❌ Erro ao carregar estatísticas da memória</div>';
+        console.error('Erro ao carregar stats:', error);
     }
 }
 
@@ -357,35 +749,296 @@ function closeModals() {
 }
 
 function formatStats(data) {
+    const totalConversas = data.total_conversas || 0;
+    const totalAprendizados = data.total_aprendizados || 0;
+    const tamanhoMB = data.tamanho_mb || 0;
+    const percentual = data.percentual || 0;
+    const cache = data.cache || 0;
+    const limiteGB = 5;
+    
+    // Calcular espaço disponível
+    const espacoUsadoGB = (tamanhoMB / 1024).toFixed(3);
+    const espacoDisponivelGB = (limiteGB - parseFloat(espacoUsadoGB)).toFixed(3);
+    
+    // Determinar cor da barra de progresso
+    let barColor = '#4CAF50'; // Verde
+    if (percentual > 70) barColor = '#ff9800'; // Laranja
+    if (percentual > 90) barColor = '#f44336'; // Vermelho
+    
     return `
-        <div style="line-height: 1.8;">
-            <p><strong>💾 Conversas:</strong> ${data.total_conversas || 0}</p>
-            <p><strong>🧠 Aprendizados:</strong> ${data.total_aprendizados || 0}</p>
-            <p><strong>📁 Uso de disco:</strong> ${data.tamanho_mb?.toFixed(2) || 0} MB</p>
-            <p><strong>📈 Capacidade:</strong> ${data.percentual?.toFixed(2) || 0}% de 5 GB</p>
-            <p><strong>🔢 Cache (RAM):</strong> ${data.cache || 0} mensagens</p>
+        <div class="stats-container">
+            <!-- Resumo Principal -->
+            <div class="stats-summary">
+                <div class="stat-card">
+                    <div class="stat-icon">💬</div>
+                    <div class="stat-info">
+                        <div class="stat-label">Conversas Salvas</div>
+                        <div class="stat-value">${totalConversas.toLocaleString('pt-BR')}</div>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon">🧠</div>
+                    <div class="stat-info">
+                        <div class="stat-label">Aprendizados</div>
+                        <div class="stat-value">${totalAprendizados.toLocaleString('pt-BR')}</div>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon">🔢</div>
+                    <div class="stat-info">
+                        <div class="stat-label">Cache (RAM)</div>
+                        <div class="stat-value">${cache.toLocaleString('pt-BR')}</div>
+                        <div class="stat-sublabel">mensagens ativas</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Uso de Armazenamento -->
+            <div class="storage-section">
+                <h4 style="margin: 1.5rem 0 1rem 0; color: var(--text-color); font-size: 1rem;">
+                    💾 Armazenamento em Disco
+                </h4>
+                
+                <div class="storage-info">
+                    <div class="storage-row">
+                        <span class="storage-label">Espaço Usado:</span>
+                        <span class="storage-value">${tamanhoMB.toFixed(2)} MB (${espacoUsadoGB} GB)</span>
+                    </div>
+                    <div class="storage-row">
+                        <span class="storage-label">Espaço Disponível:</span>
+                        <span class="storage-value">${espacoDisponivelGB} GB de ${limiteGB} GB</span>
+                    </div>
+                </div>
+                
+                <!-- Barra de Progresso -->
+                <div class="progress-bar-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${percentual}%; background-color: ${barColor};">
+                            <span class="progress-text">${percentual.toFixed(1)}%</span>
+                        </div>
+                    </div>
+                    <div class="progress-labels">
+                        <span>0%</span>
+                        <span>50%</span>
+                        <span>100%</span>
+                    </div>
+                </div>
+                
+                <!-- Detalhes de Uso -->
+                <div class="usage-details">
+                    <div class="usage-item">
+                        <span class="usage-icon">📝</span>
+                        <span class="usage-text">
+                            <strong>Média por conversa:</strong> 
+                            ${totalConversas > 0 ? (tamanhoMB / totalConversas).toFixed(2) : 0} MB
+                        </span>
+                    </div>
+                    <div class="usage-item">
+                        <span class="usage-icon">📈</span>
+                        <span class="usage-text">
+                            <strong>Status:</strong> 
+                            ${percentual < 50 ? '✅ Saudável' : percentual < 80 ? '⚠️ Moderado' : '🔴 Crítico'}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Recomendações -->
+            ${percentual > 70 ? `
+            <div class="recommendations">
+                <h4 style="margin: 1.5rem 0 1rem 0; color: #ff9800; font-size: 1rem;">
+                    ⚠️ Recomendações
+                </h4>
+                <ul style="list-style: none; padding: 0; margin: 0;">
+                    ${percentual > 90 ? '<li style="padding: 0.5rem; margin: 0.25rem 0; background: rgba(244, 67, 54, 0.1); border-left: 3px solid #f44336; border-radius: 4px;">🔴 Espaço crítico! Limpe conversas antigas urgentemente.</li>' : ''}
+                    ${percentual > 70 && percentual <= 90 ? '<li style="padding: 0.5rem; margin: 0.25rem 0; background: rgba(255, 152, 0, 0.1); border-left: 3px solid #ff9800; border-radius: 4px;">⚠️ Considere limpar conversas antigas nas Configurações.</li>' : ''}
+                    <li style="padding: 0.5rem; margin: 0.25rem 0; background: rgba(33, 150, 243, 0.1); border-left: 3px solid #2196F3; border-radius: 4px;">💡 Use o botão ⚙️ Configurações → Limpeza para liberar espaço.</li>
+                </ul>
+            </div>
+            ` : ''}
+            
+            <!-- Footer com timestamp -->
+            <div class="stats-footer">
+                <small style="color: var(--text-muted);">
+                    Atualizado em ${new Date().toLocaleString('pt-BR')}
+                </small>
+            </div>
         </div>
+        
+        <style>
+            .stats-container {
+                padding: 0.5rem;
+            }
+            
+            .stats-summary {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 1rem;
+                margin-bottom: 1.5rem;
+            }
+            
+            .stat-card {
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+                padding: 1rem;
+                background: linear-gradient(135deg, rgba(103, 58, 183, 0.1), rgba(103, 58, 183, 0.05));
+                border-radius: 12px;
+                border: 1px solid rgba(103, 58, 183, 0.2);
+                transition: transform 0.2s ease, box-shadow 0.2s ease;
+            }
+            
+            .stat-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(103, 58, 183, 0.2);
+            }
+            
+            .stat-icon {
+                font-size: 2rem;
+                opacity: 0.9;
+            }
+            
+            .stat-info {
+                flex: 1;
+            }
+            
+            .stat-label {
+                font-size: 0.75rem;
+                color: var(--text-muted);
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin-bottom: 0.25rem;
+            }
+            
+            .stat-value {
+                font-size: 1.75rem;
+                font-weight: bold;
+                color: var(--primary-color);
+                line-height: 1;
+            }
+            
+            .stat-sublabel {
+                font-size: 0.7rem;
+                color: var(--text-muted);
+                margin-top: 0.25rem;
+            }
+            
+            .storage-section {
+                background: rgba(0, 0, 0, 0.2);
+                padding: 1.5rem;
+                border-radius: 12px;
+                margin-bottom: 1rem;
+            }
+            
+            .storage-info {
+                margin-bottom: 1.5rem;
+            }
+            
+            .storage-row {
+                display: flex;
+                justify-content: space-between;
+                padding: 0.5rem 0;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            }
+            
+            .storage-row:last-child {
+                border-bottom: none;
+            }
+            
+            .storage-label {
+                color: var(--text-muted);
+                font-size: 0.9rem;
+            }
+            
+            .storage-value {
+                color: var(--text-color);
+                font-weight: 600;
+                font-size: 0.9rem;
+            }
+            
+            .progress-bar-container {
+                margin: 1rem 0;
+            }
+            
+            .progress-bar {
+                width: 100%;
+                height: 32px;
+                background: rgba(0, 0, 0, 0.3);
+                border-radius: 16px;
+                overflow: hidden;
+                position: relative;
+                box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+            }
+            
+            .progress-fill {
+                height: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: width 0.6s ease, background-color 0.3s ease;
+                position: relative;
+                border-radius: 16px;
+            }
+            
+            .progress-text {
+                font-size: 0.85rem;
+                font-weight: bold;
+                color: white;
+                text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+                z-index: 1;
+            }
+            
+            .progress-labels {
+                display: flex;
+                justify-content: space-between;
+                margin-top: 0.5rem;
+                font-size: 0.75rem;
+                color: var(--text-muted);
+            }
+            
+            .usage-details {
+                margin-top: 1rem;
+                display: flex;
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+            
+            .usage-item {
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                padding: 0.75rem;
+                background: rgba(255, 255, 255, 0.03);
+                border-radius: 8px;
+                border-left: 3px solid var(--primary-color);
+            }
+            
+            .usage-icon {
+                font-size: 1.25rem;
+            }
+            
+            .usage-text {
+                font-size: 0.9rem;
+                color: var(--text-color);
+            }
+            
+            .recommendations {
+                background: rgba(255, 152, 0, 0.05);
+                padding: 1.5rem;
+                border-radius: 12px;
+                border: 1px solid rgba(255, 152, 0, 0.2);
+            }
+            
+            .stats-footer {
+                text-align: center;
+                margin-top: 1.5rem;
+                padding-top: 1rem;
+                border-top: 1px solid rgba(255, 255, 255, 0.1);
+            }
+        </style>
     `;
-}
-
-function formatMemory(data) {
-    if (!data.aprendizados || Object.keys(data.aprendizados).length === 0) {
-        return '<p>Ainda não há aprendizados registrados.</p>';
-    }
-
-    let html = '';
-    for (const [categoria, itens] of Object.entries(data.aprendizados)) {
-        html += `<h4 style="margin-top: 1rem; margin-bottom: 0.5rem;">📂 ${categoria.toUpperCase()}</h4>`;
-        html += '<ul style="list-style: none; padding-left: 0;">';
-        for (const [chave, dados] of Object.entries(itens)) {
-            html += `<li style="margin: 0.5rem 0; padding: 0.5rem; background: var(--bg-color); border-radius: 8px;">
-                <strong>${chave}:</strong> ${dados.valor} 
-                <span style="color: var(--text-muted); font-size: 0.875rem;">(freq: ${dados.frequencia})</span>
-            </li>`;
-        }
-        html += '</ul>';
-    }
-    return html;
 }
 
 // Check API status on load
@@ -585,32 +1238,7 @@ document.getElementById('clear-conversations-btn').addEventListener('click', asy
     }
 });
 
-document.getElementById('clear-all-btn').addEventListener('click', async () => {
-    const confirmed = confirm('⚠️⚠️⚠️ ATENÇÃO!\n\nIsso vai apagar TUDO:\n- Todas as conversas\n- Todos os aprendizados\n- Todo o histórico\n\nEsta ação é IRREVERSÍVEL!\n\nDeseja realmente continuar?');
-    
-    if (!confirmed) return;
-    
-    const doubleCheck = prompt('Digite "APAGAR TUDO" para confirmar:');
-    if (doubleCheck !== 'APAGAR TUDO') {
-        alert('❌ Operação cancelada');
-        return;
-    }
-    
-    try {
-        const response = await fetch(`${API_URL}/clear-all`, {
-            method: 'POST'
-        });
-        
-        if (response.ok) {
-            loadConversationsList();
-            conversationHistory = [];
-            alert('✅ Tudo foi apagado!');
-            location.reload();
-        }
-    } catch (error) {
-        alert('❌ Erro ao limpar tudo');
-    }
-});
+// Botão "Limpar Tudo" removido por segurança
 
 // Preferences
 function loadPreferences() {

@@ -79,7 +79,22 @@ body {
     height: 8px;
     border-radius: 50%;
     background: #10B981;
+}
+
+/* Status de conexão */
+.status.connected .status-dot {
+    background: #10B981;
     animation: pulse 2s infinite;
+}
+
+.status.connecting .status-dot {
+    background: #fbbf24;
+    animation: pulse 1s infinite;
+}
+
+.status.disconnected .status-dot {
+    background: #ef4444;
+    animation: none;
 }
 
 @keyframes pulse {
@@ -238,7 +253,123 @@ body {
 .message-time {
     font-size: 0.75rem;
     color: var(--text-muted);
+}
+
+/* Container para hora + ícones */
+.message-time-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     margin-top: 0.5rem;
+}
+
+/* Ícones de ação */
+.message-icons {
+    display: flex;
+    gap: 0.25rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.message:hover .message-icons {
+    opacity: 1;
+}
+
+.message-icon {
+    font-size: 0.9rem;
+    cursor: pointer;
+    padding: 0.15rem;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.message-icon:hover {
+    transform: scale(1.2);
+}
+
+.stop-icon:hover {
+    background: rgba(255, 68, 68, 0.1);
+}
+
+.edit-icon:hover {
+    background: rgba(76, 175, 80, 0.1);
+}
+
+.message-icon:active {
+    transform: scale(1);
+}
+
+/* Mantém estilos dos botões de edição */
+.message-action-btn {
+    padding: 0.4rem 0.8rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: inherit;
+    font-weight: 500;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.message-action-btn:active {
+    transform: scale(0.95);
+}
+
+.save-btn {
+    background: linear-gradient(135deg, #4CAF50, #388E3C);
+    color: white;
+}
+
+.save-btn:hover {
+    background: linear-gradient(135deg, #388E3C, #2E7D32);
+    box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
+}
+
+.cancel-btn {
+    background: linear-gradient(135deg, #757575, #616161);
+    color: white;
+}
+
+.cancel-btn:hover {
+    background: linear-gradient(135deg, #616161, #424242);
+    box-shadow: 0 4px 8px rgba(117, 117, 117, 0.3);
+}
+
+.edit-actions {
+    opacity: 1 !important;
+    margin-top: 0.5rem;
+    display: flex;
+    gap: 0.5rem;
+}
+
+.edit-actions {
+    opacity: 1 !important;
+}
+
+/* Edit Textarea */
+.edit-textarea {
+    width: 100%;
+    min-height: 80px;
+    padding: 0.75rem;
+    border: 2px solid var(--primary-color);
+    border-radius: 8px;
+    background: var(--bg-color);
+    color: var(--text-color);
+    font-family: inherit;
+    font-size: 0.95rem;
+    resize: vertical;
+    margin-bottom: 0.5rem;
+}
+
+.edit-textarea:focus {
+    outline: none;
+    border-color: var(--primary-hover);
+    box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.1);
 }
 
 .typing-indicator {
@@ -325,6 +456,35 @@ body {
 #message-input:focus {
     outline: none;
     border-color: var(--primary-color);
+}
+
+.web-search-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.web-search-btn:hover {
+    background: var(--border-color);
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    transform: scale(1.05);
+}
+
+.web-search-btn.active {
+    background: var(--sofia-gradient);
+    border-color: var(--primary-color);
+    color: white;
+    box-shadow: 0 4px 12px rgba(255, 105, 180, 0.3);
 }
 
 .send-btn {
@@ -910,6 +1070,44 @@ body {
     }
     to {
         opacity: 1;
+    }
+}
+
+/* Typing Indicator */
+.typing-indicator {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 15px 20px;
+    margin: 10px 0;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.typing-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    animation: typing 1.4s infinite;
+}
+
+.typing-dot:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.typing-dot:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes typing {
+    0%, 60%, 100% {
+        opacity: 0.3;
+        transform: translateY(0);
+    }
+    30% {
+        opacity: 1;
+        transform: translateY(-5px);
     }
 }
 

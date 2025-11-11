@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Guia de Testes - Stop e Editar</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 2rem;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+        
+        h1 {
+            color: #667eea;
+            margin-bottom: 1rem;
+            font-size: 2rem;
+        }
+        
+        h2 {
+            color: #764ba2;
+            margin: 2rem 0 1rem 0;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .test-section {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin: 1rem 0;
+            border-left: 4px solid #667eea;
+        }
+        
+        .step {
+            background: white;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            border-radius: 8px;
+            border-left: 3px solid #4CAF50;
+        }
+        
+        .step-number {
+            display: inline-block;
+            background: #4CAF50;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 30px;
+            margin-right: 0.5rem;
+            font-weight: bold;
+        }
+        
+        .expected {
+            background: #e8f5e9;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+            border-left: 3px solid #4CAF50;
+        }
+        
+        .warning {
+            background: #fff3cd;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            border-left: 3px solid #ffc107;
+        }
+        
+        .code {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+        
+        .highlight {
+            background: #fff9c4;
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+        
+        .icon {
+            font-size: 1.5rem;
+        }
+        
+        ul {
+            margin-left: 2rem;
+            margin-top: 0.5rem;
+        }
+        
+        li {
+            margin: 0.5rem 0;
+            line-height: 1.6;
+        }
+        
+        .visual-demo {
+            display: flex;
+            gap: 1rem;
+            margin: 1rem 0;
+            flex-wrap: wrap;
+        }
+        
+        .demo-box {
+            flex: 1;
+            min-width: 200px;
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .before {
+            background: #ffebee;
+            border: 2px solid #ef5350;
+        }
+        
+        .after {
+            background: #e8f5e9;
+            border: 2px solid #4CAF50;
+        }
+        
+        .arrow {
+            font-size: 2rem;
+            align-self: center;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 0.3rem 0.6rem;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin: 0 0.25rem;
+        }
+        
+        .badge-stop {
+            background: #ffebee;
+            color: #c62828;
+        }
+        
+        .badge-edit {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        
+        .badge-new {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>🧪 Guia de Testes - Stop e Editar</h1>
+            <p style="color: #666; margin-top: 0.5rem;">
+                Guia completo para testar as novas funcionalidades de interrupção e edição de mensagens
+            </p>
+        </div>
+
+        <!-- TESTE 1: STOP -->
+        <div class="card">
+            <h2><span class="icon">⏹️</span> Teste 1: Botão Stop</h2>
+            
+            <div class="test-section">
+                <h3 style="margin-bottom: 1rem;">📋 Objetivo</h3>
+                <p>Verificar se o botão <span class="badge badge-stop">⏹️ Parar</span> interrompe o processamento da resposta da Sofia.</p>
+            </div>
+
+            <div class="step">
+                <span class="step-number">1</span>
+                <strong>Envie uma pergunta longa</strong>
+                <div class="code">Explique detalhadamente a teoria da relatividade de Einstein, incluindo relatividade especial e geral, com exemplos práticos.</div>
+            </div>
+
+            <div class="step">
+                <span class="step-number">2</span>
+                <strong>Aguarde Sofia começar a responder</strong>
+                <p style="margin-top: 0.5rem;">Você verá: <span class="highlight">Sofia está digitando...</span></p>
+            </div>
+
+            <div class="step">
+                <span class="step-number">3</span>
+                <strong>Passe o mouse sobre sua mensagem</strong>
+                <p style="margin-top: 0.5rem;">Os ícones <span class="badge badge-stop">⏹️</span> <span class="badge badge-edit">✏️</span> aparecerão ao lado da hora</p>
+            </div>
+
+            <div class="step">
+                <span class="step-number">4</span>
+                <strong>Clique em ⏹️ Parar</strong>
+                <p style="margin-top: 0.5rem;">Clique rapidamente enquanto ela ainda está digitando</p>
+            </div>
+
+            <div class="expected">
+                <h4 style="margin-bottom: 0.5rem;">✅ Resultado Esperado:</h4>
+                <ul>
+                    <li>Indicador "Sofia está digitando..." <strong>desaparece imediatamente</strong></li>
+                    <li>Aparece notificação: <span class="highlight">⏹️ Processamento interrompido</span></li>
+                    <li>WebSocket reconecta automaticamente (500ms)</li>
+                    <li>Status volta para: <span class="highlight" style="background: #c8e6c9;">● Online</span></li>
+                    <li>Você pode enviar nova mensagem imediatamente</li>
+                </ul>
+            </div>
+
+            <div class="warning">
+                <strong>⚠️ O que verificar no Console (F12):</strong>
+                <div class="code" style="margin-top: 0.5rem;">
+📤 Enviando comando stop: {type: 'stop', ...}
+⏹️ Resposta interrompida
+🔌 WebSocket fechado
+⏳ Reconectando em 500ms...
+✅ Reconectado!
+                </div>
+            </div>
+        </div>
+
+        <!-- TESTE 2: EDITAR -->
+        <div class="card">
+            <h2><span class="icon">✏️</span> Teste 2: Editar Mensagem</h2>
+            
+            <div class="test-section">
+                <h3 style="margin-bottom: 1rem;">📋 Objetivo</h3>
+                <p>Verificar se o botão <span class="badge badge-edit">✏️ Editar</span> permite editar e reenviar a mensagem como <span class="badge badge-new">NOVA PERGUNTA</span>.</p>
+            </div>
+
+            <div class="step">
+                <span class="step-number">1</span>
+                <strong>Envie uma mensagem simples</strong>
+                <div class="code">Olá, como você está?</div>
+            </div>
+
+            <div class="step">
+                <span class="step-number">2</span>
+                <strong>Aguarde a resposta completa da Sofia</strong>
+                <p style="margin-top: 0.5rem;">Exemplo de resposta: <em>"Olá! Estou bem, obrigada por perguntar..."</em></p>
+            </div>
+
+            <div class="step">
+                <span class="step-number">3</span>
+                <strong>Passe o mouse sobre SUA mensagem</strong>
+                <p style="margin-top: 0.5rem;">Aparecerão os ícones: <span class="badge badge-stop">⏹️</span> <span class="badge badge-edit">✏️</span></p>
+            </div>
+
+            <div class="step">
+                <span class="step-number">4</span>
+                <strong>Clique em ✏️ Editar</strong>
+                <p style="margin-top: 0.5rem;">Sua mensagem se transformará em um <span class="highlight">textarea editável</span></p>
+            </div>
+
+            <div class="step">
+                <span class="step-number">5</span>
+                <strong>Edite o texto</strong>
+                <div class="code">Olá Sofia, tudo bem? Como foi seu dia?</div>
+                <p style="margin-top: 0.5rem;">Novos botões aparecem: <span class="badge" style="background: #4CAF50; color: white;">✅ Salvar</span> <span class="badge" style="background: #757575; color: white;">❌ Cancelar</span></p>
+            </div>
+
+            <div class="step">
+                <span class="step-number">6</span>
+                <strong>Clique em ✅ Salvar</strong>
+            </div>
+
+            <div class="expected">
+                <h4 style="margin-bottom: 0.5rem;">✅ Resultado Esperado:</h4>
+                <ul>
+                    <li>Mensagem antiga <strong>desaparece</strong></li>
+                    <li>Resposta antiga da Sofia <strong>desaparece</strong></li>
+                    <li>Nova mensagem é enviada</li>
+                    <li>Nova resposta da Sofia é gerada</li>
+                    <li>Aparece notificação: <span class="highlight">✏️ Mensagem reenviada</span></li>
+                    <li><strong>IMPORTANTE:</strong> A nova resposta NÃO considera a conversa anterior</li>
+                </ul>
+            </div>
+
+            <div class="visual-demo">
+                <div class="demo-box before">
+                    <h4 style="margin-bottom: 0.5rem;">❌ Antes</h4>
+                    <p style="font-size: 0.9rem;">
+                        👤 Olá, como você está?<br>
+                        🌸 Olá! Estou bem...
+                    </p>
+                </div>
+                <div class="arrow">→</div>
+                <div class="demo-box after">
+                    <h4 style="margin-bottom: 0.5rem;">✅ Depois</h4>
+                    <p style="font-size: 0.9rem;">
+                        👤 Olá Sofia, tudo bem? Como foi seu dia?<br>
+                        🌸 [NOVA resposta sem contexto anterior]
+                    </p>
+                </div>
+            </div>
+
+            <div class="warning">
+                <strong>⚠️ O que verificar no Console (F12):</strong>
+                <div class="code" style="margin-top: 0.5rem;">
+✏️ Editando mensagem: "texto antigo"
+🗑️ Removendo resposta da Sofia do DOM
+🗑️ Removendo do histórico: índice X
+📝 Novo texto: "texto editado"
+📤 Enviando como nova mensagem
+✅ Mensagem reenviada
+                </div>
+            </div>
+        </div>
+
+        <!-- TESTE 3: CANCELAR EDIÇÃO -->
+        <div class="card">
+            <h2><span class="icon">❌</span> Teste 3: Cancelar Edição</h2>
+            
+            <div class="step">
+                <span class="step-number">1</span>
+                <strong>Repita os passos 1-5 do Teste 2</strong>
+            </div>
+
+            <div class="step">
+                <span class="step-number">2</span>
+                <strong>Clique em ❌ Cancelar (em vez de Salvar)</strong>
+            </div>
+
+            <div class="expected">
+                <h4 style="margin-bottom: 0.5rem;">✅ Resultado Esperado:</h4>
+                <ul>
+                    <li>Mensagem volta ao estado original</li>
+                    <li>Resposta da Sofia permanece inalterada</li>
+                    <li>Ícones ⏹️ ✏️ voltam a aparecer</li>
+                    <li>Nada é enviado ao servidor</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- TESTE 4: VALIDAÇÕES -->
+        <div class="card">
+            <h2><span class="icon">🛡️</span> Teste 4: Validações</h2>
+            
+            <div class="test-section">
+                <h3 style="margin-bottom: 1rem;">Teste 4.1: Editar para vazio</h3>
+                <div class="step">
+                    <span class="step-number">1</span>
+                    Edite uma mensagem e <strong>delete todo o texto</strong>
+                </div>
+                <div class="step">
+                    <span class="step-number">2</span>
+                    Clique em <span class="badge" style="background: #4CAF50; color: white;">✅ Salvar</span>
+                </div>
+                <div class="expected">
+                    <strong>✅ Resultado:</strong> Aparece erro <span class="highlight" style="background: #ffcdd2;">❌ A mensagem não pode estar vazia</span>
+                </div>
+            </div>
+
+            <div class="test-section">
+                <h3 style="margin-bottom: 1rem;">Teste 4.2: Stop sem conexão</h3>
+                <div class="step">
+                    <span class="step-number">1</span>
+                    Desligue o servidor (Ctrl+C no terminal)
+                </div>
+                <div class="step">
+                    <span class="step-number">2</span>
+                    Tente clicar em ⏹️ Parar
+                </div>
+                <div class="expected">
+                    <strong>✅ Resultado:</strong> Notificação <span class="highlight">⏹️ Resposta cancelada</span> (não quebra a interface)
+                </div>
+            </div>
+        </div>
+
+        <!-- RESUMO -->
+        <div class="card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+            <h2 style="color: white;"><span class="icon">📊</span> Resumo dos Testes</h2>
+            
+            <div style="background: rgba(255,255,255,0.1); padding: 1rem; border-radius: 8px; margin-top: 1rem;">
+                <h3 style="margin-bottom: 1rem;">✅ Checklist</h3>
+                <ul style="list-style: none; margin: 0;">
+                    <li style="padding: 0.5rem 0;">☐ Stop interrompe processamento</li>
+                    <li style="padding: 0.5rem 0;">☐ Stop reconecta automaticamente</li>
+                    <li style="padding: 0.5rem 0;">☐ Editar remove mensagem antiga</li>
+                    <li style="padding: 0.5rem 0;">☐ Editar remove resposta da Sofia</li>
+                    <li style="padding: 0.5rem 0;">☐ Editar limpa histórico interno</li>
+                    <li style="padding: 0.5rem 0;">☐ Editar reenvia como NOVA pergunta</li>
+                    <li style="padding: 0.5rem 0;">☐ Cancelar restaura original</li>
+                    <li style="padding: 0.5rem 0;">☐ Validação de mensagem vazia</li>
+                    <li style="padding: 0.5rem 0;">☐ Notificações aparecem corretamente</li>
+                    <li style="padding: 0.5rem 0;">☐ Console não mostra erros</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

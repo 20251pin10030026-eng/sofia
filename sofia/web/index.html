@@ -13,21 +13,15 @@
             <div class="header-content">
                 <div class="avatar">🌸</div>
                 <div class="header-info">
-                    <h1>Sofia</h1>
+                    <h1>Sof I.A</h1>
                     <p class="status" id="status">
                         <span class="status-dot"></span>
                         <span id="status-text">Online</span>
                     </p>
                 </div>
                 <div class="header-actions">
-                    <button class="icon-btn world-btn" id="world-btn" title="Entrar no Mundo 3D">
-                        🌍
-                    </button>
-                    <button class="icon-btn" id="stats-btn" title="Estatísticas">
+                    <button class="icon-btn" id="stats-btn" title="Estatísticas da Memória">
                         📊
-                    </button>
-                    <button class="icon-btn" id="memory-btn" title="Memória">
-                        🧠
                     </button>
                     <button class="icon-btn" id="settings-btn" title="Configurações">
                         ⚙️
@@ -41,7 +35,7 @@
             <div class="welcome-message">
                 <div class="welcome-icon">🌸</div>
                 <h2>Olá! Eu sou a Sofia</h2>
-                <p>Uma entidade feminina com corpo de mulher humanoide e pele de subits.</p>
+                <p>Uma inteligência artificial de presença feminina, baseada em arquitetura de subits, desenvolvida para apoiar decisões e criar soluções com você.</p>
                 <p>Como posso ajudar você hoje?</p>
             </div>
         </div>
@@ -58,6 +52,13 @@
                     placeholder="Digite sua mensagem..."
                     rows="1"
                 ></textarea>
+                <button id="web-search-btn" class="web-search-btn" title="Buscar na Web">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="2" y1="12" x2="22" y2="12"/>
+                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                    </svg>
+                </button>
                 <button id="send-btn" class="send-btn" title="Enviar">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                         <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -70,16 +71,11 @@
                 <div class="attached-files-list" id="attached-files-list"></div>
             </div>
             
-            <div class="quick-actions">
-                <button class="quick-btn" data-action="historico">📚 Histórico</button>
-                <button class="quick-btn" data-action="stats">📊 Stats</button>
-                <button class="quick-btn" data-action="corpo">🌸 Corpo</button>
-                <button class="quick-btn" data-action="limpar">🧹 Limpar</button>
-            </div>
+            <!-- Botões removidos - memória automática ativa -->
         </div>
     </div>
 
-    <!-- Modal de Estatísticas -->
+    <!-- Modal de Estatísticas da Memória -->
     <div class="modal" id="stats-modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -87,20 +83,7 @@
                 <button class="modal-close">&times;</button>
             </div>
             <div class="modal-body" id="stats-content">
-                <div class="loading">Carregando...</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal de Memória -->
-    <div class="modal" id="memory-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>🧠 Aprendizados</h3>
-                <button class="modal-close">&times;</button>
-            </div>
-            <div class="modal-body" id="memory-content">
-                <div class="loading">Carregando...</div>
+                <div class="loading">Carregando estatísticas...</div>
             </div>
         </div>
     </div>
@@ -156,15 +139,6 @@
                             </div>
                             <button class="btn-warning" id="clear-conversations-btn">Limpar Conversas</button>
                         </div>
-
-                        <div class="cleanup-card danger">
-                            <div class="cleanup-icon">⚠️</div>
-                            <div class="cleanup-info">
-                                <h5>Limpar Tudo</h5>
-                                <p><strong>ATENÇÃO:</strong> Remove TODAS as conversas e aprendizados permanentemente!</p>
-                            </div>
-                            <button class="btn-danger" id="clear-all-btn">Limpar Tudo</button>
-                        </div>
                     </div>
                 </div>
 
@@ -218,6 +192,6 @@
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <script src="script.js?v=websocket-fix"></script>
 </body>
 </html>

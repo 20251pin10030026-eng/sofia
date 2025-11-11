@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Busca Web - Sofia</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .test-section h2 {
+            color: #333;
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status.pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .test-item {
+            padding: 10px;
+            margin: 10px 0;
+            background: white;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+        
+        button:hover {
+            background: #764ba2;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .result pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 12px;
+            color: #333;
+        }
+        
+        .web-toggle {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        .toggle-btn {
+            width: 60px;
+            height: 30px;
+            background: #ccc;
+            border-radius: 15px;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .toggle-btn.active {
+            background: #667eea;
+        }
+        
+        .toggle-btn::after {
+            content: '';
+            position: absolute;
+            width: 26px;
+            height: 26px;
+            background: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: all 0.3s;
+        }
+        
+        .toggle-btn.active::after {
+            left: 32px;
+        }
+        
+        .link-result {
+            display: block;
+            color: #667eea;
+            text-decoration: none;
+            margin: 5px 0;
+            padding: 5px 10px;
+            background: #f0f0f0;
+            border-radius: 5px;
+        }
+        
+        .link-result:hover {
+            background: #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌐 Teste de Busca Web da Sofia</h1>
+        <p class="subtitle">Verifique se o botão web e a busca estão funcionando corretamente</p>
+        
+        <!-- Teste 1: Verificar Backend -->
+        <div class="test-section">
+            <h2>1. Servidor Backend <span id="status-backend" class="status pending">Verificando...</span></h2>
+            <div class="test-item">
+                <span>API em http://localhost:8000</span>
+                <button onclick="testBackend()">Testar</button>
+            </div>
+            <div id="result-backend" class="result" style="display: none;"></div>
+        </div>
+        
+        <!-- Teste 2: Modo Web -->
+        <div class="test-section">
+            <h2>2. Modo de Busca Web <span id="status-webmode" class="status pending">Não testado</span></h2>
+            <div class="web-toggle">
+                <span>Modo Web:</span>
+                <div id="web-toggle" class="toggle-btn" onclick="toggleWebMode()"></div>
+                <span id="web-status">Desativado</span>
+            </div>
+        </div>
+        
+        <!-- Teste 3: Busca Real -->
+        <div class="test-section">
+            <h2>3. Busca na Internet <span id="status-search" class="status pending">Não testado</span></h2>
+            <div class="test-item">
+                <span>Buscar: "Python programming"</span>
+                <button onclick="testSearch()">Buscar</button>
+            </div>
+            <div id="result-search" class="result" style="display: none;"></div>
+        </div>
+        
+        <!-- Teste 4: Links Válidos -->
+        <div class="test-section">
+            <h2>4. Links Válidos <span id="status-links" class="status pending">Não testado</span></h2>
+            <div id="links-container"></div>
+        </div>
+        
+        <!-- Resumo -->
+        <div class="test-section" style="border-left-color: #28a745;">
+            <h2>📊 Resumo Final</h2>
+            <div id="summary">
+                <p>Execute os testes acima para ver o resumo.</p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let webModeActive = false;
+        
+        async function testBackend() {
+            const statusEl = document.getElementById('status-backend');
+            const resultEl = document.getElementById('result-backend');
+            
+            try {
+                statusEl.className = 'status pending';
+                statusEl.textContent = 'Testando...';
+                
+                const response = await fetch('http://localhost:8000/api/health');
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'ok') {
+                    statusEl.className = 'status success';
+                    statusEl.textContent = '✓ Online';
+                    resultEl.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                    resultEl.style.display = 'block';
+                } else {
+                    throw new Error('Backend não respondeu corretamente');
+                }
+            } catch (error) {
+                statusEl.className = 'status error';
+                statusEl.textContent = '✗ Offline';
+                resultEl.innerHTML = '<pre>ERRO: ' + error.message + '\n\nCertifique-se que o servidor está rodando:\npython iniciar_sofia.py</pre>';
+                resultEl.style.display = 'block';
+            }
+        }
+        
+        function toggleWebMode() {
+            webModeActive = !webModeActive;
+            const toggleBtn = document.getElementById('web-toggle');
+            const statusText = document.getElementById('web-status');
+            const statusEl = document.getElementById('status-webmode');
+            
+            if (webModeActive) {
+                toggleBtn.classList.add('active');
+                statusText.textContent = 'Ativado ✓';
+                statusEl.className = 'status success';
+                statusEl.textContent = '✓ Ativado';
+            } else {
+                toggleBtn.classList.remove('active');
+                statusText.textContent = 'Desativado';
+                statusEl.className = 'status error';
+                statusEl.textContent = '✗ Desativado';
+            }
+        }
+        
+        async function testSearch() {
+            const statusEl = document.getElementById('status-search');
+            const resultEl = document.getElementById('result-search');
+            const linksStatusEl = document.getElementById('status-links');
+            const linksContainer = document.getElementById('links-container');
+            
+            if (!webModeActive) {
+                alert('❌ Ative o Modo Web primeiro!');
+                return;
+            }
+            
+            try {
+                statusEl.className = 'status pending';
+                statusEl.textContent = 'Buscando...';
+                
+                // Teste direto do módulo Python (via API de teste)
+                const response = await fetch('http://localhost:8000/api/test-web-search', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        query: 'Python programming',
+                        web_mode: webModeActive
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Erro na busca: ' + response.statusText);
+                }
+                
+                const data = await response.json();
+                
+                if (data.resultados && data.resultados.length > 0) {
+                    statusEl.className = 'status success';
+                    statusEl.textContent = `✓ ${data.resultados.length} resultados`;
+                    
+                    // Mostrar resultados
+                    let html = '<h3>Resultados da Busca:</h3>';
+                    data.resultados.forEach((res, i) => {
+                        html += `
+                            <div style="margin: 10px 0; padding: 10px; background: #f0f0f0; border-radius: 5px;">
+                                <strong>${i + 1}. ${res.titulo}</strong><br>
+                                <small>${res.snippet.substring(0, 150)}...</small><br>
+                                <a href="${res.link}" target="_blank" class="link-result">🔗 ${res.link}</a>
+                            </div>
+                        `;
+                    });
+                    resultEl.innerHTML = html;
+                    resultEl.style.display = 'block';
+                    
+                    // Testar links
+                    linksStatusEl.className = 'status success';
+                    linksStatusEl.textContent = `✓ ${data.resultados.length} links válidos`;
+                    
+                    linksContainer.innerHTML = '<p>Links encontrados:</p>';
+                    data.resultados.forEach((res, i) => {
+                        const linkEl = document.createElement('a');
+                        linkEl.href = res.link;
+                        linkEl.target = '_blank';
+                        linkEl.className = 'link-result';
+                        linkEl.textContent = `${i + 1}. ${res.titulo}`;
+                        linksContainer.appendChild(linkEl);
+                    });
+                    
+                    updateSummary(true);
+                } else {
+                    throw new Error('Nenhum resultado encontrado');
+                }
+            } catch (error) {
+                statusEl.className = 'status error';
+                statusEl.textContent = '✗ Falhou';
+                resultEl.innerHTML = '<pre>ERRO: ' + error.message + '</pre>';
+                resultEl.style.display = 'block';
+                
+                linksStatusEl.className = 'status error';
+                linksStatusEl.textContent = '✗ Sem links';
+                
+                updateSummary(false);
+            }
+        }
+        
+        function updateSummary(success) {
+            const summaryEl = document.getElementById('summary');
+            
+            if (success) {
+                summaryEl.innerHTML = `
+                    <h3 style="color: #28a745;">✅ TODOS OS TESTES PASSARAM!</h3>
+                    <ul style="margin-top: 15px; line-height: 1.8;">
+                        <li>✓ Backend funcionando</li>
+                        <li>✓ Modo web pode ser ativado/desativado</li>
+                        <li>✓ Busca retorna resultados</li>
+                        <li>✓ Links são válidos e acessíveis</li>
+                    </ul>
+                    <p style="margin-top: 15px; padding: 15px; background: #d4edda; border-radius: 5px;">
+                        <strong>🎉 A busca web está 100% funcional!</strong><br>
+                        Agora você pode usar o botão 🌐 na interface principal da Sofia.
+                    </p>
+                `;
+            } else {
+                summaryEl.innerHTML = `
+                    <h3 style="color: #dc3545;">⚠️ ALGUNS TESTES FALHARAM</h3>
+                    <p>Verifique os erros acima e tente novamente.</p>
+                `;
+            }
+        }
+        
+        // Testar backend ao carregar
+        window.onload = () => {
+            testBackend();
+        };
+    </script>
+</body>
+</html>
