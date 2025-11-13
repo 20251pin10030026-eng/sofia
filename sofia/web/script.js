@@ -1143,34 +1143,53 @@ loadPreferences();
 
 function openSettingsModal() {
     console.log('Abrindo modal de configuracoes...');
+    if (!settingsModal) {
+        console.error('settingsModal nao encontrado!');
+        return;
+    }
     settingsModal.classList.add('active');
     loadConversationsList();
 }
 
-// Tab switching
-document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        console.log('Tab clicada:', btn.dataset.tab);
-        // Remove active from all tabs and contents
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+// Tab switching - executar quando DOM estiver pronto
+function initTabSwitching() {
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    console.log('Inicializando tabs. Encontrados:', tabButtons.length);
+    
+    tabButtons.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const tabId = btn.dataset.tab;
+            console.log('Tab clicada:', tabId);
+            
+            // Remove active from all tabs and contents
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
 
-        // Add active to clicked tab
-        btn.classList.add('active');
-        const tabId = btn.dataset.tab;
-        const tabContent = document.getElementById(tabId);
-        if (tabContent) {
-            tabContent.classList.add('active');
-        } else {
-            console.error('Tab content nao encontrado:', tabId);
-        }
+            // Add active to clicked tab
+            btn.classList.add('active');
+            const tabContent = document.getElementById(tabId);
+            if (tabContent) {
+                tabContent.classList.add('active');
+                console.log('Tab content ativado:', tabId);
+            } else {
+                console.error('Tab content nao encontrado:', tabId);
+            }
 
-        // Load data for specific tabs
-        if (tabId === 'memory-tab') {
-            loadConversationsList();
-        }
+            // Load data for specific tabs
+            if (tabId === 'memory-tab') {
+                loadConversationsList();
+            }
+        });
     });
-});
+}
+
+// Chamar inicializacao quando DOM estiver pronto
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initTabSwitching);
+} else {
+    initTabSwitching();
+}
 
 // Load conversations list
 async function loadConversationsList() {
