@@ -1,0 +1,3 @@
+# Este arquivo esta vazio porque o Azure Static Web App
+# serve apenas arquivos estaticos (HTML, CSS, JS)
+# A API Python roda localmente via ngrok
