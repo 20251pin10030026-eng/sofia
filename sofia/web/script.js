@@ -797,17 +797,26 @@ async function openModal(type) {
     const modal = statsModal;
     const contentEl = document.getElementById('stats-content');
 
+    console.log('Abrindo modal de estatisticas...');
     modal.classList.add('active');
-    contentEl.innerHTML = '<div class="loading">Carregando estatísticas...</div>';
+    contentEl.innerHTML = '<div class="loading">Carregando estatisticas...</div>';
 
     try {
+        console.log('Buscando stats de:', `${API_URL}/stats`);
         const response = await fetch(`${API_URL}/stats`);
+        console.log('Response status:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const data = await response.json();
+        console.log('Stats recebidos:', data);
 
         contentEl.innerHTML = formatStats(data);
     } catch (error) {
-        contentEl.innerHTML = '<div class="loading">❌ Erro ao carregar estatísticas da memória</div>';
         console.error('Erro ao carregar stats:', error);
+        contentEl.innerHTML = '<div class="loading">Erro ao carregar estatisticas da memoria. Verifique o console.</div>';
     }
 }
 
@@ -1133,6 +1142,7 @@ loadPreferences();
 // ========== SETTINGS MODAL FUNCTIONS ==========
 
 function openSettingsModal() {
+    console.log('Abrindo modal de configuracoes...');
     settingsModal.classList.add('active');
     loadConversationsList();
 }
@@ -1140,6 +1150,7 @@ function openSettingsModal() {
 // Tab switching
 document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
+        console.log('Tab clicada:', btn.dataset.tab);
         // Remove active from all tabs and contents
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
@@ -1147,7 +1158,12 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
         // Add active to clicked tab
         btn.classList.add('active');
         const tabId = btn.dataset.tab;
-        document.getElementById(tabId).classList.add('active');
+        const tabContent = document.getElementById(tabId);
+        if (tabContent) {
+            tabContent.classList.add('active');
+        } else {
+            console.error('Tab content nao encontrado:', tabId);
+        }
 
         // Load data for specific tabs
         if (tabId === 'memory-tab') {
@@ -1159,9 +1175,15 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 // Load conversations list
 async function loadConversationsList() {
     const listEl = document.getElementById('conversations-list');
+    if (!listEl) {
+        console.error('Elemento conversations-list nao encontrado!');
+        return;
+    }
+    
     listEl.innerHTML = '<div class="loading">Carregando conversas...</div>';
 
     try {
+        console.log('Buscando conversas de:', `${API_URL}/conversations`);
         const response = await fetch(`${API_URL}/conversations`);
         const data = await response.json();
 
