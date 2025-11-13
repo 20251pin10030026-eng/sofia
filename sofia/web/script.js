@@ -1,6 +1,6 @@
 // API Configuration
-const API_URL = window.location.origin;
-const WS_URL = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host;
+const API_URL = 'https://fbac76565604.ngrok-free.app';
+const WS_URL = 'wss://fbac76565604.ngrok-free.app';
 
 // WebSocket
 let ws = null;
