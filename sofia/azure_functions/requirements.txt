@@ -1,0 +1,11 @@
+# Azure Functions Requirements
+azure-functions==1.18.0
+azure-functions-worker==1.26.0
+
+# Core dependencies
+requests==2.31.0
+cryptography>=41.0.0
+python-dotenv>=1.0.0
+
+# FastAPI não é necessário para Functions
+# websockets não é necessário para Functions

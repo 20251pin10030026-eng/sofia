@@ -2,9 +2,12 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>🌸 Sofia - Assistente Virtual</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <div class="container">
@@ -20,6 +23,9 @@
                     </p>
                 </div>
                 <div class="header-actions">
+                    <button class="icon-btn" id="metaverse-btn" title="Entrar no Metaverso 3D">
+                        🌐
+                    </button>
                     <button class="icon-btn" id="stats-btn" title="Estatísticas da Memória">
                         📊
                     </button>
@@ -49,7 +55,7 @@
                 <input type="file" id="file-input-chat" accept="image/*,.pdf" multiple hidden>
                 <textarea 
                     id="message-input" 
-                    placeholder="Digite sua mensagem..."
+                    placeholder="Digite aqui..."
                     rows="1"
                 ></textarea>
                 <button id="web-search-btn" class="web-search-btn" title="Buscar na Web">
@@ -192,6 +198,56 @@
         </div>
     </div>
 
-    <script src="script.js?v=websocket-fix"></script>
+    <!-- Modal do Metaverso 3D com NPCs (Babylon.js) -->
+    <div class="modal" id="metaverse-modal">
+        <div class="modal-content modal-fullscreen">
+            <div class="modal-header">
+                <h3>🌐 Metaverso Sofia — Mundo Livre com NPCs</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body metaverse-body">
+                <div id="metaverse-container">
+                    <!-- Canvas será criado dinamicamente pelo Babylon.js -->
+                    <div class="metaverse-crosshair"></div>
+                </div>
+                
+                <div id="mission-tracker">
+                    <h3>📋 Missões</h3>
+                    <p>Carregando...</p>
+                </div>
+                
+                <div id="controls-help">
+                    <h3>🎮 Controles</h3>
+                    <p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> - Mover</p>
+                    <p><kbd>Mouse</kbd> - Olhar</p>
+                    <p><kbd>Shift</kbd> - Correr</p>
+                    <p><kbd>E</kbd> - Interagir com NPCs</p>
+                </div>
+                
+                <div id="interaction-prompt"></div>
+                <div id="dialog-box"></div>
+                
+                <div class="metaverse-status" id="metaverse-status">
+                    Sofia está pensando... 💭
+                </div>
+                
+                <div class="metaverse-chat">
+                    <div id="metaverse-messages"></div>
+                    <div class="metaverse-input">
+                        <input type="text" id="metaverse-input-text" placeholder="Converse com Sofia no metaverso..." autocomplete="off">
+                        <button id="metaverse-send-btn">📤</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Babylon.js CDN -->
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+    
+    <!-- Scripts do projeto -->
+    <script src="/static/script.js?v=websocket-fix"></script>
+    <script src="/static/metaverse_babylon.js"></script>
 </body>
 </html>

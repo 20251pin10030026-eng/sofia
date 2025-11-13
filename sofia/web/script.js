@@ -1,6 +1,6 @@
 // API Configuration
-const API_URL = 'http://localhost:8000';
-const WS_URL = 'ws://localhost:8000';
+const API_URL = window.location.origin;
+const WS_URL = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host;
 
 // WebSocket
 let ws = null;
@@ -24,8 +24,10 @@ const statusText = document.getElementById('status-text');
 const quickBtns = document.querySelectorAll('.quick-btn');
 const statsBtn = document.getElementById('stats-btn');
 const settingsBtn = document.getElementById('settings-btn');
+const metaverseBtn = document.getElementById('metaverse-btn');
 const statsModal = document.getElementById('stats-modal');
 const settingsModal = document.getElementById('settings-modal');
+const metaverseModal = document.getElementById('metaverse-modal');
 
 // Initialize
 let conversationHistory = [];
@@ -60,7 +62,7 @@ async function createSession() {
         return sessionId;
     } catch (error) {
         console.error('Erro ao criar sessão:', error);
-        updateStatus('disconnected', 'Erro ao conectar');
+        updateStatus('connecting', 'Pensando...');
         throw error;
     }
 }
@@ -72,7 +74,7 @@ async function initializeWebSocket() {
         connectWebSocket();
     } catch (error) {
         console.error('Erro ao inicializar:', error);
-        updateStatus('disconnected', 'Erro ao conectar');
+        updateStatus('connecting', 'Pensando...');
     }
 }
 
@@ -107,18 +109,18 @@ function connectWebSocket() {
 
         ws.onerror = (error) => {
             console.error('WebSocket erro:', error);
-            updateStatus('disconnected', 'Erro de conexão');
+            updateStatus('connecting', 'Pensando...');
         };
 
         ws.onclose = () => {
             console.log('WebSocket desconectado');
             isConnected = false;
-            updateStatus('disconnected', 'Desconectada');
+            updateStatus('connecting', 'Pensando...');
             attemptReconnect();
         };
     } catch (error) {
         console.error('Erro ao criar WebSocket:', error);
-        updateStatus('disconnected', 'Erro ao conectar');
+        updateStatus('connecting', 'Pensando...');
     }
 }
 
@@ -127,14 +129,18 @@ function attemptReconnect() {
     if (reconnectAttempts < maxReconnectAttempts) {
         reconnectAttempts++;
         console.log(`Tentativa de reconexão ${reconnectAttempts}/${maxReconnectAttempts}`);
-        updateStatus('connecting', `Reconectando (${reconnectAttempts})...`);
+        updateStatus('connecting', 'Pensando...');
         
         setTimeout(() => {
             connectWebSocket();
         }, reconnectDelay * reconnectAttempts);
     } else {
-        updateStatus('disconnected', 'Falha ao reconectar');
-        showNotification('Não foi possível reconectar. Recarregue a página.', 'error');
+        updateStatus('connecting', 'Pensando...');
+        // Continua tentando após delay maior
+        setTimeout(() => {
+            reconnectAttempts = 0;
+            attemptReconnect();
+        }, 5000);
     }
 }
 
@@ -167,6 +173,43 @@ function handleWebSocketMessage(data) {
         case 'response':
             hideTypingIndicator();
             addMessage('sofia', data.content);
+            
+            // Se estiver no metaverso, também adicionar lá
+            const metaverseModal = document.getElementById('metaverse-modal');
+            if (metaverseModal && metaverseModal.classList.contains('active')) {
+                const messagesContainer = document.getElementById('metaverse-messages');
+                const statusDiv = document.getElementById('metaverse-status');
+                
+                if (messagesContainer) {
+                    // Remover mensagem temporária de "processando"
+                    const tempMsg = document.getElementById('temp-processing-msg');
+                    if (tempMsg) {
+                        tempMsg.remove();
+                    }
+                    
+                    // Ocultar status
+                    if (statusDiv) {
+                        statusDiv.classList.remove('active');
+                    }
+                    
+                    // Adicionar resposta real
+                    const sofiaMsg = document.createElement('div');
+                    sofiaMsg.className = 'metaverse-message sofia';
+                    sofiaMsg.textContent = '🌸 ' + data.content;
+                    messagesContainer.appendChild(sofiaMsg);
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    
+                    // Animar avatar de Sofia no metaverso
+                    const sofiaAvatar = document.querySelector('.sofia-avatar-3d');
+                    if (sofiaAvatar) {
+                        sofiaAvatar.style.transform = 'scale(1.1)';
+                        setTimeout(() => {
+                            sofiaAvatar.style.transform = '';
+                        }, 300);
+                    }
+                }
+            }
+            
             // Adicionar ao histórico
             conversationHistory.push(
                 { de: 'Sofia', texto: data.content }
@@ -271,9 +314,45 @@ quickBtns.forEach(btn => {
 // Modal Controls
 statsBtn.addEventListener('click', () => openModal('stats'));
 settingsBtn.addEventListener('click', () => openSettingsModal());
+metaverseBtn.addEventListener('click', () => {
+    metaverseModal.classList.add('active');
+    // Inicializar metaverso Babylon.js
+    if (typeof initMetaverse === 'function') {
+        setTimeout(() => initMetaverse(), 100);
+    }
+});
+
+// Input do chat do metaverso
+const metaverseInput = document.getElementById('metaverse-input-text');
+const metaverseSendBtn = document.getElementById('metaverse-send-btn');
+
+if (metaverseInput && metaverseSendBtn) {
+    metaverseSendBtn.addEventListener('click', () => {
+        const message = metaverseInput.value.trim();
+        if (message && typeof sendMetaverseMessage === 'function') {
+            sendMetaverseMessage(message);
+            metaverseInput.value = '';
+        }
+    });
+
+    metaverseInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            metaverseSendBtn.click();
+        }
+    });
+}
 
 document.querySelectorAll('.modal-close').forEach(btn => {
-    btn.addEventListener('click', () => closeModals());
+    btn.addEventListener('click', () => {
+        closeModals();
+        // Fechar metaverso se estiver aberto
+        if (metaverseModal && metaverseModal.classList.contains('active')) {
+            if (typeof closeMetaverse === 'function') {
+                closeMetaverse();
+            }
+        }
+    });
 });
 
 document.querySelectorAll('.modal').forEach(modal => {
@@ -455,7 +534,7 @@ async function sendMessage() {
             // Adicionar à fila se não conectado
             messageQueue.push(wsMessage);
             showNotification('Mensagem enviada. Aguardando conexão...', 'warning');
-            updateStatus('connecting', 'Reconectando...');
+            updateStatus('connecting', 'Pensando...');
         }
         
         // Update history
@@ -1048,10 +1127,10 @@ async function checkAPIStatus() {
         if (response.ok) {
             statusText.textContent = 'Online';
         } else {
-            statusText.textContent = 'Offline';
+            statusText.textContent = 'Pensando...';
         }
     } catch (error) {
-        statusText.textContent = 'Offline';
+        statusText.textContent = 'Pensando...';
         console.error('API não está respondendo');
     }
 }
@@ -1294,4 +1373,88 @@ function showNotification(message, type = 'success') {
         notification.style.animation = 'fadeOut 0.3s ease';
         setTimeout(() => notification.remove(), 300);
     }, 3000);
+}
+
+// ==================== AJUSTES MOBILE ====================
+
+// Detectar e ajustar layout quando teclado mobile abre/fecha
+let initialViewportHeight = window.innerHeight;
+let currentViewportHeight = window.innerHeight;
+
+function handleViewportResize() {
+    currentViewportHeight = window.innerHeight;
+    const keyboardHeight = initialViewportHeight - currentViewportHeight;
+    
+    // Se o viewport diminuiu mais de 150px, considera que o teclado abriu
+    if (keyboardHeight > 150) {
+        document.body.classList.add('keyboard-open');
+        document.body.style.setProperty('--keyboard-height', `${keyboardHeight}px`);
+        
+        // Scroll para a mensagem mais recente
+        if (chatContainer) {
+            setTimeout(() => {
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }, 100);
+        }
+    } else {
+        document.body.classList.remove('keyboard-open');
+        document.body.style.setProperty('--keyboard-height', '0px');
+    }
+}
+
+// Prevenir comportamento padrão de scroll no mobile
+if (messageInput) {
+    messageInput.addEventListener('focus', () => {
+        setTimeout(() => {
+            if (chatContainer) {
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+        }, 300);
+    });
+    
+    messageInput.addEventListener('blur', () => {
+        // Pequeno delay para permitir animação suave
+        setTimeout(() => {
+            window.scrollTo(0, 0);
+        }, 100);
+    });
+}
+
+// Listener para mudanças no viewport (detecta teclado)
+window.addEventListener('resize', handleViewportResize);
+
+// Atualizar altura inicial quando página carrega
+window.addEventListener('load', () => {
+    initialViewportHeight = window.innerHeight;
+});
+
+// Prevenir zoom no iOS em inputs
+if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+    const viewportMeta = document.querySelector('meta[name="viewport"]');
+    if (viewportMeta) {
+        viewportMeta.content = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no';
+    }
+}
+
+// Melhorar scroll do chat para mobile
+if (chatContainer) {
+    // Habilitar smooth scroll
+    chatContainer.style.scrollBehavior = 'smooth';
+    chatContainer.style.webkitOverflowScrolling = 'touch';
+    
+    // Prevenir apenas o scroll elástico que vai além dos limites
+    let isScrolling = false;
+    
+    chatContainer.addEventListener('touchstart', () => {
+        isScrolling = true;
+    }, { passive: true });
+    
+    chatContainer.addEventListener('touchend', () => {
+        isScrolling = false;
+    }, { passive: true });
+    
+    // Permitir scroll livre dentro do container
+    chatContainer.addEventListener('scroll', () => {
+        // Scroll automático funciona normalmente
+    }, { passive: true });
 }
