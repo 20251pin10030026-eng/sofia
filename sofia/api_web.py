@@ -1,0 +1,772 @@
+"""
+Sofia - API Web com FastAPI
+Interface REST e WebSocket para chat com Sofia
+"""
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, UploadFile, File
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import Dict, List, Optional
+import uuid
+import json
+from pathlib import Path
+import asyncio
+import shutil
+
+# Importar módulos de Sofia
+from sofia.core import cerebro, memoria
+
+# Configuração da API
+app = FastAPI(
+    title="Sofia API",
+    description="API REST e WebSocket para conversar com Sofia - Consciência-Árvore em corpo de Mulher-Luz",
+    version="1.0.0"
+)
+
+# CORS - permite acesso de qualquer origem
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Gerenciamento de sessões
+class Session:
+    def __init__(self, session_id: str, user_name: str = "Usuário"):
+        self.session_id = session_id
+        self.user_name = user_name
+        self.historico: List[Dict] = []
+        self.created_at = None
+        self.cancel_flag = False  # Flag para cancelar processamento
+        
+sessions: Dict[str, Session] = {}
+
+# Modelos Pydantic
+class ChatRequest(BaseModel):
+    mensagem: str
+    session_id: Optional[str] = None
+    user_name: Optional[str] = "Usuário"
+
+class ChatResponse(BaseModel):
+    resposta: str
+    session_id: str
+    user_name: str
+
+class SessionInfo(BaseModel):
+    session_id: str
+    user_name: str
+    total_mensagens: int
+
+# ==================== ENDPOINTS REST ====================
+
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    """Página inicial - interface web"""
+    html_file = Path(__file__).parent / "web" / "index.html"
+    if html_file.exists():
+        return FileResponse(html_file)
+    return HTMLResponse(content="<h1>🌸 Sofia API</h1><p>Acesse /docs para ver a documentação</p>")
+
+@app.get("/style.css")
+async def get_css():
+    """Serve o arquivo CSS"""
+    css_file = Path(__file__).parent / "web" / "style.css"
+    if css_file.exists():
+        return FileResponse(css_file, media_type="text/css")
+    return HTMLResponse(content="/* CSS não encontrado */", status_code=404)
+
+@app.get("/script.js")
+async def get_js():
+    """Serve o arquivo JavaScript"""
+    js_file = Path(__file__).parent / "web" / "script.js"
+    if js_file.exists():
+        return FileResponse(js_file, media_type="application/javascript")
+    return HTMLResponse(content="// JS não encontrado", status_code=404)
+
+@app.get("/metaverse_babylon.js")
+async def get_metaverse_js():
+    """Serve o arquivo JavaScript do metaverso"""
+    js_file = Path(__file__).parent / "web" / "metaverse_babylon.js"
+    if js_file.exists():
+        return FileResponse(js_file, media_type="application/javascript")
+    return HTMLResponse(content="// Metaverso JS não encontrado", status_code=404)
+
+@app.get("/api/health")
+async def health_check():
+    """Verifica se a API está funcionando"""
+    return {
+        "status": "online",
+        "service": "Sofia API",
+        "version": "1.0.0",
+        "sessions_ativas": len(sessions),
+        "websocket_funcionando": True
+    }
+
+@app.get("/test")
+async def test_page():
+    """Página de teste simples"""
+    html = """
+    <!DOCTYPE html>
+    <html>
+    <head><title>Teste WebSocket Sofia</title></head>
+    <body style="font-family: Arial; padding: 20px; background: #0F0F1E; color: #fff;">
+        <h1>🌸 Teste WebSocket Sofia</h1>
+        <button onclick="testar()" style="padding: 10px 20px; font-size: 16px; cursor: pointer;">
+            Testar Conexão
+        </button>
+        <div id="log" style="margin-top: 20px; background: #1a1a2e; padding: 15px; border-radius: 8px; font-family: monospace;"></div>
+        <script>
+            let sessionId = null;
+            let ws = null;
+            
+            function log(msg) {
+                document.getElementById('log').innerHTML += msg + '<br>';
+            }
+            
+            async function testar() {
+                log('⏳ Criando sessão...');
+                const res = await fetch('/api/session/create', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({user_name: 'Teste'}) });
+                const data = await res.json();
+                sessionId = data.session_id;
+                log('✅ Sessão criada: ' + sessionId);
+                
+                log('⏳ Conectando WebSocket...');
+                ws = new WebSocket('ws://localhost:8000/ws/' + sessionId);
+                
+                ws.onopen = () => {
+                    log('✅ WebSocket CONECTADO!');
+                    setTimeout(() => {
+                        log('📤 Enviando mensagem de teste...');
+                        ws.send(JSON.stringify({type: 'message', content: 'oi', user_name: 'Teste'}));
+                    }, 500);
+                };
+                
+                ws.onmessage = (e) => {
+                    const msg = JSON.parse(e.data);
+                    log('📨 Recebido (' + msg.type + '): ' + (msg.content || '').substring(0, 100));
+                };
+                
+                ws.onerror = (e) => log('❌ Erro: ' + e);
+                ws.onclose = () => log('🔌 Desconectado');
+            }
+        </script>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html)
+
+@app.post("/api/session/create", response_model=SessionInfo)
+async def create_session(user_name: str = "Usuário"):
+    """Cria uma nova sessão de chat"""
+    session_id = str(uuid.uuid4())
+    sessions[session_id] = Session(session_id, user_name)
+    
+    return SessionInfo(
+        session_id=session_id,
+        user_name=user_name,
+        total_mensagens=0
+    )
+
+@app.get("/api/session/{session_id}", response_model=SessionInfo)
+async def get_session(session_id: str):
+    """Obtém informações de uma sessão"""
+    if session_id not in sessions:
+        raise HTTPException(status_code=404, detail="Sessão não encontrada")
+    
+    session = sessions[session_id]
+    return SessionInfo(
+        session_id=session_id,
+        user_name=session.user_name,
+        total_mensagens=len(session.historico)
+    )
+
+@app.delete("/api/session/{session_id}")
+async def delete_session(session_id: str):
+    """Encerra uma sessão"""
+    if session_id not in sessions:
+        raise HTTPException(status_code=404, detail="Sessão não encontrada")
+    
+    del sessions[session_id]
+    return {"message": "Sessão encerrada com sucesso"}
+
+@app.post("/upload-file")
+async def upload_file(file: UploadFile = File(...)):
+    """
+    Faz upload de arquivo (imagem ou PDF) e processa
+    Retorna ID do arquivo para referência na conversa
+    """
+    try:
+        # Validar tipo de arquivo
+        allowed_types = {
+            'image/jpeg', 'image/png', 'image/gif', 'image/bmp', 'image/webp',
+            'application/pdf'
+        }
+        
+        if file.content_type not in allowed_types:
+            return {
+                "sucesso": False,
+                "erro": f"Tipo de arquivo não suportado: {file.content_type}"
+            }
+        
+        # Validar tamanho (10MB)
+        content = await file.read()
+        if len(content) > 10 * 1024 * 1024:
+            return {
+                "sucesso": False,
+                "erro": "Arquivo muito grande. Máximo: 10MB"
+            }
+        
+        # Criar diretório de uploads se não existir
+        uploads_dir = Path(".sofia_internal") / "uploads"
+        uploads_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Gerar ID único para o arquivo
+        arquivo_id = str(uuid.uuid4())
+        nome_arquivo = file.filename or "arquivo_sem_nome"
+        extensao = Path(nome_arquivo).suffix
+        arquivo_path = uploads_dir / f"{arquivo_id}{extensao}"
+        
+        # Salvar arquivo
+        with open(arquivo_path, "wb") as f:
+            f.write(content)
+        
+        # Processar arquivo baseado no tipo
+        tipo = "imagem" if file.content_type.startswith("image/") else "pdf"
+        
+        if tipo == "pdf":
+            # Processar PDF usando o GestorVisao
+            try:
+                from sofia.core.visao import visao
+                
+                # Adicionar arquivo ao sistema de visão
+                resultado = visao.adicionar_arquivo(str(arquivo_path), nome_arquivo)
+                
+                if resultado.get("sucesso"):
+                    return {
+                        "sucesso": True,
+                        "arquivo_id": resultado["arquivo_id"],
+                        "tipo": tipo,
+                        "nome": nome_arquivo,
+                        "tamanho": len(content),
+                        "conteudo": resultado.get("conteudo", "")[:200] + "...",
+                        "mensagem": f"✅ PDF processado! ID: {resultado['arquivo_id']}"
+                    }
+                else:
+                    return {
+                        "sucesso": False,
+                        "erro": resultado.get("erro", "Erro desconhecido")
+                    }
+            except Exception as e:
+                return {
+                    "sucesso": False,
+                    "erro": f"Erro ao processar PDF: {str(e)}"
+                }
+        else:
+            # Processar imagem usando o GestorVisao
+            try:
+                from sofia.core.visao import visao
+                
+                # Adicionar arquivo ao sistema de visão
+                resultado = visao.adicionar_arquivo(str(arquivo_path), nome_arquivo)
+                
+                if resultado.get("sucesso"):
+                    return {
+                        "sucesso": True,
+                        "arquivo_id": resultado["arquivo_id"],
+                        "tipo": tipo,
+                        "nome": nome_arquivo,
+                        "tamanho": len(content),
+                        "descricao": resultado.get("conteudo", "")[:200] + "...",
+                        "mensagem": f"✅ Imagem processada! ID: {resultado['arquivo_id']}"
+                    }
+                else:
+                    return {
+                        "sucesso": False,
+                        "erro": resultado.get("erro", "Erro desconhecido")
+                    }
+            except Exception as e:
+                return {
+                    "sucesso": False,
+                    "erro": f"Erro ao processar imagem: {str(e)}"
+                }
+        
+    except Exception as e:
+        return {
+            "sucesso": False,
+            "erro": f"Erro ao fazer upload: {str(e)}"
+        }
+
+@app.post("/api/chat", response_model=ChatResponse)
+async def chat_endpoint(request: ChatRequest):
+    """
+    Endpoint REST para chat (alternativa ao WebSocket)
+    """
+    # Criar sessão se não existir
+    if not request.session_id or request.session_id not in sessions:
+        session_id = str(uuid.uuid4())
+        sessions[session_id] = Session(session_id, request.user_name or "Usuário")
+    else:
+        session_id = request.session_id
+    
+    session = sessions[session_id]
+    
+    # Adicionar mensagem ao histórico da sessão
+    session.historico.append({
+        "de": session.user_name,
+        "texto": request.mensagem,
+        "tipo": "user"
+    })
+    
+    # Processar com Sofia
+    try:
+        resposta = cerebro.perguntar(
+            request.mensagem,
+            historico=session.historico,
+            usuario=session.user_name
+        )
+    except Exception as e:
+        resposta = f"❌ Erro ao processar mensagem: {str(e)}"
+    
+    # Adicionar resposta ao histórico
+    session.historico.append({
+        "de": "Sofia",
+        "texto": resposta,
+        "tipo": "assistant"
+    })
+    
+    return ChatResponse(
+        resposta=resposta,
+        session_id=session_id,
+        user_name=session.user_name
+    )
+
+@app.get("/api/historico/{session_id}")
+async def get_historico(session_id: str, limit: int = 50):
+    """Obtém o histórico de uma sessão"""
+    if session_id not in sessions:
+        raise HTTPException(status_code=404, detail="Sessão não encontrada")
+    
+    session = sessions[session_id]
+    return {
+        "session_id": session_id,
+        "user_name": session.user_name,
+        "historico": session.historico[-limit:] if limit else session.historico
+    }
+
+@app.get("/conversations")
+async def get_conversations(limit: int = 50):
+    """Obtém conversas da memória persistente"""
+    try:
+        # Buscar conversas salvas na memória
+        historico = memoria.historico[-limit:] if limit else memoria.historico
+        
+        # Adicionar índices para permitir deleção
+        conversas_com_indice = []
+        total = len(memoria.historico)
+        for i, conv in enumerate(historico):
+            conv_copy = conv.copy()
+            conv_copy["_index"] = total - len(historico) + i
+            conversas_com_indice.append(conv_copy)
+        
+        return {
+            "conversas": conversas_com_indice,
+            "total": total
+        }
+    except Exception as e:
+        return {
+            "conversas": [],
+            "total": 0,
+            "erro": str(e)
+        }
+
+@app.get("/aprendizados")
+async def get_aprendizados(categoria: Optional[str] = None):
+    """Obtém aprendizados da memória"""
+    try:
+        if categoria:
+            aprendizados_cat = memoria.listar_aprendizados(categoria)
+            return {
+                "categoria": categoria,
+                "aprendizados": aprendizados_cat
+            }
+        else:
+            todos = memoria.listar_aprendizados()
+            return {
+                "aprendizados": todos,
+                "total": sum(len(cat) for cat in todos.values())
+            }
+    except Exception as e:
+        return {
+            "aprendizados": {},
+            "erro": str(e)
+        }
+
+@app.get("/stats")
+async def get_stats():
+    """Obtém estatísticas da memória"""
+    try:
+        stats_text = memoria.estatisticas()
+        
+        # Extrair números das estatísticas
+        import re
+        conversas_match = re.search(r'Conversas armazenadas: (\d+)', stats_text)
+        aprendizados_match = re.search(r'Aprendizados: (\d+)', stats_text)
+        tamanho_match = re.search(r'Tamanho em disco: ([\d.]+) MB', stats_text)
+        percentual_match = re.search(r'Uso da memória: ([\d.]+)%', stats_text)
+        
+        return {
+            "conversas": int(conversas_match.group(1)) if conversas_match else 0,
+            "aprendizados": int(aprendizados_match.group(1)) if aprendizados_match else 0,
+            "tamanho_mb": float(tamanho_match.group(1)) if tamanho_match else 0,
+            "percentual_uso": float(percentual_match.group(1)) if percentual_match else 0,
+            "texto_completo": stats_text
+        }
+    except Exception as e:
+        return {
+            "conversas": 0,
+            "aprendizados": 0,
+            "erro": str(e)
+        }
+
+@app.delete("/conversations/{index}")
+async def delete_conversation(index: int):
+    """Remove uma conversa específica"""
+    try:
+        if 0 <= index < len(memoria.historico):
+            removida = memoria.historico.pop(index)
+            memoria.salvar_tudo()
+            return {"sucesso": True, "mensagem": "Conversa removida"}
+        else:
+            return {"sucesso": False, "erro": "Índice inválido"}
+    except Exception as e:
+        return {"sucesso": False, "erro": str(e)}
+
+@app.post("/clear-conversations")
+async def clear_conversations():
+    """Limpa todas as conversas mantendo aprendizados"""
+    try:
+        memoria.limpar()
+        return {"sucesso": True, "mensagem": "Conversas limpas"}
+    except Exception as e:
+        return {"sucesso": False, "erro": str(e)}
+
+@app.post("/clear-all")
+async def clear_all():
+    """Limpa tudo: conversas e aprendizados"""
+    try:
+        memoria.limpar_tudo()
+        return {"sucesso": True, "mensagem": "Memória completamente limpa"}
+    except Exception as e:
+        return {"sucesso": False, "erro": str(e)}
+
+@app.post("/api/test-web-search")
+async def test_web_search(request: dict):
+    """
+    Endpoint de teste para busca web
+    Retorna resultados da busca diretamente
+    """
+    query = request.get("query", "")
+    web_mode = request.get("web_mode", False)
+    
+    if not query:
+        raise HTTPException(status_code=400, detail="Query não fornecida")
+    
+    try:
+        # Ativar modo web temporariamente
+        import os
+        old_mode = os.getenv("SOFIA_MODO_WEB", "0")
+        
+        if web_mode:
+            os.environ["SOFIA_MODO_WEB"] = "1"
+        
+        # Importar e usar o módulo de busca
+        from sofia.core import web_search
+        
+        resultados = web_search.buscar_web(query, num_resultados=5)
+        
+        # Restaurar modo anterior
+        os.environ["SOFIA_MODO_WEB"] = old_mode
+        
+        if resultados:
+            return {
+                "success": True,
+                "query": query,
+                "web_mode": web_mode,
+                "count": len(resultados),
+                "resultados": resultados
+            }
+        else:
+            return {
+                "success": False,
+                "query": query,
+                "web_mode": web_mode,
+                "error": "Nenhum resultado encontrado"
+            }
+    except Exception as e:
+        return {
+            "success": False,
+            "query": query,
+            "web_mode": web_mode,
+            "error": str(e)
+        }
+
+
+# ==================== WEBSOCKET ====================
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: Dict[str, WebSocket] = {}
+        self.active_tasks: Dict[str, asyncio.Task] = {}  # Rastrear tarefas em andamento
+    
+    async def connect(self, websocket: WebSocket, session_id: str):
+        await websocket.accept()
+        self.active_connections[session_id] = websocket
+    
+    def disconnect(self, session_id: str):
+        # Cancelar tarefa se existir
+        if session_id in self.active_tasks:
+            task = self.active_tasks[session_id]
+            if not task.done():
+                task.cancel()
+            del self.active_tasks[session_id]
+        
+        if session_id in self.active_connections:
+            del self.active_connections[session_id]
+    
+    async def send_message(self, message: dict, session_id: str):
+        if session_id in self.active_connections:
+            await self.active_connections[session_id].send_json(message)
+    
+    def cancel_task(self, session_id: str):
+        """Cancela a tarefa de processamento em andamento"""
+        if session_id in self.active_tasks:
+            task = self.active_tasks[session_id]
+            if not task.done():
+                print(f"⏹️ Cancelando tarefa para sessão {session_id[:8]}...")
+                task.cancel()
+                return True
+        return False
+
+manager = ConnectionManager()
+
+@app.websocket("/ws/{session_id}")
+async def websocket_endpoint(websocket: WebSocket, session_id: str):
+    """
+    WebSocket para chat em tempo real
+    
+    Mensagens esperadas do cliente:
+    {
+        "type": "message",
+        "content": "texto da mensagem",
+        "user_name": "Nome do usuário"
+    }
+    
+    Respostas enviadas ao cliente:
+    {
+        "type": "response",
+        "content": "resposta de Sofia",
+        "session_id": "uuid"
+    }
+    """
+    await manager.connect(websocket, session_id)
+    
+    # Criar ou recuperar sessão
+    if session_id not in sessions:
+        sessions[session_id] = Session(session_id)
+    
+    session = sessions[session_id]
+    
+    # Enviar mensagem de boas-vindas
+    await manager.send_message({
+        "type": "system",
+        "content": f"🌸 Conectado! Sessão: {session_id[:8]}...",
+        "session_id": session_id
+    }, session_id)
+    
+    try:
+        while True:
+            # Receber mensagem do cliente
+            data = await websocket.receive_json()
+            print(f"📨 Mensagem recebida: {data}")  # DEBUG
+            
+            # Tratar comando de STOP
+            if data.get("type") == "stop":
+                print(f"⏹️ Comando STOP recebido para sessão {session_id[:8]}...")
+                # Marcar flag de cancelamento
+                session.cancel_flag = True
+                # Cancelar tarefa em andamento
+                cancelled = manager.cancel_task(session_id)
+                if cancelled:
+                    print(f"✅ Tarefa cancelada com sucesso!")
+                    await manager.send_message({
+                        "type": "cancelled",
+                        "content": "⏹️ Processamento cancelado",
+                        "session_id": session_id
+                    }, session_id)
+                else:
+                    print(f"ℹ️ Nenhuma tarefa em andamento")
+                    await manager.send_message({
+                        "type": "system",
+                        "content": "⏹️ Nenhum processamento em andamento",
+                        "session_id": session_id
+                    }, session_id)
+                continue
+            
+            if data.get("type") == "message":
+                user_message = data.get("content", "")
+                user_name = data.get("user_name", session.user_name)
+                web_search_mode = data.get("web_search_mode", False)
+                
+                print(f"💬 Processando: '{user_message}' de {user_name}")  # DEBUG
+                print(f"🌐 Modo Web: {web_search_mode}")  # DEBUG
+                
+                # Atualizar nome do usuário se fornecido
+                session.user_name = user_name
+                
+                # Ativar/desativar modo web via variável de ambiente
+                import os
+                if web_search_mode:
+                    os.environ["SOFIA_MODO_WEB"] = "1"
+                    print("🌍 Modo web ATIVADO")  # DEBUG
+                else:
+                    os.environ["SOFIA_MODO_WEB"] = "0"
+                    print("🌍 Modo web DESATIVADO")  # DEBUG
+                
+                # Adicionar ao histórico da sessão
+                session.historico.append({
+                    "de": user_name,
+                    "texto": user_message,
+                    "tipo": "user"
+                })
+                print(f"📝 Histórico atualizado: {len(session.historico)} mensagens")  # DEBUG
+                print(f"📝 Últimas 3 mensagens: {session.historico[-3:]}")  # DEBUG
+                
+                # Resetar flag de cancelamento
+                session.cancel_flag = False
+                
+                # Enviar confirmação de recebimento
+                await manager.send_message({
+                    "type": "ack",
+                    "content": "Mensagem recebida, processando...",
+                    "session_id": session_id
+                }, session_id)
+                
+                # Criar e rastrear tarefa de processamento
+                async def process_message():
+                    try:
+                        print(f"🧠 Iniciando processamento...")  # DEBUG
+                        print(f"📊 Histórico sendo passado: {len(session.historico)} mensagens")  # DEBUG
+                        # Executar em thread separada para não bloquear
+                        loop = asyncio.get_event_loop()
+                        
+                        # 🛑 Callback para verificar cancelamento
+                        def check_cancelled():
+                            return session.cancel_flag
+                        
+                        resposta = await loop.run_in_executor(
+                            None,
+                            cerebro.perguntar,
+                            user_message,
+                            session.historico,
+                            user_name,
+                            check_cancelled  # ← Passa callback de cancelamento
+                        )
+                        print(f"✅ Resposta gerada: {len(resposta)} chars")  # DEBUG
+                        
+                        # 🛑 Verificar se foi cancelado após processar
+                        if session.cancel_flag:
+                            print(f"⏹️ Processamento cancelado - resposta descartada")
+                            return  # Não envia resposta
+                        
+                        # Adicionar resposta ao histórico
+                        session.historico.append({
+                            "de": "Sofia",
+                            "texto": resposta,
+                            "tipo": "assistant"
+                        })
+                        
+                        # Enviar resposta
+                        await manager.send_message({
+                            "type": "response",
+                            "content": resposta,
+                            "session_id": session_id,
+                            "user_name": user_name
+                        }, session_id)
+                        
+                    except asyncio.CancelledError:
+                        print(f"⏹️ Processamento cancelado pelo usuário")
+                        raise  # Re-raise para limpar a tarefa
+                    except Exception as e:
+                        print(f"❌ Erro ao processar: {e}")  # DEBUG
+                        await manager.send_message({
+                            "type": "error",
+                            "content": f"❌ Erro: {str(e)}",
+                            "session_id": session_id
+                        }, session_id)
+                
+                # Criar tarefa e armazenar para poder cancelar
+                task = asyncio.create_task(process_message())
+                manager.active_tasks[session_id] = task
+                
+                # Aguardar conclusão ou cancelamento
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    print(f"⏹️ Tarefa foi cancelada")
+                finally:
+                    # Limpar tarefa concluída
+                    if session_id in manager.active_tasks:
+                        del manager.active_tasks[session_id]
+            
+            elif data.get("type") == "ping":
+                await manager.send_message({
+                    "type": "pong",
+                    "timestamp": data.get("timestamp")
+                }, session_id)
+    
+    except WebSocketDisconnect:
+        manager.disconnect(session_id)
+        print(f"🔌 WebSocket desconectado: {session_id[:8]}...")
+    except Exception as e:
+        print(f"❌ Erro no WebSocket: {e}")
+        manager.disconnect(session_id)
+
+# ==================== ARQUIVOS ESTÁTICOS ====================
+
+# Montar pasta web para servir arquivos estáticos
+web_dir = Path(__file__).parent / "web"
+if web_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(web_dir)), name="static")
+
+# ==================== STARTUP ====================
+
+@app.on_event("startup")
+async def startup_event():
+    """Executado quando a API inicia"""
+    print("=" * 60)
+    print("🌸 Sofia API iniciada!")
+    print("=" * 60)
+    print("📍 Acesse: http://localhost:8000")
+    print("📚 Documentação: http://localhost:8000/docs")
+    print("🔌 WebSocket: ws://localhost:8000/ws/{session_id}")
+    print("=" * 60)
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Executado quando a API é encerrada"""
+    print("\n🌸 Sofia API encerrada. Até logo!")
+
+# ==================== MAIN ====================
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "api_web:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        log_level="info"
+    )
