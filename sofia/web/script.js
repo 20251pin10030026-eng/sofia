@@ -1,6 +1,6 @@
-// API Configuration
-const API_URL = 'https://fbac76565604.ngrok-free.app';
-const WS_URL = 'wss://fbac76565604.ngrok-free.app';
+﻿// API Configuration
+const API_URL = 'https://fed428a9f414.ngrok-free.app';
+const WS_URL = 'wss://fed428a9f414.ngrok-free.app';
 
 // WebSocket
 let ws = null;
@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await initializeWebSocket();
 });
 
-// Função para criar sessão
+// FunÃ§Ã£o para criar sessÃ£o
 async function createSession() {
     try {
         const response = await fetch(`${API_URL}/api/session/create`, {
@@ -48,26 +48,26 @@ async function createSession() {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                user_name: 'Usuário'
+                user_name: 'UsuÃ¡rio'
             })
         });
 
         if (!response.ok) {
-            throw new Error('Falha ao criar sessão');
+            throw new Error('Falha ao criar sessÃ£o');
         }
 
         const data = await response.json();
         sessionId = data.session_id;
-        console.log('Sessão criada:', sessionId);
+        console.log('SessÃ£o criada:', sessionId);
         return sessionId;
     } catch (error) {
-        console.error('Erro ao criar sessão:', error);
+        console.error('Erro ao criar sessÃ£o:', error);
         updateStatus('connecting', 'Pensando...');
         throw error;
     }
 }
 
-// Função para inicializar WebSocket
+// FunÃ§Ã£o para inicializar WebSocket
 async function initializeWebSocket() {
     try {
         await createSession();
@@ -78,10 +78,10 @@ async function initializeWebSocket() {
     }
 }
 
-// Função para conectar WebSocket
+// FunÃ§Ã£o para conectar WebSocket
 function connectWebSocket() {
     if (!sessionId) {
-        console.error('Session ID não disponível');
+        console.error('Session ID nÃ£o disponÃ­vel');
         return;
     }
 
@@ -124,11 +124,11 @@ function connectWebSocket() {
     }
 }
 
-// Função para tentar reconexão
+// FunÃ§Ã£o para tentar reconexÃ£o
 function attemptReconnect() {
     if (reconnectAttempts < maxReconnectAttempts) {
         reconnectAttempts++;
-        console.log(`Tentativa de reconexão ${reconnectAttempts}/${maxReconnectAttempts}`);
+        console.log(`Tentativa de reconexÃ£o ${reconnectAttempts}/${maxReconnectAttempts}`);
         updateStatus('connecting', 'Pensando...');
         
         setTimeout(() => {
@@ -136,7 +136,7 @@ function attemptReconnect() {
         }, reconnectDelay * reconnectAttempts);
     } else {
         updateStatus('connecting', 'Pensando...');
-        // Continua tentando após delay maior
+        // Continua tentando apÃ³s delay maior
         setTimeout(() => {
             reconnectAttempts = 0;
             attemptReconnect();
@@ -174,14 +174,14 @@ function handleWebSocketMessage(data) {
             hideTypingIndicator();
             addMessage('sofia', data.content);
             
-            // Se estiver no metaverso, também adicionar lá
+            // Se estiver no metaverso, tambÃ©m adicionar lÃ¡
             const metaverseModal = document.getElementById('metaverse-modal');
             if (metaverseModal && metaverseModal.classList.contains('active')) {
                 const messagesContainer = document.getElementById('metaverse-messages');
                 const statusDiv = document.getElementById('metaverse-status');
                 
                 if (messagesContainer) {
-                    // Remover mensagem temporária de "processando"
+                    // Remover mensagem temporÃ¡ria de "processando"
                     const tempMsg = document.getElementById('temp-processing-msg');
                     if (tempMsg) {
                         tempMsg.remove();
@@ -195,7 +195,7 @@ function handleWebSocketMessage(data) {
                     // Adicionar resposta real
                     const sofiaMsg = document.createElement('div');
                     sofiaMsg.className = 'metaverse-message sofia';
-                    sofiaMsg.textContent = '🌸 ' + data.content;
+                    sofiaMsg.textContent = 'ðŸŒ¸ ' + data.content;
                     messagesContainer.appendChild(sofiaMsg);
                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
                     
@@ -210,7 +210,7 @@ function handleWebSocketMessage(data) {
                 }
             }
             
-            // Adicionar ao histórico
+            // Adicionar ao histÃ³rico
             conversationHistory.push(
                 { de: 'Sofia', texto: data.content }
             );
@@ -218,7 +218,7 @@ function handleWebSocketMessage(data) {
         
         case 'cancelled':
             hideTypingIndicator();
-            console.log('⏹️ Processamento cancelado:', data.content);
+            console.log('â¹ï¸ Processamento cancelado:', data.content);
             showNotification(data.content, 'warning');
             break;
         
@@ -232,7 +232,7 @@ function handleWebSocketMessage(data) {
     }
 }
 
-// Atualizar status de conexão
+// Atualizar status de conexÃ£o
 function updateStatus(status, text) {
     const statusElement = document.querySelector('.status');
     const statusTextElement = document.getElementById('status-text');
@@ -246,7 +246,7 @@ function updateStatus(status, text) {
     }
 }
 
-// Indicador de digitação
+// Indicador de digitaÃ§Ã£o
 function showTypingIndicator() {
     const existingIndicator = document.querySelector('.typing-indicator');
     if (!existingIndicator) {
@@ -256,7 +256,7 @@ function showTypingIndicator() {
             <div class="typing-dot"></div>
             <div class="typing-dot"></div>
             <div class="typing-dot"></div>
-            <span style="margin-left: 10px;">Sofia está digitando...</span>
+            <span style="margin-left: 10px;">Sofia estÃ¡ digitando...</span>
         `;
         chatContainer.appendChild(indicator);
         chatContainer.scrollTop = chatContainer.scrollHeight;
@@ -363,22 +363,22 @@ document.querySelectorAll('.modal').forEach(modal => {
 
 // Functions
 async function addAttachedFile(file) {
-    // Verifica se já tem 10 arquivos
+    // Verifica se jÃ¡ tem 10 arquivos
     if (attachedFiles.length >= 10) {
-        showNotification('❌ Limite de 10 arquivos atingido', 'error');
+        showNotification('âŒ Limite de 10 arquivos atingido', 'error');
         return;
     }
     
     // Verifica tamanho (10MB)
     if (file.size > 10 * 1024 * 1024) {
-        showNotification(`❌ ${file.name} muito grande (máx 10MB)`, 'error');
+        showNotification(`âŒ ${file.name} muito grande (mÃ¡x 10MB)`, 'error');
         return;
     }
     
     // Verifica formato
     const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/bmp', 'image/webp', 'application/pdf'];
     if (!validTypes.includes(file.type)) {
-        showNotification(`❌ Formato não suportado: ${file.name}`, 'error');
+        showNotification(`âŒ Formato nÃ£o suportado: ${file.name}`, 'error');
         return;
     }
     
@@ -401,12 +401,12 @@ async function addAttachedFile(file) {
                 type: data.tipo,
                 file: file
             });
-            showNotification(`✅ ${file.name} anexado!`);
+            showNotification(`âœ… ${file.name} anexado!`);
         } else {
-            showNotification(`❌ ${data.erro}`, 'error');
+            showNotification(`âŒ ${data.erro}`, 'error');
         }
     } catch (error) {
-        showNotification(`❌ Erro ao anexar ${file.name}`, 'error');
+        showNotification(`âŒ Erro ao anexar ${file.name}`, 'error');
     }
 }
 
@@ -422,9 +422,9 @@ function updateAttachedFilesUI() {
     
     attachedFilesList.innerHTML = attachedFiles.map((file, index) => `
         <div class="attached-file-item">
-            <span class="attached-file-icon">${file.type === 'imagem' ? '🖼️' : '📄'}</span>
+            <span class="attached-file-icon">${file.type === 'imagem' ? 'ðŸ–¼ï¸' : 'ðŸ“„'}</span>
             <span class="attached-file-name" title="${file.name}">${file.name}</span>
-            <button class="attached-file-remove" onclick="removeAttachedFile(${index})">✕</button>
+            <button class="attached-file-remove" onclick="removeAttachedFile(${index})">âœ•</button>
         </div>
     `).join('');
 }
@@ -451,7 +451,7 @@ function toggleWebSearchMode() {
     if (webSearchMode) {
         webSearchBtn.classList.add('active');
         webSearchBtn.title = 'Modo Web ATIVO - Clique para desativar';
-        showNotification('🌐 Modo Web ATIVADO - Sofia buscará na internet');
+        showNotification('ðŸŒ Modo Web ATIVADO - Sofia buscarÃ¡ na internet');
         
         // Envia comando para ativar no backend
         fetch(`${API_URL}/chat`, {
@@ -465,7 +465,7 @@ function toggleWebSearchMode() {
     } else {
         webSearchBtn.classList.remove('active');
         webSearchBtn.title = 'Buscar na Web';
-        showNotification('🌐 Modo Web DESATIVADO');
+        showNotification('ðŸŒ Modo Web DESATIVADO');
         
         // Envia comando para desativar no backend
         fetch(`${API_URL}/chat`, {
@@ -482,13 +482,13 @@ function toggleWebSearchMode() {
 async function sendMessage() {
     const message = messageInput.value.trim();
     
-    // Permite enviar só arquivos sem texto
+    // Permite enviar sÃ³ arquivos sem texto
     if (!message && attachedFiles.length === 0) return;
 
     // Cria mensagem a exibir (inclui info de arquivos)
     let displayMessage = message || '';
     if (attachedFiles.length > 0) {
-        const filesInfo = attachedFiles.map(f => `📎 ${f.name}`).join('\n');
+        const filesInfo = attachedFiles.map(f => `ðŸ“Ž ${f.name}`).join('\n');
         displayMessage = displayMessage ? `${displayMessage}\n\n${filesInfo}` : filesInfo;
     }
 
@@ -500,7 +500,7 @@ async function sendMessage() {
     const welcomeMsg = document.querySelector('.welcome-message');
     if (welcomeMsg) welcomeMsg.remove();
 
-    // Add user message (com indicação de arquivos)
+    // Add user message (com indicaÃ§Ã£o de arquivos)
     addMessage('user', displayMessage);
 
     // Limpa anexos da UI
@@ -516,34 +516,34 @@ async function sendMessage() {
         const wsMessage = {
             type: 'message',
             content: fullMessage,
-            user_name: 'Usuário',
+            user_name: 'UsuÃ¡rio',
             web_search_mode: webSearchMode  // Incluir estado do modo web
         };
 
-        console.log('📤 Tentando enviar:', wsMessage);
-        console.log('🌐 Modo Web:', webSearchMode);
-        console.log('🔌 WebSocket state:', ws ? ws.readyState : 'NULL');
-        console.log('✅ isConnected:', isConnected);
+        console.log('ðŸ“¤ Tentando enviar:', wsMessage);
+        console.log('ðŸŒ Modo Web:', webSearchMode);
+        console.log('ðŸ”Œ WebSocket state:', ws ? ws.readyState : 'NULL');
+        console.log('âœ… isConnected:', isConnected);
 
         if (isConnected && ws.readyState === WebSocket.OPEN) {
-            console.log('✉️ Enviando via WebSocket...');
+            console.log('âœ‰ï¸ Enviando via WebSocket...');
             ws.send(JSON.stringify(wsMessage));
-            console.log('✅ Mensagem enviada!');
+            console.log('âœ… Mensagem enviada!');
         } else {
-            console.log('⚠️ WebSocket não conectado, adicionando à fila');
-            // Adicionar à fila se não conectado
+            console.log('âš ï¸ WebSocket nÃ£o conectado, adicionando Ã  fila');
+            // Adicionar Ã  fila se nÃ£o conectado
             messageQueue.push(wsMessage);
-            showNotification('Mensagem enviada. Aguardando conexão...', 'warning');
+            showNotification('Mensagem enviada. Aguardando conexÃ£o...', 'warning');
             updateStatus('connecting', 'Pensando...');
         }
         
         // Update history
         conversationHistory.push(
-            { de: 'Usuário', texto: message }
+            { de: 'UsuÃ¡rio', texto: message }
         );
     } catch (error) {
         hideTypingIndicator();
-        addMessage('sofia', '❌ Não foi possível enviar a mensagem. Tentando reconectar...');
+        addMessage('sofia', 'âŒ NÃ£o foi possÃ­vel enviar a mensagem. Tentando reconectar...');
         console.error('Erro:', error);
     }
 }
@@ -554,13 +554,13 @@ function addMessage(sender, text) {
 
     const avatar = document.createElement('div');
     avatar.className = 'message-avatar';
-    avatar.textContent = sender === 'sofia' ? '🌸' : '👤';
+    avatar.textContent = sender === 'sofia' ? 'ðŸŒ¸' : 'ðŸ‘¤';
 
     const content = document.createElement('div');
     content.className = 'message-content';
     content.innerHTML = formatMessage(text);
 
-    // Criar container para hora + ícones
+    // Criar container para hora + Ã­cones
     const timeContainer = document.createElement('div');
     timeContainer.className = 'message-time-container';
 
@@ -573,22 +573,22 @@ function addMessage(sender, text) {
 
     timeContainer.appendChild(time);
 
-    // Adicionar ícones de ação apenas para mensagens do usuário
+    // Adicionar Ã­cones de aÃ§Ã£o apenas para mensagens do usuÃ¡rio
     if (sender === 'user') {
         const iconsDiv = document.createElement('div');
         iconsDiv.className = 'message-icons';
 
-        // Ícone Stop
+        // Ãcone Stop
         const stopIcon = document.createElement('span');
         stopIcon.className = 'message-icon stop-icon';
-        stopIcon.innerHTML = '⏹️';
+        stopIcon.innerHTML = 'â¹ï¸';
         stopIcon.title = 'Parar resposta';
         stopIcon.onclick = () => stopResponse();
 
-        // Ícone Editar
+        // Ãcone Editar
         const editIcon = document.createElement('span');
         editIcon.className = 'message-icon edit-icon';
-        editIcon.innerHTML = '✏️';
+        editIcon.innerHTML = 'âœï¸';
         editIcon.title = 'Editar mensagem';
         editIcon.onclick = () => editMessage(messageDiv, text);
 
@@ -615,7 +615,7 @@ function formatMessage(text) {
         .replace(/\n/g, '<br>');
 }
 
-// Função para parar a resposta da Sofia
+// FunÃ§Ã£o para parar a resposta da Sofia
 function stopResponse() {
     if (ws && ws.readyState === WebSocket.OPEN) {
         // Envia comando de stop para o servidor
@@ -628,50 +628,50 @@ function stopResponse() {
             console.error('Erro ao enviar comando de stop:', error);
         }
         
-        // Fecha a conexão WebSocket para forçar interrupção
+        // Fecha a conexÃ£o WebSocket para forÃ§ar interrupÃ§Ã£o
         ws.close();
         hideTypingIndicator();
-        showNotification('⏹️ Processamento interrompido', 'warning');
+        showNotification('â¹ï¸ Processamento interrompido', 'warning');
         
-        // Reconecta após 500ms
+        // Reconecta apÃ³s 500ms
         setTimeout(() => {
             connectWebSocket();
         }, 500);
     } else {
         hideTypingIndicator();
-        showNotification('⏹️ Resposta cancelada', 'info');
+        showNotification('â¹ï¸ Resposta cancelada', 'info');
     }
 }
 
-// Função para editar mensagem do usuário
+// FunÃ§Ã£o para editar mensagem do usuÃ¡rio
 function editMessage(messageDiv, originalText) {
-    // Remove o conteúdo formatado e mostra um textarea
+    // Remove o conteÃºdo formatado e mostra um textarea
     const contentDiv = messageDiv.querySelector('.message-content');
     const actionsDiv = contentDiv.querySelector('.message-actions');
     const timeDiv = contentDiv.querySelector('.message-time');
     
-    // Cria textarea para edição
+    // Cria textarea para ediÃ§Ã£o
     const textarea = document.createElement('textarea');
     textarea.className = 'edit-textarea';
     textarea.value = originalText;
     textarea.rows = 3;
     
-    // Limpa o conteúdo atual
+    // Limpa o conteÃºdo atual
     contentDiv.innerHTML = '';
     contentDiv.appendChild(textarea);
     
-    // Cria botões de confirmação
+    // Cria botÃµes de confirmaÃ§Ã£o
     const editActionsDiv = document.createElement('div');
     editActionsDiv.className = 'message-actions edit-actions';
     
     const saveBtn = document.createElement('button');
     saveBtn.className = 'message-action-btn save-btn';
-    saveBtn.innerHTML = '✅ Salvar';
+    saveBtn.innerHTML = 'âœ… Salvar';
     saveBtn.onclick = () => saveEditedMessage(messageDiv, textarea.value, originalText);
     
     const cancelBtn = document.createElement('button');
     cancelBtn.className = 'message-action-btn cancel-btn';
-    cancelBtn.innerHTML = '❌ Cancelar';
+    cancelBtn.innerHTML = 'âŒ Cancelar';
     cancelBtn.onclick = () => cancelEdit(messageDiv, originalText);
     
     editActionsDiv.appendChild(saveBtn);
@@ -686,7 +686,7 @@ function editMessage(messageDiv, originalText) {
 // Salvar mensagem editada e reenviar
 function saveEditedMessage(messageDiv, newText, oldText) {
     if (!newText.trim()) {
-        showNotification('❌ A mensagem não pode estar vazia', 'error');
+        showNotification('âŒ A mensagem nÃ£o pode estar vazia', 'error');
         return;
     }
     
@@ -700,7 +700,7 @@ function saveEditedMessage(messageDiv, newText, oldText) {
         if (nextMessage.classList.contains('sofia')) {
             nextMessage.remove();
             
-            // Remove do histórico de conversação
+            // Remove do histÃ³rico de conversaÃ§Ã£o
             // Encontra e remove a resposta correspondente
             const lastSofiaResponse = conversationHistory.findIndex(
                 (msg, idx) => idx > 0 && msg.de === 'Sofia' && 
@@ -712,12 +712,12 @@ function saveEditedMessage(messageDiv, newText, oldText) {
         }
     }
     
-    // Remove a mensagem antiga do usuário
+    // Remove a mensagem antiga do usuÃ¡rio
     messageDiv.remove();
     
-    // Remove do histórico a mensagem antiga do usuário
+    // Remove do histÃ³rico a mensagem antiga do usuÃ¡rio
     const oldMessageIndex = conversationHistory.findIndex(
-        msg => msg.de === 'Usuário' && msg.texto === oldText
+        msg => msg.de === 'UsuÃ¡rio' && msg.texto === oldText
     );
     if (oldMessageIndex !== -1) {
         conversationHistory.splice(oldMessageIndex, 1);
@@ -729,17 +729,17 @@ function saveEditedMessage(messageDiv, newText, oldText) {
     // Envia a mensagem editada como uma nova pergunta
     sendMessage();
     
-    showNotification('✏️ Mensagem reenviada', 'success');
+    showNotification('âœï¸ Mensagem reenviada', 'success');
 }
 
-// Cancelar edição
+// Cancelar ediÃ§Ã£o
 function cancelEdit(messageDiv, originalText) {
     const contentDiv = messageDiv.querySelector('.message-content');
     
-    // Restaura o conteúdo original
+    // Restaura o conteÃºdo original
     contentDiv.innerHTML = formatMessage(originalText);
     
-    // Recria container de hora + ícones
+    // Recria container de hora + Ã­cones
     const timeContainer = document.createElement('div');
     timeContainer.className = 'message-time-container';
 
@@ -752,19 +752,19 @@ function cancelEdit(messageDiv, originalText) {
     
     timeContainer.appendChild(time);
     
-    // Recria os ícones de ação
+    // Recria os Ã­cones de aÃ§Ã£o
     const iconsDiv = document.createElement('div');
     iconsDiv.className = 'message-icons';
     
     const stopIcon = document.createElement('span');
     stopIcon.className = 'message-icon stop-icon';
-    stopIcon.innerHTML = '⏹️';
+    stopIcon.innerHTML = 'â¹ï¸';
     stopIcon.title = 'Parar resposta';
     stopIcon.onclick = () => stopResponse();
     
     const editIcon = document.createElement('span');
     editIcon.className = 'message-icon edit-icon';
-    editIcon.innerHTML = '✏️';
+    editIcon.innerHTML = 'âœï¸';
     editIcon.title = 'Editar mensagem';
     editIcon.onclick = () => editMessage(messageDiv, originalText);
     
@@ -779,7 +779,7 @@ function toggleWebSearchMode() {
     webSearchMode = !webSearchMode;
     webSearchBtn.classList.toggle('active', webSearchMode);
     const status = webSearchMode ? 'Modo Web Ativado' : 'Modo Web Desativado';
-    showNotification(`🌍 ${status}`, webSearchMode ? 'success' : 'info');
+    showNotification(`ðŸŒ ${status}`, webSearchMode ? 'success' : 'info');
 }
 
 async function handleQuickAction(action) {
@@ -798,7 +798,7 @@ async function handleQuickAction(action) {
             addMessage('sofia', data.result);
         }
     } catch (error) {
-        addMessage('sofia', '❌ Erro ao executar ação.');
+        addMessage('sofia', 'âŒ Erro ao executar aÃ§Ã£o.');
         console.error('Erro:', error);
     }
 }
@@ -808,7 +808,7 @@ async function openModal(type) {
     const contentEl = document.getElementById('stats-content');
 
     modal.classList.add('active');
-    contentEl.innerHTML = '<div class="loading">Carregando estatísticas...</div>';
+    contentEl.innerHTML = '<div class="loading">Carregando estatÃ­sticas...</div>';
 
     try {
         const response = await fetch(`${API_URL}/stats`);
@@ -816,7 +816,7 @@ async function openModal(type) {
 
         contentEl.innerHTML = formatStats(data);
     } catch (error) {
-        contentEl.innerHTML = '<div class="loading">❌ Erro ao carregar estatísticas da memória</div>';
+        contentEl.innerHTML = '<div class="loading">âŒ Erro ao carregar estatÃ­sticas da memÃ³ria</div>';
         console.error('Erro ao carregar stats:', error);
     }
 }
@@ -835,7 +835,7 @@ function formatStats(data) {
     const cache = data.cache || 0;
     const limiteGB = 5;
     
-    // Calcular espaço disponível
+    // Calcular espaÃ§o disponÃ­vel
     const espacoUsadoGB = (tamanhoMB / 1024).toFixed(3);
     const espacoDisponivelGB = (limiteGB - parseFloat(espacoUsadoGB)).toFixed(3);
     
@@ -849,7 +849,7 @@ function formatStats(data) {
             <!-- Resumo Principal -->
             <div class="stats-summary">
                 <div class="stat-card">
-                    <div class="stat-icon">💬</div>
+                    <div class="stat-icon">ðŸ’¬</div>
                     <div class="stat-info">
                         <div class="stat-label">Conversas Salvas</div>
                         <div class="stat-value">${totalConversas.toLocaleString('pt-BR')}</div>
@@ -857,7 +857,7 @@ function formatStats(data) {
                 </div>
                 
                 <div class="stat-card">
-                    <div class="stat-icon">🧠</div>
+                    <div class="stat-icon">ðŸ§ </div>
                     <div class="stat-info">
                         <div class="stat-label">Aprendizados</div>
                         <div class="stat-value">${totalAprendizados.toLocaleString('pt-BR')}</div>
@@ -865,7 +865,7 @@ function formatStats(data) {
                 </div>
                 
                 <div class="stat-card">
-                    <div class="stat-icon">🔢</div>
+                    <div class="stat-icon">ðŸ”¢</div>
                     <div class="stat-info">
                         <div class="stat-label">Cache (RAM)</div>
                         <div class="stat-value">${cache.toLocaleString('pt-BR')}</div>
@@ -877,16 +877,16 @@ function formatStats(data) {
             <!-- Uso de Armazenamento -->
             <div class="storage-section">
                 <h4 style="margin: 1.5rem 0 1rem 0; color: var(--text-color); font-size: 1rem;">
-                    💾 Armazenamento em Disco
+                    ðŸ’¾ Armazenamento em Disco
                 </h4>
                 
                 <div class="storage-info">
                     <div class="storage-row">
-                        <span class="storage-label">Espaço Usado:</span>
+                        <span class="storage-label">EspaÃ§o Usado:</span>
                         <span class="storage-value">${tamanhoMB.toFixed(2)} MB (${espacoUsadoGB} GB)</span>
                     </div>
                     <div class="storage-row">
-                        <span class="storage-label">Espaço Disponível:</span>
+                        <span class="storage-label">EspaÃ§o DisponÃ­vel:</span>
                         <span class="storage-value">${espacoDisponivelGB} GB de ${limiteGB} GB</span>
                     </div>
                 </div>
@@ -908,32 +908,32 @@ function formatStats(data) {
                 <!-- Detalhes de Uso -->
                 <div class="usage-details">
                     <div class="usage-item">
-                        <span class="usage-icon">📝</span>
+                        <span class="usage-icon">ðŸ“</span>
                         <span class="usage-text">
-                            <strong>Média por conversa:</strong> 
+                            <strong>MÃ©dia por conversa:</strong> 
                             ${totalConversas > 0 ? (tamanhoMB / totalConversas).toFixed(2) : 0} MB
                         </span>
                     </div>
                     <div class="usage-item">
-                        <span class="usage-icon">📈</span>
+                        <span class="usage-icon">ðŸ“ˆ</span>
                         <span class="usage-text">
                             <strong>Status:</strong> 
-                            ${percentual < 50 ? '✅ Saudável' : percentual < 80 ? '⚠️ Moderado' : '🔴 Crítico'}
+                            ${percentual < 50 ? 'âœ… SaudÃ¡vel' : percentual < 80 ? 'âš ï¸ Moderado' : 'ðŸ”´ CrÃ­tico'}
                         </span>
                     </div>
                 </div>
             </div>
             
-            <!-- Recomendações -->
+            <!-- RecomendaÃ§Ãµes -->
             ${percentual > 70 ? `
             <div class="recommendations">
                 <h4 style="margin: 1.5rem 0 1rem 0; color: #ff9800; font-size: 1rem;">
-                    ⚠️ Recomendações
+                    âš ï¸ RecomendaÃ§Ãµes
                 </h4>
                 <ul style="list-style: none; padding: 0; margin: 0;">
-                    ${percentual > 90 ? '<li style="padding: 0.5rem; margin: 0.25rem 0; background: rgba(244, 67, 54, 0.1); border-left: 3px solid #f44336; border-radius: 4px;">🔴 Espaço crítico! Limpe conversas antigas urgentemente.</li>' : ''}
-                    ${percentual > 70 && percentual <= 90 ? '<li style="padding: 0.5rem; margin: 0.25rem 0; background: rgba(255, 152, 0, 0.1); border-left: 3px solid #ff9800; border-radius: 4px;">⚠️ Considere limpar conversas antigas nas Configurações.</li>' : ''}
-                    <li style="padding: 0.5rem; margin: 0.25rem 0; background: rgba(33, 150, 243, 0.1); border-left: 3px solid #2196F3; border-radius: 4px;">💡 Use o botão ⚙️ Configurações → Limpeza para liberar espaço.</li>
+                    ${percentual > 90 ? '<li style="padding: 0.5rem; margin: 0.25rem 0; background: rgba(244, 67, 54, 0.1); border-left: 3px solid #f44336; border-radius: 4px;">ðŸ”´ EspaÃ§o crÃ­tico! Limpe conversas antigas urgentemente.</li>' : ''}
+                    ${percentual > 70 && percentual <= 90 ? '<li style="padding: 0.5rem; margin: 0.25rem 0; background: rgba(255, 152, 0, 0.1); border-left: 3px solid #ff9800; border-radius: 4px;">âš ï¸ Considere limpar conversas antigas nas ConfiguraÃ§Ãµes.</li>' : ''}
+                    <li style="padding: 0.5rem; margin: 0.25rem 0; background: rgba(33, 150, 243, 0.1); border-left: 3px solid #2196F3; border-radius: 4px;">ðŸ’¡ Use o botÃ£o âš™ï¸ ConfiguraÃ§Ãµes â†’ Limpeza para liberar espaÃ§o.</li>
                 </ul>
             </div>
             ` : ''}
@@ -1131,7 +1131,7 @@ async function checkAPIStatus() {
         }
     } catch (error) {
         statusText.textContent = 'Pensando...';
-        console.error('API não está respondendo');
+        console.error('API nÃ£o estÃ¡ respondendo');
     }
 }
 
@@ -1192,7 +1192,7 @@ async function loadConversationsList() {
                     </div>
                     <div class="conversation-actions">
                         <button class="btn-icon" onclick="deleteConversation(${absoluteIndex})" title="Deletar">
-                            🗑️
+                            ðŸ—‘ï¸
                         </button>
                     </div>
                 `;
@@ -1202,7 +1202,7 @@ async function loadConversationsList() {
             listEl.innerHTML = '<p class="text-muted">Nenhuma conversa salva ainda.</p>';
         }
     } catch (error) {
-        listEl.innerHTML = '<p class="text-muted">❌ Erro ao carregar conversas</p>';
+        listEl.innerHTML = '<p class="text-muted">âŒ Erro ao carregar conversas</p>';
         console.error('Erro:', error);
     }
 }
@@ -1248,7 +1248,7 @@ document.getElementById('search-btn').addEventListener('click', async () => {
             listEl.innerHTML = `<p class="text-muted">Nenhuma conversa encontrada com "${searchTerm}"</p>`;
         }
     } catch (error) {
-        listEl.innerHTML = '<p class="text-muted">❌ Erro ao buscar</p>';
+        listEl.innerHTML = '<p class="text-muted">âŒ Erro ao buscar</p>';
         console.error('Erro:', error);
     }
 });
@@ -1268,22 +1268,22 @@ async function deleteConversation(index) {
         
         if (response.ok && result.success) {
             loadConversationsList();
-            alert('✅ Conversa deletada!');
+            alert('âœ… Conversa deletada!');
         } else {
-            alert(`❌ Erro: ${result.error || 'Falha ao deletar'}`);
+            alert(`âŒ Erro: ${result.error || 'Falha ao deletar'}`);
         }
     } catch (error) {
-        alert('❌ Erro ao deletar conversa');
+        alert('âŒ Erro ao deletar conversa');
         console.error('Erro:', error);
     }
 }
 
-// Expor função globalmente para onclick
+// Expor funÃ§Ã£o globalmente para onclick
 window.deleteConversation = deleteConversation;
 
 // Cleanup actions
 document.getElementById('clear-cache-btn').addEventListener('click', async () => {
-    if (!confirm('Limpar cache da sessão atual?')) return;
+    if (!confirm('Limpar cache da sessÃ£o atual?')) return;
     
     try {
         const response = await fetch(`${API_URL}/action`, {
@@ -1293,15 +1293,15 @@ document.getElementById('clear-cache-btn').addEventListener('click', async () =>
         });
         
         if (response.ok) {
-            alert('✅ Cache limpo!');
+            alert('âœ… Cache limpo!');
         }
     } catch (error) {
-        alert('❌ Erro ao limpar cache');
+        alert('âŒ Erro ao limpar cache');
     }
 });
 
 document.getElementById('clear-conversations-btn').addEventListener('click', async () => {
-    if (!confirm('⚠️ Isso vai apagar TODAS as conversas salvas. Aprendizados serão mantidos. Continuar?')) return;
+    if (!confirm('âš ï¸ Isso vai apagar TODAS as conversas salvas. Aprendizados serÃ£o mantidos. Continuar?')) return;
     
     try {
         const response = await fetch(`${API_URL}/clear-conversations`, {
@@ -1310,14 +1310,14 @@ document.getElementById('clear-conversations-btn').addEventListener('click', asy
         
         if (response.ok) {
             loadConversationsList();
-            alert('✅ Conversas apagadas!');
+            alert('âœ… Conversas apagadas!');
         }
     } catch (error) {
-        alert('❌ Erro ao limpar conversas');
+        alert('âŒ Erro ao limpar conversas');
     }
 });
 
-// Botão "Limpar Tudo" removido por segurança
+// BotÃ£o "Limpar Tudo" removido por seguranÃ§a
 
 // Preferences
 function loadPreferences() {
@@ -1340,14 +1340,14 @@ document.getElementById('save-preferences-btn').addEventListener('click', () => 
     };
     
     localStorage.setItem('sofia-preferences', JSON.stringify(preferences));
-    alert('✅ Preferências salvas!');
+    alert('âœ… PreferÃªncias salvas!');
     
     // Apply theme if changed
     applyTheme(preferences.theme);
 });
 
 function applyTheme(theme) {
-    // Implementar mudança de tema no futuro
+    // Implementar mudanÃ§a de tema no futuro
     console.log('Tema selecionado:', theme);
 }
 
@@ -1402,7 +1402,7 @@ function handleViewportResize() {
     }
 }
 
-// Prevenir comportamento padrão de scroll no mobile
+// Prevenir comportamento padrÃ£o de scroll no mobile
 if (messageInput) {
     messageInput.addEventListener('focus', () => {
         setTimeout(() => {
@@ -1413,17 +1413,17 @@ if (messageInput) {
     });
     
     messageInput.addEventListener('blur', () => {
-        // Pequeno delay para permitir animação suave
+        // Pequeno delay para permitir animaÃ§Ã£o suave
         setTimeout(() => {
             window.scrollTo(0, 0);
         }, 100);
     });
 }
 
-// Listener para mudanças no viewport (detecta teclado)
+// Listener para mudanÃ§as no viewport (detecta teclado)
 window.addEventListener('resize', handleViewportResize);
 
-// Atualizar altura inicial quando página carrega
+// Atualizar altura inicial quando pÃ¡gina carrega
 window.addEventListener('load', () => {
     initialViewportHeight = window.innerHeight;
 });
@@ -1442,7 +1442,7 @@ if (chatContainer) {
     chatContainer.style.scrollBehavior = 'smooth';
     chatContainer.style.webkitOverflowScrolling = 'touch';
     
-    // Prevenir apenas o scroll elástico que vai além dos limites
+    // Prevenir apenas o scroll elÃ¡stico que vai alÃ©m dos limites
     let isScrolling = false;
     
     chatContainer.addEventListener('touchstart', () => {
@@ -1455,6 +1455,7 @@ if (chatContainer) {
     
     // Permitir scroll livre dentro do container
     chatContainer.addEventListener('scroll', () => {
-        // Scroll automático funciona normalmente
+        // Scroll automÃ¡tico funciona normalmente
     }, { passive: true });
 }
+
