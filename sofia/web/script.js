@@ -1238,56 +1238,58 @@ async function loadConversationsList() {
     }
 }
 
-// Search conversations
-document.getElementById('search-btn').addEventListener('click', async () => {
-    const searchTerm = document.getElementById('search-conversations').value.trim();
-    if (!searchTerm) {
-        loadConversationsList();
-        return;
+    // Search conversations
+    const searchBtn = document.getElementById('search-btn');
+    if (searchBtn) {
+        searchBtn.addEventListener('click', async () => {
+            const searchInput = document.getElementById('search-conversations');
+            const searchTerm = searchInput ? searchInput.value.trim() : '';
+            if (!searchTerm) {
+                loadConversationsList();
+                return;
+            }
+
+            const listEl = document.getElementById('conversations-list');
+            if (!listEl) return;
+
+            listEl.innerHTML = '<div class="loading">Buscando...</div>';
+
+            try {
+                const response = await fetch(`${API_URL}/search`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ termo: searchTerm, limite: 50 })
+                });
+
+                const data = await response.json();
+
+                if (data.resultados && data.resultados.length > 0) {
+                    listEl.innerHTML = '';
+                    data.resultados.forEach((conv) => {
+                        const item = document.createElement('div');
+                        item.className = 'conversation-item';
+                        item.innerHTML = `
+                            <div class="conversation-info">
+                                <div class="conversation-text">
+                                    <strong>${conv.de}:</strong> ${conv.texto.substring(0, 80)}${conv.texto.length > 80 ? '...' : ''}
+                                </div>
+                                <div class="conversation-meta">
+                                ${conv.timestamp ? new Date(conv.timestamp).toLocaleString('pt-BR') : 'Sem data'}
+                                </div>
+                            </div>
+                        `;
+                        listEl.appendChild(item);
+                    });
+                } else {
+                    listEl.innerHTML = `<p class="text-muted">Nenhuma conversa encontrada com "${searchTerm}"</p>`;
+                }
+            } catch (error) {
+                listEl.innerHTML = '<p class="text-muted">❌ Erro ao buscar</p>';
+                console.error('Erro:', error);
+            }
+        });
     }
 
-        const listEl = document.getElementById('conversations-list');
-        listEl.innerHTML = '<div class="loading">Buscando...</div>';
-    
-        try {
-            const response = await fetch(`${API_URL}/search-conversations`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ query: searchTerm })
-            });
-            const data = await response.json();
-    
-            if (data.resultados && data.resultados.length > 0) {
-                listEl.innerHTML = '';
-                data.resultados.forEach((conv) => {
-                    const item = document.createElement('div');
-                    item.className = 'conversation-item';
-                    const absoluteIndex = conv._index !== undefined ? conv._index : 0;
-                    item.innerHTML = `
-                        <div class="conversation-info">
-                            <div class="conversation-text">
-                                <strong>${conv.de}:</strong> ${conv.texto.substring(0, 80)}${conv.texto.length > 80 ? '...' : ''}
-                            </div>
-                            <div class="conversation-meta">
-                                ${conv.timestamp ? new Date(conv.timestamp).toLocaleString('pt-BR') : 'Sem data'}
-                            </div>
-                        </div>
-                        <div class="conversation-actions">
-                            <button class="btn-icon" onclick="deleteConversation(${absoluteIndex})" title="Deletar">
-                                🗑️
-                            </button>
-                        </div>
-                    `;
-                    listEl.appendChild(item);
-                });
-            } else {
-                listEl.innerHTML = '<p class="text-muted">Nenhuma conversa encontrada.</p>';
-            }
-        } catch (error) {
-            listEl.innerHTML = '<p class="text-muted">❌ Erro ao buscar conversas</p>';
-            console.error('Erro:', error);
-        }
-    });
     
     // Delete conversation
     async function deleteConversation(index) {
@@ -1313,61 +1315,92 @@ document.getElementById('search-btn').addEventListener('click', async () => {
         }
     }
     
-    // Clear all conversations
-    document.getElementById('clear-memory-btn').addEventListener('click', async () => {
-        if (!confirm('⚠️ Isso apagará TODAS as conversas salvas. Deseja continuar?')) return;
-    
+    // Cleanup actions
+    const clearCacheBtn = document.getElementById('clear-cache-btn');
+    if (clearCacheBtn) {
+        clearCacheBtn.addEventListener('click', async () => {
+            if (!confirm('Limpar cache da sessão atual?')) return;
+
+            try {
+                const response = await fetch(`${API_URL}/action`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'limpar' })
+                });
+
+                if (response.ok) {
+                    showNotification('✅ Cache limpo!', 'success');
+                }
+            } catch (error) {
+                showNotification('❌ Erro ao limpar cache', 'error');
+            }
+        });
+    }
+const clearConversationsBtn = document.getElementById('clear-conversations-btn');
+if (clearConversationsBtn) {
+    clearConversationsBtn.addEventListener('click', async () => {
+        if (!confirm('⚠️ Isso vai apagar TODAS as conversas salvas. Aprendizados serão mantidos. Continuar?')) return;
+
         try {
-            const response = await fetch(`${API_URL}/clear-memory`, {
+            const response = await fetch(`${API_URL}/clear-conversations`, {
                 method: 'POST'
             });
-    
-            const data = await response.json();
-            if (data.sucesso) {
-                showNotification('✅ Memória limpa');
+
+            if (response.ok) {
                 loadConversationsList();
-            } else {
-                showNotification('❌ Erro ao limpar memória', 'error');
+                showNotification('✅ Conversas apagadas!', 'success');
             }
         } catch (error) {
-            showNotification('❌ Erro ao limpar memória', 'error');
-            console.error('Erro:', error);
+            showNotification('❌ Erro ao limpar conversas', 'error');
         }
     });
+}
+
     
     // Preferences functions
     function loadPreferences() {
-        const darkMode = localStorage.getItem('darkMode') === 'true';
-        const notifications = localStorage.getItem('notifications') !== 'false';
-        const soundEnabled = localStorage.getItem('soundEnabled') !== 'false';
+    const prefs = localStorage.getItem('sofia-preferences');
+    if (!prefs) return;
+
+    const preferences = JSON.parse(prefs);
+
+    const langSelect = document.getElementById('language-select');
+    if (langSelect) langSelect.value = preferences.language || 'pt-BR';
+
+    const themeSelect = document.getElementById('theme-select');
+    if (themeSelect) themeSelect.value = preferences.theme || 'dark';
+
+    const saveHistoryCheckbox = document.getElementById('save-history');
+    if (saveHistoryCheckbox) saveHistoryCheckbox.checked = preferences.saveHistory !== false;
+
+    const showTimestampsCheckbox = document.getElementById('show-timestamps');
+    if (showTimestampsCheckbox) showTimestampsCheckbox.checked = preferences.showTimestamps !== false;
+}
+
     
-        document.getElementById('dark-mode').checked = darkMode;
-        document.getElementById('notifications').checked = notifications;
-        document.getElementById('sound-enabled').checked = soundEnabled;
-    
-        if (darkMode) {
-            document.body.classList.add('dark-mode');
-        }
-    }
-    
-    document.getElementById('save-preferences-btn').addEventListener('click', () => {
-        const darkMode = document.getElementById('dark-mode').checked;
-        const notifications = document.getElementById('notifications').checked;
-        const soundEnabled = document.getElementById('sound-enabled').checked;
-    
-        localStorage.setItem('darkMode', darkMode);
-        localStorage.setItem('notifications', notifications);
-        localStorage.setItem('soundEnabled', soundEnabled);
-    
-        if (darkMode) {
-            document.body.classList.add('dark-mode');
-        } else {
-            document.body.classList.remove('dark-mode');
-        }
-    
-        showNotification('✅ Preferências salvas');
+    const savePreferencesBtn = document.getElementById('save-preferences-btn');
+if (savePreferencesBtn) {
+    savePreferencesBtn.addEventListener('click', () => {
+        const languageSelect = document.getElementById('language-select');
+        const themeSelect = document.getElementById('theme-select');
+        const saveHistoryCheckbox = document.getElementById('save-history');
+        const showTimestampsCheckbox = document.getElementById('show-timestamps');
+
+        const preferences = {
+            language: languageSelect ? languageSelect.value : 'pt-BR',
+            theme: themeSelect ? themeSelect.value : 'dark',
+            saveHistory: saveHistoryCheckbox ? saveHistoryCheckbox.checked : true,
+            showTimestamps: showTimestampsCheckbox ? showTimestampsCheckbox.checked : true
+        };
+
+        localStorage.setItem('sofia-preferences', JSON.stringify(preferences));
+        showNotification('✅ Preferências salvas!', 'success');
+
+        // Apply theme if changed
+        applyTheme(preferences.theme);
     });
-    
+}
+
     // Notification function
     function showNotification(message, type = 'success') {
         const notification = document.createElement('div');
