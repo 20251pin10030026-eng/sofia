@@ -265,11 +265,85 @@
                     </div>
                 </div>
                 
-                <div id="interaction-prompt"></div>
-                <div id="dialog-box"></div>
+                <!-- Painel de Prompt de Interação -->
+                <div id="interaction-prompt" class="metaverse-panel" style="display: none; bottom: 120px; left: 50%; transform: translateX(-50%); width: auto; max-width: 400px;">
+                    <div class="panel-header">
+                        <h3 class="panel-title">💬 Interação</h3>
+                        <div class="panel-controls">
+                            <button class="panel-btn minimize" title="Minimizar">−</button>
+                            <button class="panel-btn close" title="Fechar">×</button>
+                        </div>
+                    </div>
+                    <div class="panel-body" id="interaction-prompt-text">
+                        <p>Pressione <kbd>E</kbd> para interagir</p>
+                    </div>
+                </div>
                 
-                <div class="metaverse-status" id="metaverse-status">
-                    Sofia esta pensando...
+                <!-- Painel de Diálogo -->
+                <div id="dialog-box" class="metaverse-panel" style="display: none; bottom: 180px; left: 50%; transform: translateX(-50%); width: auto; max-width: 500px;">
+                    <div class="panel-header">
+                        <h3 class="panel-title">💭 Diálogo</h3>
+                        <div class="panel-controls">
+                            <button class="panel-btn minimize" title="Minimizar">−</button>
+                            <button class="panel-btn close" title="Fechar">×</button>
+                        </div>
+                    </div>
+                    <div class="panel-body" id="dialog-box-text">
+                        <p>Conversa com NPC...</p>
+                    </div>
+                </div>
+                
+                <!-- Painel de Status da Sofia -->
+                <div class="metaverse-panel" id="metaverse-status" style="display: none; top: 20px; right: 20px; width: 280px;">
+                    <div class="panel-header">
+                        <h3 class="panel-title">🤖 Status Sofia</h3>
+                        <div class="panel-controls">
+                            <button class="panel-btn minimize" title="Minimizar">−</button>
+                            <button class="panel-btn close" title="Fechar">×</button>
+                        </div>
+                    </div>
+                    <div class="panel-body" id="metaverse-status-text">
+                        <p style="color: #2cb67d; margin: 0;">✨ Sofia está online</p>
+                    </div>
+                </div>
+                
+                <!-- Painel de Orientação de Movimentos (Tutorial) -->
+                <div class="metaverse-panel" id="movement-guide" style="top: 20px; left: 20px; width: 260px;">
+                    <div class="panel-header">
+                        <h3 class="panel-title">🎮 Guia de Movimento</h3>
+                        <div class="panel-controls">
+                            <button class="panel-btn minimize" title="Minimizar">−</button>
+                            <button class="panel-btn close" title="Fechar">×</button>
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <div style="display: grid; gap: 8px; font-size: 0.9em;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <kbd style="min-width: 30px; text-align: center;">W</kbd>
+                                <span>Avançar</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <kbd style="min-width: 30px; text-align: center;">S</kbd>
+                                <span>Recuar</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <kbd style="min-width: 30px; text-align: center;">A</kbd>
+                                <span>Esquerda</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <kbd style="min-width: 30px; text-align: center;">D</kbd>
+                                <span>Direita</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <kbd style="min-width: 60px; text-align: center;">Shift</kbd>
+                                <span>Correr</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <kbd style="min-width: 60px; text-align: center;">Mouse</kbd>
+                                <span>Olhar ao redor</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="metaverse-chat">

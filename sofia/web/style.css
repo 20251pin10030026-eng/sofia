@@ -1567,26 +1567,34 @@ body {
     }
 }
 
-/* Status indicator */
-.metaverse-status {
-    position: absolute;
-    bottom: 290px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(15, 20, 35, 0.85);
-    padding: 0.5rem 1rem;
-    border-radius: 999px;
-    border: 1px solid rgba(44, 182, 125, 0.5);
-    font-size: 0.85rem;
+/* Status indicator como painel */
+#metaverse-status .panel-title {
     color: #2cb67d;
-    display: none;
-    z-index: 3;
-    backdrop-filter: blur(8px);
 }
 
-.metaverse-status.active {
-    display: block;
+#metaverse-status .panel-body {
+    text-align: center;
+    font-size: 0.9em;
+}
+
+#metaverse-status.active .panel-body {
     animation: fadeIn 0.3s ease;
+}
+
+/* Painel de guia de movimento */
+#movement-guide .panel-title {
+    color: #7f5af0;
+}
+
+#movement-guide kbd {
+    background: rgba(255, 255, 255, 0.15);
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 0.85em;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 /* Metaverso mobile */
@@ -1783,59 +1791,46 @@ body {
     color: #7f5af0;
 }
 
-#interaction-prompt {
-    position: absolute;
-    bottom: 120px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(15, 20, 35, 0.85);
-    padding: 12px 28px;
-    border-radius: 999px;
-    border: 1px solid rgba(127, 90, 240, 0.5);
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
-    font-weight: 600;
-    display: none;
-    z-index: 4;
-    color: white;
-    animation: pulse 1.5s ease-in-out infinite;
+#interaction-prompt .panel-title {
+    color: #7CB342;
 }
 
-@keyframes pulse {
-    0%, 100% {
-        opacity: 0.8;
-        transform: translateX(-50%) scale(1);
-    }
-    50% {
-        opacity: 1;
-        transform: translateX(-50%) scale(1.05);
-    }
+#interaction-prompt .panel-body {
+    text-align: center;
+    font-weight: 600;
 }
 
 #interaction-prompt kbd {
     background: rgba(255, 255, 255, 0.3);
-    padding: 3px 10px;
+    padding: 4px 10px;
     border-radius: 5px;
     border: 1px solid rgba(255, 255, 255, 0.5);
     font-family: monospace;
     margin: 0 5px;
+    font-size: 0.9em;
 }
 
-#dialog-box {
-    position: absolute;
-    bottom: 32px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(10, 15, 26, 0.9);
-    padding: 18px 26px;
-    border-radius: 20px;
-    border: 1px solid rgba(127, 90, 240, 0.4);
-    max-width: min(480px, 90vw);
+#dialog-box .panel-title {
+    color: #FF69B4;
+}
+
+#dialog-box .panel-body {
     font-size: 1rem;
-    line-height: 1.45;
-    display: none;
-    z-index: 4;
-    text-align: center;
-    color: white;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+    line-height: 1.5;
+    text-align: left;
+}
+
+/* Animação para painéis de interação */
+.metaverse-panel.interaction-active {
+    animation: pulse-panel 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-panel {
+    0%, 100% {
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4), 0 0 0 0 rgba(127, 90, 240, 0.4);
+    }
+    50% {
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4), 0 0 20px 5px rgba(127, 90, 240, 0.6);
+    }
 }
 

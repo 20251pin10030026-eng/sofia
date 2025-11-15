@@ -821,35 +821,42 @@ function checkInteraction() {
     });
 
     const prompt = document.getElementById('interaction-prompt');
+    const promptText = document.getElementById('interaction-prompt-text');
     if (closestNPC) {
         currentInteractable = closestNPC;
         canInteract = true;
-        if (prompt) {
-            prompt.textContent = `Pressione E para falar com ${closestNPC.name}`;
+        if (prompt && promptText) {
+            promptText.innerHTML = `<p>Pressione <kbd>E</kbd> para falar com ${closestNPC.name}</p>`;
             prompt.style.display = 'block';
+            prompt.classList.add('interaction-active');
         }
     } else {
         currentInteractable = null;
         canInteract = false;
         if (prompt) {
             prompt.style.display = 'none';
+            prompt.classList.remove('interaction-active');
         }
     }
 }
 
 function interactWithNPC(npc) {
     const dialog = document.getElementById('dialog-box');
-    if (!dialog) return;
+    const dialogText = document.getElementById('dialog-box-text');
+    if (!dialog || !dialogText) return;
 
     const line = npc.lines[npc.currentLine];
-    dialog.textContent = line;
+    dialogText.innerHTML = `<p>${line}</p>`;
     dialog.style.display = 'block';
 
     npc.currentLine = (npc.currentLine + 1) % npc.lines.length;
 
+    // Auto-fechar após 6 segundos (aumentado para dar tempo de ler)
     setTimeout(() => {
-        dialog.style.display = 'none';
-    }, 4000);
+        if (dialog.style.display === 'block' && !dialog.classList.contains('minimized')) {
+            dialog.style.display = 'none';
+        }
+    }, 6000);
 
     // Se for Sofia, enviar mensagem pelo chat
     if (npc.id === 'sofia') {
@@ -928,7 +935,10 @@ function sendMetaverseMessage(message) {
 
     // Mostrar status
     const statusDiv = document.getElementById('metaverse-status');
-    if (statusDiv) {
+    const statusText = document.getElementById('metaverse-status-text');
+    if (statusDiv && statusText) {
+        statusText.innerHTML = '<p style="color: #FFB84D; margin: 0;">🤔 Sofia está pensando...</p>';
+        statusDiv.style.display = 'block';
         statusDiv.classList.add('active');
     }
 
@@ -953,7 +963,12 @@ function sendMetaverseMessage(message) {
     } else {
         // Fallback: resposta simulada
         setTimeout(() => {
-            if (statusDiv) statusDiv.classList.remove('active');
+            const statusDiv = document.getElementById('metaverse-status');
+            const statusText = document.getElementById('metaverse-status-text');
+            if (statusDiv && statusText) {
+                statusText.innerHTML = '<p style="color: #2cb67d; margin: 0;">✨ Sofia está online</p>';
+                statusDiv.classList.remove('active');
+            }
             const sofiaMsg = document.createElement('div');
             sofiaMsg.className = 'metaverse-message sofia';
             sofiaMsg.textContent = '🌸 Sofia: Olá! Estou aqui para ajudar. Explore o metaverso!';
