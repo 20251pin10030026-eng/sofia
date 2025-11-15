@@ -105,6 +105,14 @@ async def health_check():
         "websocket_funcionando": True
     }
 
+@app.get("/status")
+async def status():
+    """
+    Endpoint simples de status para compatibilidade com o front-end.
+    Redireciona para o health_check principal.
+    """
+    return await health_check()
+
 @app.get("/test")
 async def test_page():
     """Página de teste simples"""
