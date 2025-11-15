@@ -1783,24 +1783,6 @@ body {
     color: #7f5af0;
 }
 
-#controls-help h3 {
-    margin: 0 0 10px;
-    font-size: 0.95rem;
-    color: #7f5af0;
-}
-
-#controls-help p {
-    margin: 0 0 6px;
-}
-
-#controls-help kbd {
-    background: rgba(255, 255, 255, 0.12);
-    padding: 2px 6px;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-}
-
 #interaction-prompt {
     position: absolute;
     bottom: 120px;
