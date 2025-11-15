@@ -198,6 +198,8 @@ async def upload_file(file: UploadFile = File(...)):
     Faz upload de arquivo (imagem ou PDF) e processa
     Retorna ID do arquivo para referência na conversa
     """
+    print(f"\n[UPLOAD] Recebendo arquivo: {file.filename}, tipo: {file.content_type}")
+    
     try:
         # Validar tipo de arquivo
         allowed_types = {
@@ -206,6 +208,7 @@ async def upload_file(file: UploadFile = File(...)):
         }
         
         if file.content_type not in allowed_types:
+            print(f"[UPLOAD ERRO] Tipo não permitido: {file.content_type}")
             return {
                 "sucesso": False,
                 "erro": f"Tipo de arquivo não suportado: {file.content_type}"
@@ -213,53 +216,84 @@ async def upload_file(file: UploadFile = File(...)):
         
         # Validar tamanho (10MB)
         content = await file.read()
+        tamanho_mb = len(content) / (1024 * 1024)
+        print(f"[UPLOAD] Tamanho: {tamanho_mb:.2f}MB")
+        
         if len(content) > 10 * 1024 * 1024:
+            print(f"[UPLOAD ERRO] Arquivo muito grande: {tamanho_mb:.2f}MB")
             return {
                 "sucesso": False,
-                "erro": "Arquivo muito grande. Máximo: 10MB"
+                "erro": f"Arquivo muito grande ({tamanho_mb:.2f}MB). Máximo: 10MB"
             }
         
         # Criar diretório de uploads se não existir
         uploads_dir = Path(".sofia_internal") / "uploads"
         uploads_dir.mkdir(parents=True, exist_ok=True)
+        print(f"[UPLOAD] Diretório de uploads: {uploads_dir.absolute()}")
         
         # Gerar ID único para o arquivo
         arquivo_id = str(uuid.uuid4())
         nome_arquivo = file.filename or "arquivo_sem_nome"
-        extensao = Path(nome_arquivo).suffix
+        extensao = Path(nome_arquivo).suffix.lower()
         arquivo_path = uploads_dir / f"{arquivo_id}{extensao}"
+        
+        print(f"[UPLOAD] Salvando em: {arquivo_path}")
         
         # Salvar arquivo
         with open(arquivo_path, "wb") as f:
             f.write(content)
         
+        print(f"[UPLOAD] Arquivo salvo com sucesso!")
+        
         # Processar arquivo baseado no tipo
         tipo = "imagem" if file.content_type.startswith("image/") else "pdf"
+        print(f"[UPLOAD] Tipo detectado: {tipo}")
         
         if tipo == "pdf":
             # Processar PDF usando o GestorVisao
             try:
-                from sofia.core.visao import visao
+                from sofia.core.visao import visao, PDF_DISPONIVEL
+                
+                print(f"[UPLOAD PDF] PDF_DISPONIVEL: {PDF_DISPONIVEL}")
+                
+                if not PDF_DISPONIVEL:
+                    print("[UPLOAD PDF ERRO] PyPDF2 não disponível!")
+                    return {
+                        "sucesso": False,
+                        "erro": "PyPDF2 não está instalado. Instale com: pip install PyPDF2"
+                    }
                 
                 # Adicionar arquivo ao sistema de visão
+                print(f"[UPLOAD PDF] Chamando visao.adicionar_arquivo...")
                 resultado = visao.adicionar_arquivo(str(arquivo_path), nome_arquivo)
+                print(f"[UPLOAD PDF] Resultado: {resultado}")
                 
                 if resultado.get("sucesso"):
+                    conteudo_preview = resultado.get("conteudo", "")
+                    preview = conteudo_preview[:200] + "..." if len(conteudo_preview) > 200 else conteudo_preview
+                    
+                    print(f"[UPLOAD PDF] ✅ Sucesso! ID: {resultado['arquivo_id']}, Conteúdo: {len(conteudo_preview)} chars")
+                    
                     return {
                         "sucesso": True,
                         "arquivo_id": resultado["arquivo_id"],
                         "tipo": tipo,
                         "nome": nome_arquivo,
                         "tamanho": len(content),
-                        "conteudo": resultado.get("conteudo", "")[:200] + "...",
-                        "mensagem": f"✅ PDF processado! ID: {resultado['arquivo_id']}"
+                        "conteudo": preview,
+                        "mensagem": f"✅ PDF processado com sucesso! {len(conteudo_preview)} caracteres extraídos."
                     }
                 else:
+                    erro_msg = resultado.get("erro", "Erro desconhecido")
+                    print(f"[UPLOAD PDF ERRO] {erro_msg}")
                     return {
                         "sucesso": False,
-                        "erro": resultado.get("erro", "Erro desconhecido")
+                        "erro": erro_msg
                     }
             except Exception as e:
+                import traceback
+                erro_completo = traceback.format_exc()
+                print(f"[UPLOAD PDF EXCEÇÃO] {erro_completo}")
                 return {
                     "sucesso": False,
                     "erro": f"Erro ao processar PDF: {str(e)}"

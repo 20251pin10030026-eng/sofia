@@ -384,15 +384,22 @@ async function addAttachedFile(file) {
 
     // Upload para o servidor
     try {
+        showNotification(`📤 Enviando ${file.name}...`, 'info');
+        
         const formData = new FormData();
         formData.append('file', file);
+
+        console.log(`[UPLOAD] Enviando para: ${API_URL}/upload-file`);
+        console.log(`[UPLOAD] Arquivo: ${file.name}, Tipo: ${file.type}, Tamanho: ${file.size} bytes`);
 
         const response = await fetch(`${API_URL}/upload-file`, {
             method: 'POST',
             body: formData
         });
 
+        console.log(`[UPLOAD] Status da resposta: ${response.status}`);
         const data = await response.json();
+        console.log(`[UPLOAD] Resposta:`, data);
 
         if (data.sucesso) {
             attachedFiles.push({
@@ -401,12 +408,20 @@ async function addAttachedFile(file) {
                 type: data.tipo,
                 file: file
             });
-            showNotification(`✅ ${file.name} anexado!`);
+            
+            const mensagem = data.mensagem || `✅ ${file.name} anexado!`;
+            showNotification(mensagem, 'success');
+            
+            if (data.tipo === 'pdf' && data.conteudo) {
+                console.log(`[PDF] Preview do conteúdo extraído:`, data.conteudo);
+            }
         } else {
+            console.error(`[UPLOAD ERRO]`, data.erro);
             showNotification(`❌ ${data.erro}`, 'error');
         }
     } catch (error) {
-        showNotification(`❌ Erro ao anexar ${file.name}`, 'error');
+        console.error(`[UPLOAD EXCEÇÃO]`, error);
+        showNotification(`❌ Erro ao anexar ${file.name}: ${error.message}`, 'error');
     }
 }
 
