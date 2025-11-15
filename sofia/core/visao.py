@@ -19,16 +19,14 @@ except ImportError:
     Image = None
     pytesseract = None
 
-# Importa PyPDF2 com verificação melhorada
-PyPDF2 = None
-PDF_DISPONIVEL = False
-
+# Importa PyPDF2 de forma direta
 try:
     import PyPDF2
     PDF_DISPONIVEL = True
     print(f"[VISAO INIT] ✅ PyPDF2 {PyPDF2.__version__} carregado com sucesso")
 except ImportError as e:
     print(f"[VISAO INIT] ❌ PyPDF2 não disponível: {e}")
+    print(f"[VISAO INIT] Instale com: pip install PyPDF2")
     PyPDF2 = None
     PDF_DISPONIVEL = False
 
@@ -94,7 +92,9 @@ class SistemaVisao:
         Adiciona arquivo ao sistema de visão temporária
         Returns: Dict com sucesso e informações do arquivo
         """
-        print(f"[DEBUG adicionar_arquivo] Recebido: {nome_original} ({arquivo_path})")
+        print(f"\n[VISAO] ========== ADICIONANDO ARQUIVO ==========")
+        print(f"[VISAO] Nome: {nome_original}")
+        print(f"[VISAO] Path: {arquivo_path}")
         
         if not self.pode_adicionar():
             return {
@@ -104,7 +104,7 @@ class SistemaVisao:
         
         # Verifica extensão
         extensao = Path(nome_original).suffix.lower()
-        print(f"[DEBUG adicionar_arquivo] Extensão detectada: {extensao}")
+        print(f"[VISAO] Extensão: {extensao}")
         
         if extensao not in (self.FORMATOS_IMAGEM | self.FORMATOS_PDF):
             return {
@@ -114,7 +114,7 @@ class SistemaVisao:
         
         # Verifica tamanho
         tamanho = os.path.getsize(arquivo_path)
-        print(f"[DEBUG adicionar_arquivo] Tamanho: {tamanho} bytes")
+        print(f"[VISAO] Tamanho: {tamanho / 1024:.2f} KB")
         
         if tamanho > self.TAMANHO_MAXIMO:
             return {
@@ -127,16 +127,19 @@ class SistemaVisao:
         arquivo_id = f"{timestamp}_{nome_original}"
         destino = self.temp_dir / arquivo_id
         
-        print(f"[DEBUG adicionar_arquivo] Copiando para: {destino}")
+        print(f"[VISAO] Copiando para: {destino}")
         
         # Copia arquivo
         import shutil
         shutil.copy2(arquivo_path, destino)
         
         # Processa conteúdo
-        print(f"[DEBUG adicionar_arquivo] Processando conteúdo...")
+        tipo_arquivo = 'pdf' if extensao in self.FORMATOS_PDF else 'imagem'
+        print(f"[VISAO] Tipo detectado: {tipo_arquivo}")
+        print(f"[VISAO] Processando conteúdo...")
+        
         conteudo = self._processar_arquivo(destino, extensao)
-        print(f"[DEBUG adicionar_arquivo] Conteúdo processado: {len(conteudo)} caracteres")
+        print(f"[VISAO] ✅ Conteúdo processado: {len(conteudo)} caracteres")
         
         # Salva metadata
         self.arquivos[arquivo_id] = {
@@ -150,93 +153,119 @@ class SistemaVisao:
         }
         self._salvar_metadata()
         
-        print(f"[DEBUG adicionar_arquivo] Arquivo adicionado com sucesso! ID: {arquivo_id}")
+        print(f"[VISAO] ✅ Arquivo adicionado! ID: {arquivo_id}")
+        print(f"[VISAO] ==========================================\n")
         
         return {
             'sucesso': True,
             'arquivo_id': arquivo_id,
             'nome': nome_original,
-            'tipo': 'imagem' if extensao in self.FORMATOS_IMAGEM else 'pdf',
+            'tipo': tipo_arquivo,
+            'conteudo': conteudo,  # Incluir conteúdo na resposta
             'expira_em': self._formatar_tempo_expiracao(timestamp)
         }
     
     def _processar_arquivo(self, path: Path, extensao: str) -> str:
         """Extrai texto/descrição do arquivo"""
-        print(f"[DEBUG] _processar_arquivo chamado: path={path}, extensao={extensao}")
+        print(f"[VISAO] _processar_arquivo: {extensao}")
+        
         try:
             if extensao in self.FORMATOS_PDF:
-                print(f"[DEBUG] Detectado como PDF. PDF_DISPONIVEL={PDF_DISPONIVEL}, PyPDF2={PyPDF2 is not None}")
+                print(f"[VISAO] → Processando PDF")
+                print(f"[VISAO] → PDF_DISPONIVEL: {PDF_DISPONIVEL}")
+                print(f"[VISAO] → PyPDF2 object: {PyPDF2 is not None}")
+                
+                if not PDF_DISPONIVEL or PyPDF2 is None:
+                    erro = "❌ PyPDF2 não está disponível!\n"
+                    erro += "Para ler PDFs, instale: pip install PyPDF2\n"
+                    erro += "Depois reinicie o servidor."
+                    print(f"[VISAO] {erro}")
+                    return erro
+                
                 resultado = self._extrair_texto_pdf(path)
-                print(f"[DEBUG] Resultado da extração: {len(resultado)} caracteres")
+                print(f"[VISAO] → PDF processado: {len(resultado)} caracteres")
                 return resultado
+                
             elif extensao in self.FORMATOS_IMAGEM:
+                print(f"[VISAO] → Processando imagem")
                 # Usa analisador visual avançado se disponível
                 if analisador is not None:
                     return analisador.analisar_imagem_completa(path)
                 else:
                     return self._analisar_imagem(path)
         except Exception as e:
-            erro = f"Erro ao processar: {str(e)}"
-            print(f"[DEBUG ERRO] {erro}")
+            import traceback
+            erro = f"❌ Erro ao processar: {str(e)}\n{traceback.format_exc()}"
+            print(f"[VISAO] {erro}")
+            return erro
             return erro
         return ""
     
     def _extrair_texto_pdf(self, path: Path) -> str:
-        """Extrai texto de PDF"""
-        global PyPDF2, PDF_DISPONIVEL
+        """Extrai texto de PDF usando PyPDF2"""
+        print(f"\n[PDF] ========== EXTRAINDO TEXTO ==========")
+        print(f"[PDF] Arquivo: {path}")
+        print(f"[PDF] PyPDF2 disponível: {PDF_DISPONIVEL}")
         
-        # Tenta reimportar PyPDF2 se não estiver disponível
         if not PDF_DISPONIVEL or PyPDF2 is None:
-            print(f"[DEBUG PDF] Tentando reimportar PyPDF2...")
-            try:
-                import PyPDF2 as PDF2Module
-                PyPDF2 = PDF2Module
-                PDF_DISPONIVEL = True
-                print(f"[DEBUG PDF] ✅ PyPDF2 {PyPDF2.__version__} carregado com sucesso!")
-            except ImportError as e:
-                print(f"[DEBUG PDF] ❌ Falha ao importar PyPDF2: {e}")
-                erro = "[ERRO: PyPDF2 não está disponível]\n"
-                erro += "Instale com: pip install PyPDF2\n"
-                erro += f"Depois reinicie o servidor (Ctrl+C e inicie novamente)"
-                return erro
-        
-        print(f"[DEBUG PDF] PDF_DISPONIVEL={PDF_DISPONIVEL}, PyPDF2 versão={PyPDF2.__version__ if PyPDF2 else 'N/A'}")
+            erro = "❌ ERRO: PyPDF2 não está disponível!\n\n"
+            erro += "SOLUÇÃO:\n"
+            erro += "1. Instale: pip install PyPDF2\n"
+            erro += "2. Reinicie o servidor (Ctrl+C e rode novamente)\n"
+            print(f"[PDF] {erro}")
+            return erro
         
         try:
-            print(f"[DEBUG PDF] Abrindo arquivo: {path}")
-            texto = []
-            with open(path, 'rb') as f:
-                reader = PyPDF2.PdfReader(f)
-                num_paginas = len(reader.pages)
-                print(f"[DEBUG PDF] PDF tem {num_paginas} páginas")
+            print(f"[PDF] Abrindo arquivo...")
+            texto_completo = []
+            
+            with open(path, 'rb') as arquivo_pdf:
+                leitor = PyPDF2.PdfReader(arquivo_pdf)
+                total_paginas = len(leitor.pages)
                 
-                if num_paginas == 0:
+                print(f"[PDF] Total de páginas: {total_paginas}")
+                
+                if total_paginas == 0:
                     return "PDF vazio ou sem páginas legíveis."
                 
-                # Lê TODAS as páginas
-                for i in range(num_paginas):
-                    page = reader.pages[i]
-                    texto_pagina = page.extract_text()
-                    print(f"[DEBUG PDF] Página {i+1}: {len(texto_pagina)} caracteres extraídos")
-                    if texto_pagina.strip():  # Só adiciona se tiver conteúdo
-                        texto.append(f"=== Página {i+1} ===\n{texto_pagina}")
+                # Extrai texto de cada página
+                for num_pagina in range(total_paginas):
+                    print(f"[PDF] Processando página {num_pagina + 1}/{total_paginas}...")
+                    
+                    pagina = leitor.pages[num_pagina]
+                    texto_pagina = pagina.extract_text()
+                    
+                    chars_extraidos = len(texto_pagina.strip())
+                    print(f"[PDF] Página {num_pagina + 1}: {chars_extraidos} caracteres")
+                    
+                    if texto_pagina.strip():
+                        texto_completo.append(f"=== Página {num_pagina + 1} de {total_paginas} ===\n{texto_pagina}")
             
-            if not texto:
-                msg = f"PDF com {num_paginas} páginas, mas nenhum texto extraível encontrado (pode ser PDF de imagens/scaneado)."
-                print(f"[DEBUG PDF] {msg}")
-                return msg
+            if not texto_completo:
+                aviso = f"⚠️ PDF com {total_paginas} páginas, mas sem texto extraível.\n"
+                aviso += "Pode ser um PDF escaneado (imagem). Use OCR para ler o conteúdo."
+                print(f"[PDF] {aviso}")
+                return aviso
             
-            resultado = '\n\n'.join(texto)
+            resultado_final = '\n\n'.join(texto_completo)
+            total_chars = len(resultado_final)
             
-            # Informação sobre o PDF
-            info = f"PDF: {num_paginas} páginas, {len(resultado)} caracteres extraídos\n\n"
-            print(f"[DEBUG PDF] Sucesso! {len(resultado)} caracteres totais")
-            return info + resultado
+            # Cabeçalho informativo
+            cabecalho = f"📄 PDF: {total_paginas} páginas | {total_chars} caracteres extraídos\n"
+            cabecalho += f"━" * 50 + "\n\n"
+            
+            print(f"[PDF] ✅ SUCESSO!")
+            print(f"[PDF] Total extraído: {total_chars} caracteres")
+            print(f"[PDF] ======================================\n")
+            
+            return cabecalho + resultado_final
             
         except Exception as e:
-            erro = f"Erro ao processar PDF: {str(e)}\nVerifique se o arquivo não está corrompido."
-            print(f"[DEBUG PDF ERRO] {erro}")
-            return erro
+            import traceback
+            erro_detalhado = traceback.format_exc()
+            erro_msg = f"❌ Erro ao processar PDF:\n{str(e)}\n\n{erro_detalhado}"
+            print(f"[PDF] ERRO:\n{erro_msg}")
+            return erro_msg
     
     def _analisar_imagem(self, path: Path) -> str:
         """Analisa imagem (dimensões, cores, OCR e descrição detalhada)"""
