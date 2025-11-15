@@ -1374,33 +1374,16 @@ body {
     50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
 }
 
-/* Chat window estilo game */
-.metaverse-chat {
-    position: absolute;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: min(600px, 90vw);
-    background: rgba(15, 20, 35, 0.95);
-    backdrop-filter: blur(10px);
-    border-radius: 16px;
-    border: 2px solid rgba(127, 90, 240, 0.6);
-    padding: 1rem;
-    max-height: 250px;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6), 
-                0 0 40px rgba(127, 90, 240, 0.3);
+/* Chat como painel flutuante */
+#metaverse-chat-panel .panel-title {
+    color: #FF69B4;
+}
+
+#metaverse-chat-panel .panel-body {
+    padding: 0 !important;
 }
 
 #metaverse-messages {
-    flex: 1;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    padding-right: 0.5rem;
     scrollbar-width: thin;
     scrollbar-color: rgba(127, 90, 240, 0.5) rgba(0, 0, 0, 0.2);
 }
@@ -1424,12 +1407,12 @@ body {
 }
 
 .metaverse-message {
-    padding: 0.75rem 1rem;
-    border-radius: 12px;
-    font-size: 0.95rem;
-    line-height: 1.45;
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    line-height: 1.4;
     animation: fadeInUp 0.3s ease;
-    max-width: 85%;
+    max-width: 90%;
     word-wrap: break-word;
 }
 
@@ -1447,58 +1430,39 @@ body {
 .metaverse-message.user {
     background: linear-gradient(135deg, #667EEA 0%, #764BA2 100%);
     align-self: flex-end;
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    margin-left: auto;
 }
 
 .metaverse-message.sofia {
-    background: rgba(26, 26, 46, 0.9);
+    background: rgba(26, 26, 46, 0.8);
     border: 1px solid rgba(127, 90, 240, 0.4);
     align-self: flex-start;
-    box-shadow: 0 4px 12px rgba(127, 90, 240, 0.2);
-}
-
-.metaverse-input {
-    display: flex;
-    gap: 0.75rem;
+    box-shadow: 0 2px 8px rgba(127, 90, 240, 0.2);
 }
 
 #metaverse-input-text {
-    flex: 1;
-    background: rgba(10, 15, 26, 0.8);
-    border: 1px solid rgba(127, 90, 240, 0.4);
-    border-radius: 10px;
-    padding: 0.875rem 1rem;
-    color: var(--text-color);
-    font-size: 0.95rem;
     outline: none;
-    transition: all 0.3s ease;
+    transition: all 0.2s ease;
 }
 
 #metaverse-input-text:focus {
     border-color: rgba(127, 90, 240, 0.8);
-    box-shadow: 0 0 0 3px rgba(127, 90, 240, 0.15);
-    background: rgba(10, 15, 26, 0.95);
-}
-
-#metaverse-send-btn {
-    background: linear-gradient(135deg, #7f5af0 0%, #2cb67d 100%);
-    border: none;
-    border-radius: 10px;
-    padding: 0.875rem 1.5rem;
-    color: white;
-    font-size: 1.2rem;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 12px rgba(127, 90, 240, 0.4);
+    box-shadow: 0 0 0 2px rgba(127, 90, 240, 0.2);
 }
 
 #metaverse-send-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(127, 90, 240, 0.5);
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(44, 182, 125, 0.5);
 }
 
 #metaverse-send-btn:active {
-    transform: translateY(0);
+    transform: scale(0.95);
+}
+
+/* Painel de Missões */
+#mission-tracker .panel-title {
+    color: #FFB84D;
 }
 
 /* Controles HUD */
@@ -1599,21 +1563,30 @@ body {
 
 /* Metaverso mobile */
 @media (max-width: 768px) {
-    .metaverse-chat {
-        bottom: 15px;
-        width: 95vw;
-        max-height: 200px;
-        padding: 0.75rem;
+    #metaverse-chat-panel {
+        width: 90vw !important;
+        bottom: 10px !important;
+        right: 5vw !important;
     }
     
     #metaverse-messages {
-        gap: 0.4rem;
+        max-height: 180px !important;
     }
     
     .metaverse-message {
-        padding: 0.625rem 0.875rem;
-        font-size: 0.875rem;
-        max-width: 90%;
+        padding: 6px 10px;
+        font-size: 0.85rem;
+        max-width: 95%;
+    }
+    
+    #movement-guide,
+    #mission-tracker {
+        width: 220px !important;
+        font-size: 0.85em;
+    }
+    
+    .metaverse-panel {
+        max-width: 95vw;
     }
     
     .metaverse-controls {

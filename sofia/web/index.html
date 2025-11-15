@@ -235,33 +235,26 @@
                     <div class="metaverse-crosshair"></div>
                 </div>
                 
-                <div id="mission-tracker" class="metaverse-panel">
+                <!-- Painel de Missões -->
+                <div id="mission-tracker" class="metaverse-panel" style="top: 110px; left: 20px; width: 260px;">
                     <div class="panel-header">
-                        <h3 class="panel-title">🎯 Missões</h3>
+                        <h3 class="panel-title">🎯 Missões Ativas</h3>
                         <div class="panel-controls">
                             <button class="panel-btn minimize" title="Minimizar">−</button>
                             <button class="panel-btn close" title="Fechar">×</button>
                         </div>
                     </div>
-                    <div class="panel-body">
-                        <p>Carregando...</p>
-                    </div>
-                </div>
-                
-                <div id="controls-help" class="metaverse-panel">
-                    <div class="panel-header">
-                        <h3 class="panel-title">🎮 Controles</h3>
-                        <div class="panel-controls">
-                            <button class="panel-btn minimize" title="Minimizar">−</button>
-                            <button class="panel-btn close" title="Fechar">×</button>
+                    <div class="panel-body" id="mission-list">
+                        <div style="display: grid; gap: 10px; font-size: 0.9em;">
+                            <div style="padding: 8px; background: rgba(127, 90, 240, 0.15); border-radius: 8px; border-left: 3px solid #7f5af0;">
+                                <div style="font-weight: 600; margin-bottom: 4px;">🌸 Conhecer Sofia</div>
+                                <div style="font-size: 0.85em; opacity: 0.8;">Fale com a Sofia no jardim</div>
+                            </div>
+                            <div style="padding: 8px; background: rgba(44, 182, 125, 0.15); border-radius: 8px; border-left: 3px solid #2cb67d; opacity: 0.6;">
+                                <div style="font-weight: 600; margin-bottom: 4px;">🗺️ Explorar o Mundo</div>
+                                <div style="font-size: 0.85em; opacity: 0.8;">Descubra todos os NPCs</div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="panel-body">
-                        <p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> - Mover</p>
-                        <p><kbd>Mouse</kbd> - Olhar</p>
-                        <p><kbd>Shift</kbd> - Correr</p>
-                        <p><kbd>E</kbd> - Interagir com NPCs</p>
-                        <p><kbd>ESC</kbd> - Menu</p>
                     </div>
                 </div>
                 
@@ -346,15 +339,25 @@
                     </div>
                 </div>
                 
-                <div class="metaverse-chat">
-                    <div id="metaverse-messages"></div>
-                    <div class="metaverse-input">
-                        <input type="text" id="metaverse-input-text" placeholder="Converse com Sofia no metaverso..." autocomplete="off">
-                        <button id="metaverse-send-btn">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </button>
+                <!-- Painel de Chat com Sofia -->
+                <div class="metaverse-panel" id="metaverse-chat-panel" style="bottom: 20px; right: 20px; width: 350px;">
+                    <div class="panel-header">
+                        <h3 class="panel-title">🌸 Chat com Sofia</h3>
+                        <div class="panel-controls">
+                            <button class="panel-btn minimize" title="Minimizar">−</button>
+                            <button class="panel-btn close" title="Fechar">×</button>
+                        </div>
+                    </div>
+                    <div class="panel-body" style="padding: 0; max-height: 300px; display: flex; flex-direction: column;">
+                        <div id="metaverse-messages" style="flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; max-height: 240px;"></div>
+                        <div class="metaverse-input" style="padding: 10px; border-top: 1px solid rgba(255, 255, 255, 0.1); display: flex; gap: 8px;">
+                            <input type="text" id="metaverse-input-text" placeholder="Converse com Sofia..." autocomplete="off" style="flex: 1; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; padding: 8px 12px; color: white; font-size: 0.9em;">
+                            <button id="metaverse-send-btn" style="background: linear-gradient(135deg, #2cb67d 0%, #1e8a5f 100%); border: none; border-radius: 8px; padding: 8px 12px; cursor: pointer; transition: all 0.2s ease;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                    <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
