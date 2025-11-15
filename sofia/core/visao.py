@@ -19,10 +19,16 @@ except ImportError:
     Image = None
     pytesseract = None
 
+# Importa PyPDF2 com verificação melhorada
+PyPDF2 = None
+PDF_DISPONIVEL = False
+
 try:
     import PyPDF2
     PDF_DISPONIVEL = True
-except ImportError:
+    print(f"[VISAO INIT] ✅ PyPDF2 {PyPDF2.__version__} carregado com sucesso")
+except ImportError as e:
+    print(f"[VISAO INIT] ❌ PyPDF2 não disponível: {e}")
     PyPDF2 = None
     PDF_DISPONIVEL = False
 
@@ -177,14 +183,24 @@ class SistemaVisao:
     
     def _extrair_texto_pdf(self, path: Path) -> str:
         """Extrai texto de PDF"""
-        print(f"[DEBUG PDF] Iniciando extração: PDF_DISPONIVEL={PDF_DISPONIVEL}, PyPDF2={PyPDF2 is not None}")
+        global PyPDF2, PDF_DISPONIVEL
         
+        # Tenta reimportar PyPDF2 se não estiver disponível
         if not PDF_DISPONIVEL or PyPDF2 is None:
-            erro = "[ERRO INTERNO: PyPDF2 não está disponível]\n"
-            erro += "O servidor precisa ser reiniciado após a instalação do PyPDF2.\n"
-            erro += "Por favor, reinicie o servidor Flask (Ctrl+C e 'python api.py')"
-            print(f"[DEBUG PDF] {erro}")
-            return erro
+            print(f"[DEBUG PDF] Tentando reimportar PyPDF2...")
+            try:
+                import PyPDF2 as PDF2Module
+                PyPDF2 = PDF2Module
+                PDF_DISPONIVEL = True
+                print(f"[DEBUG PDF] ✅ PyPDF2 {PyPDF2.__version__} carregado com sucesso!")
+            except ImportError as e:
+                print(f"[DEBUG PDF] ❌ Falha ao importar PyPDF2: {e}")
+                erro = "[ERRO: PyPDF2 não está disponível]\n"
+                erro += "Instale com: pip install PyPDF2\n"
+                erro += f"Depois reinicie o servidor (Ctrl+C e inicie novamente)"
+                return erro
+        
+        print(f"[DEBUG PDF] PDF_DISPONIVEL={PDF_DISPONIVEL}, PyPDF2 versão={PyPDF2.__version__ if PyPDF2 else 'N/A'}")
         
         try:
             print(f"[DEBUG PDF] Abrindo arquivo: {path}")
