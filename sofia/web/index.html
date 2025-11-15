@@ -236,7 +236,7 @@
                 </div>
                 
                 <!-- Painel de Missões -->
-                <div id="mission-tracker" class="metaverse-panel" style="top: 110px; left: 20px; width: 260px;">
+                <div id="mission-tracker" class="metaverse-panel" style="top: 300px; left: 20px; width: 260px;">
                     <div class="panel-header">
                         <h3 class="panel-title">🎯 Missões Ativas</h3>
                         <div class="panel-controls">
@@ -245,14 +245,27 @@
                         </div>
                     </div>
                     <div class="panel-body" id="mission-list">
-                        <div style="display: grid; gap: 10px; font-size: 0.9em;">
-                            <div style="padding: 8px; background: rgba(127, 90, 240, 0.15); border-radius: 8px; border-left: 3px solid #7f5af0;">
-                                <div style="font-weight: 600; margin-bottom: 4px;">🌸 Conhecer Sofia</div>
-                                <div style="font-size: 0.85em; opacity: 0.8;">Fale com a Sofia no jardim</div>
+                        <div style="display: grid; gap: 8px; font-size: 0.9em;">
+                            <div class="mission-item mission-active">
+                                <div class="mission-icon">🌸</div>
+                                <div class="mission-content">
+                                    <div class="mission-title">Conhecer Sofia</div>
+                                    <div class="mission-desc">Fale com a Sofia no jardim</div>
+                                </div>
                             </div>
-                            <div style="padding: 8px; background: rgba(44, 182, 125, 0.15); border-radius: 8px; border-left: 3px solid #2cb67d; opacity: 0.6;">
-                                <div style="font-weight: 600; margin-bottom: 4px;">🗺️ Explorar o Mundo</div>
-                                <div style="font-size: 0.85em; opacity: 0.8;">Descubra todos os NPCs</div>
+                            <div class="mission-item mission-pending">
+                                <div class="mission-icon">🗺️</div>
+                                <div class="mission-content">
+                                    <div class="mission-title">Explorar o Mundo</div>
+                                    <div class="mission-desc">Descubra todos os NPCs</div>
+                                </div>
+                            </div>
+                            <div class="mission-item mission-pending">
+                                <div class="mission-icon">🔑</div>
+                                <div class="mission-content">
+                                    <div class="mission-title">Encontrar Segredos</div>
+                                    <div class="mission-desc">Explore áreas ocultas</div>
+                                </div>
                             </div>
                         </div>
                     </div>
