@@ -98,6 +98,9 @@ function initMetaverse() {
         container.appendChild(canvas);
     }
 
+    // Inicializar painéis móveis
+    initializeDraggablePanels();
+
     gameStarted = true;
 
     engine = new BABYLON.Engine(canvas, true, { 
@@ -121,6 +124,140 @@ function initMetaverse() {
 
         console.log('✅ Metaverso Babylon.js inicializado');
     });
+}
+
+// =====================================================
+// PAINÉIS MÓVEIS (Drag and Drop)
+// =====================================================
+function initializeDraggablePanels() {
+    const panels = document.querySelectorAll('.metaverse-panel');
+    
+    panels.forEach(panel => {
+        const header = panel.querySelector('.panel-header');
+        const minimizeBtn = panel.querySelector('.panel-btn.minimize');
+        const closeBtn = panel.querySelector('.panel-btn.close');
+        
+        let isDragging = false;
+        let currentX, currentY, initialX, initialY;
+        let xOffset = 0, yOffset = 0;
+
+        // Drag functionality
+        header.addEventListener('mousedown', dragStart);
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('mouseup', dragEnd);
+
+        // Touch support
+        header.addEventListener('touchstart', dragStart);
+        document.addEventListener('touchmove', drag);
+        document.addEventListener('touchend', dragEnd);
+
+        function dragStart(e) {
+            // Não arrastar se clicar nos botões
+            if (e.target.classList.contains('panel-btn')) return;
+            
+            if (e.type === "touchstart") {
+                initialX = e.touches[0].clientX - xOffset;
+                initialY = e.touches[0].clientY - yOffset;
+            } else {
+                initialX = e.clientX - xOffset;
+                initialY = e.clientY - yOffset;
+            }
+
+            if (e.target === header || header.contains(e.target)) {
+                isDragging = true;
+                panel.style.zIndex = 1000; // Trazer para frente
+            }
+        }
+
+        function drag(e) {
+            if (isDragging) {
+                e.preventDefault();
+                
+                if (e.type === "touchmove") {
+                    currentX = e.touches[0].clientX - initialX;
+                    currentY = e.touches[0].clientY - initialY;
+                } else {
+                    currentX = e.clientX - initialX;
+                    currentY = e.clientY - initialY;
+                }
+
+                xOffset = currentX;
+                yOffset = currentY;
+
+                setTranslate(currentX, currentY, panel);
+            }
+        }
+
+        function dragEnd() {
+            if (isDragging) {
+                initialX = currentX;
+                initialY = currentY;
+                isDragging = false;
+                panel.style.zIndex = 4; // Voltar ao z-index normal
+            }
+        }
+
+        function setTranslate(xPos, yPos, el) {
+            el.style.transform = `translate3d(${xPos}px, ${yPos}px, 0)`;
+        }
+
+        // Minimize functionality
+        if (minimizeBtn) {
+            minimizeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                panel.classList.toggle('minimized');
+                minimizeBtn.textContent = panel.classList.contains('minimized') ? '+' : '−';
+            });
+        }
+
+        // Close functionality
+        if (closeBtn) {
+            closeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                panel.style.display = 'none';
+                
+                // Adicionar botão para reabrir (opcional)
+                showReopenButton(panel);
+            });
+        }
+    });
+}
+
+function showReopenButton(panel) {
+    // Criar botão flutuante para reabrir painel
+    const reopenBtn = document.createElement('button');
+    reopenBtn.className = 'reopen-panel-btn';
+    reopenBtn.innerHTML = `📋 ${panel.querySelector('.panel-title').textContent}`;
+    reopenBtn.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: rgba(44, 182, 125, 0.9);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        z-index: 1000;
+        font-size: 14px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        transition: all 0.2s ease;
+    `;
+    
+    reopenBtn.addEventListener('mouseenter', () => {
+        reopenBtn.style.transform = 'scale(1.05)';
+    });
+    
+    reopenBtn.addEventListener('mouseleave', () => {
+        reopenBtn.style.transform = 'scale(1)';
+    });
+    
+    reopenBtn.addEventListener('click', () => {
+        panel.style.display = 'block';
+        reopenBtn.remove();
+    });
+    
+    document.body.appendChild(reopenBtn);
 }
 
 // =====================================================
