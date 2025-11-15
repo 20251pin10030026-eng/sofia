@@ -409,6 +409,8 @@ async function addAttachedFile(file) {
                 file: file
             });
             
+            updateAttachedFilesUI(); // Atualiza a UI
+            
             const mensagem = data.mensagem || `✅ ${file.name} anexado!`;
             showNotification(mensagem, 'success');
             
