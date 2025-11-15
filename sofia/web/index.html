@@ -222,27 +222,6 @@
         </div>
     </div>
 
-    <!-- Modal Visualização Sofia -->
-    <div id="sofia-visual-modal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 600px; background: linear-gradient(135deg, #0F0F1E 0%, #1A1A2E 100%); border: 2px solid rgba(255, 105, 180, 0.4);">
-            <div class="modal-header">
-                <h3 style="background: linear-gradient(135deg, #FF69B4 0%, #FFB6D9 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0;">🌸 Sofia - Visualização</h3>
-                <button class="modal-close" onclick="fecharVisualizacaoSofia()">&times;</button>
-            </div>
-            <div class="modal-body" style="text-align: center;">
-                <p style="color: #E4E4E7; margin-bottom: 20px;">Representação visual da IA com corpo de mulher digital</p>
-                <div style="margin-bottom: 15px;">
-                    <canvas id="canvasSofiaMetaverso" width="400" height="560" style="border: 2px solid rgba(255, 105, 180, 0.3); border-radius: 12px; background: linear-gradient(135deg, #1A1A2E 0%, #2A2A3E 100%); max-width: 100%;"></canvas>
-                </div>
-                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                    <button class="btn-primary" onclick="animarSofiaMetaverso()" style="flex: 1; min-width: 120px; max-width: 150px;">✨ Animar</button>
-                    <button class="btn-primary" onclick="trocarCorMetaverso()" style="flex: 1; min-width: 120px; max-width: 150px;">🎨 Trocar Cor</button>
-                    <button class="btn-secondary" onclick="redesenharMetaverso()" style="flex: 1; min-width: 120px; max-width: 150px;">🔄 Resetar</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Modal do Metaverso 3D com NPCs (Babylon.js) -->
     <div class="modal" id="metaverse-modal">
         <div class="modal-content modal-fullscreen">
@@ -283,9 +262,6 @@
                         <p><kbd>Shift</kbd> - Correr</p>
                         <p><kbd>E</kbd> - Interagir com NPCs</p>
                         <p><kbd>ESC</kbd> - Menu</p>
-                        <button class="metaverse-btn" onclick="abrirVisualizacaoSofia()" style="margin-top: 10px; width: 100%; padding: 8px; font-size: 14px;">
-                            🌸 Ver Sofia
-                        </button>
                     </div>
                 </div>
                 
