@@ -399,9 +399,14 @@ async function addAttachedFile(file) {
 
         console.log(`[UPLOAD] Status da resposta: ${response.status}`);
         const data = await response.json();
-        console.log(`[UPLOAD] Resposta:`, data);
+        console.log(`[UPLOAD] Resposta completa:`, data);
 
         if (data.sucesso) {
+            console.log(`[UPLOAD] ✅ Arquivo processado com sucesso!`);
+            console.log(`[UPLOAD] - ID: ${data.arquivo_id}`);
+            console.log(`[UPLOAD] - Tipo: ${data.tipo}`);
+            console.log(`[UPLOAD] - Nome: ${data.nome}`);
+            
             attachedFiles.push({
                 id: data.arquivo_id,
                 name: file.name,
@@ -414,8 +419,15 @@ async function addAttachedFile(file) {
             const mensagem = data.mensagem || `✅ ${file.name} anexado!`;
             showNotification(mensagem, 'success');
             
-            if (data.tipo === 'pdf' && data.conteudo) {
-                console.log(`[PDF] Preview do conteúdo extraído:`, data.conteudo);
+            if (data.tipo === 'pdf') {
+                if (data.conteudo) {
+                    console.log(`[PDF] ✅ Conteúdo extraído (preview):`);
+                    console.log(data.conteudo.substring(0, 500));
+                    showNotification(`📄 PDF lido! ${data.conteudo.length} caracteres`, 'success');
+                } else {
+                    console.warn(`[PDF] ⚠️ PDF salvo mas sem conteúdo extraído`);
+                    showNotification(`⚠️ PDF anexado mas texto não foi extraído`, 'warning');
+                }
             }
         } else {
             console.error(`[UPLOAD ERRO]`, data.erro);
@@ -1139,7 +1151,7 @@ function formatStats(data) {
 // Check API status on load
 async function checkAPIStatus() {
     try {
-        const response = await fetch(`${API_URL}/status`);
+        const response = await fetch(`${API_URL}/api/health`);
         if (response.ok) {
             statusText.textContent = 'Online';
         } else {
