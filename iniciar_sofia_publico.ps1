@@ -33,23 +33,46 @@ Write-Host ""
 Write-Host "📚 Verificando dependências Python..." -ForegroundColor Cyan
 $pythonExe = "D:\A.I_GitHUB\.venv\Scripts\python.exe"
 
+# Verificar se o Python existe
+if (-not (Test-Path $pythonExe)) {
+    Write-Host "   ❌ Python não encontrado em: $pythonExe" -ForegroundColor Red
+    Write-Host "   Configure o ambiente virtual primeiro!" -ForegroundColor Yellow
+    exit 1
+}
+
 # Verificar PyPDF2
+Write-Host "   Verificando PyPDF2..." -ForegroundColor Gray
 $pypdfCheck = & $pythonExe -c "import PyPDF2; print(f'PyPDF2 {PyPDF2.__version__}')" 2>&1
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "   ✅ $pypdfCheck" -ForegroundColor Green
 } else {
-    Write-Host "   ❌ PyPDF2 não encontrado. Instalando..." -ForegroundColor Yellow
-    & $pythonExe -m pip install PyPDF2
-    Write-Host "   ✅ PyPDF2 instalado!" -ForegroundColor Green
+    Write-Host "   ❌ PyPDF2 não encontrado" -ForegroundColor Yellow
+    Write-Host "   📦 Instalando PyPDF2..." -ForegroundColor Cyan
+    & $pythonExe -m pip install --quiet PyPDF2
+    
+    # Verificar novamente
+    $pypdfCheck2 = & $pythonExe -c "import PyPDF2; print(f'PyPDF2 {PyPDF2.__version__}')" 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "   ✅ $pypdfCheck2 instalado com sucesso!" -ForegroundColor Green
+    } else {
+        Write-Host "   ❌ Falha ao instalar PyPDF2" -ForegroundColor Red
+        exit 1
+    }
 }
 Write-Host ""
 
 # Iniciar servidor Sofia em background
 Write-Host "🚀 Iniciando servidor Sofia..." -ForegroundColor Cyan
+Write-Host "   Python: $pythonExe" -ForegroundColor Gray
 Set-Location -Path "D:\A.I_GitHUB\sofia"
+
+# Usar o mesmo Python que verificamos e instalamos PyPDF2
 $sofiaProcess = Start-Process -FilePath $pythonExe -ArgumentList "api_web.py" -NoNewWindow -PassThru
-Start-Sleep -Seconds 5
+Start-Sleep -Seconds 8
+
+# Voltar para a raiz
+Set-Location -Path "D:\A.I_GitHUB"
 
 # Verificar se servidor iniciou
 try {
