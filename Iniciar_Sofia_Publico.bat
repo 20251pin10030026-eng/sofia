@@ -18,21 +18,32 @@ cd /d D:\A.I_GitHUB
 
 REM Configurar variaveis de ambiente
 set PYTHONPATH=D:\A.I_GitHUB
+set SOFIA_AUTORIDADE_DECLARADA=1
 set SOFIA_USE_CLOUD=true
 set GITHUB_TOKEN=ghp_REDACTED
 set GITHUB_MODEL=gpt-4o
 
-echo [1/3] Ambiente configurado (Cloud + GPT-4o)
-timeout /t 2 /nobreak >nul
+echo [1/4] Ambiente configurado (Cloud + GPT-4o)
+timeout /t 1 /nobreak >nul
 
-echo [2/3] Iniciando servidor Sofia na porta 8000...
-start /B python -m uvicorn sofia.api_web:app --host 0.0.0.0 --port 8000
+echo [2/4] Instalando/Verificando PyPDF2...
+D:\A.I_GitHUB\.venv\Scripts\python.exe -m pip install --quiet --upgrade PyPDF2
+if %errorlevel% neq 0 (
+    echo ERRO: Falha ao instalar PyPDF2
+    pause
+    exit /b 1
+)
+echo      PyPDF2 instalado com sucesso!
+timeout /t 1 /nobreak >nul
+
+echo [3/4] Iniciando servidor Sofia na porta 8000...
+start /B D:\A.I_GitHUB\.venv\Scripts\python.exe -m uvicorn sofia.api_web:app --host 0.0.0.0 --port 8000
 
 REM Aguardar servidor iniciar
 echo      Aguardando servidor iniciar...
 timeout /t 10 /nobreak >nul
 
-echo [3/3] Iniciando tunel ngrok...
+echo [4/4] Iniciando tunel ngrok...
 start "ngrok - Sofia" ngrok http 8000
 
 timeout /t 6 /nobreak >nul
