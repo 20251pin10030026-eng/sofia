@@ -30,7 +30,7 @@ Write-Host "   - Modelo: GPT-4o" -ForegroundColor Gray
 Write-Host ""
 
 # Verificar dependências Python
-Write-Host "📚 Verificando dependências Python..." -ForegroundColor Cyan
+Write-Host "📚 Verificando e instalando dependências Python..." -ForegroundColor Cyan
 $pythonExe = "D:\A.I_GitHUB\.venv\Scripts\python.exe"
 
 # Verificar se o Python existe
@@ -40,25 +40,24 @@ if (-not (Test-Path $pythonExe)) {
     exit 1
 }
 
-# Verificar PyPDF2
-Write-Host "   Verificando PyPDF2..." -ForegroundColor Gray
+Write-Host "   ✅ Python encontrado: $pythonExe" -ForegroundColor Green
+
+# FORÇAR instalação do PyPDF2 no Python correto
+Write-Host "   📦 Instalando PyPDF2 no ambiente correto..." -ForegroundColor Cyan
+& $pythonExe -m pip install --upgrade --quiet PyPDF2 2>&1 | Out-Null
+
+# Verificar se instalou com sucesso
 $pypdfCheck = & $pythonExe -c "import PyPDF2; print(f'PyPDF2 {PyPDF2.__version__}')" 2>&1
 
 if ($LASTEXITCODE -eq 0) {
-    Write-Host "   ✅ $pypdfCheck" -ForegroundColor Green
+    Write-Host "   ✅ $pypdfCheck instalado e verificado!" -ForegroundColor Green
 } else {
-    Write-Host "   ❌ PyPDF2 não encontrado" -ForegroundColor Yellow
-    Write-Host "   📦 Instalando PyPDF2..." -ForegroundColor Cyan
-    & $pythonExe -m pip install --quiet PyPDF2
-    
-    # Verificar novamente
-    $pypdfCheck2 = & $pythonExe -c "import PyPDF2; print(f'PyPDF2 {PyPDF2.__version__}')" 2>&1
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "   ✅ $pypdfCheck2 instalado com sucesso!" -ForegroundColor Green
-    } else {
-        Write-Host "   ❌ Falha ao instalar PyPDF2" -ForegroundColor Red
-        exit 1
-    }
+    Write-Host "   ❌ ERRO: Não foi possível instalar/importar PyPDF2" -ForegroundColor Red
+    Write-Host "   Saída do erro: $pypdfCheck" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "   Tente manualmente:" -ForegroundColor Yellow
+    Write-Host "   $pythonExe -m pip install PyPDF2" -ForegroundColor Gray
+    exit 1
 }
 Write-Host ""
 
