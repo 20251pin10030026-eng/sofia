@@ -202,7 +202,7 @@ def _system_text(modo_sem_filtros=False):
     if not modo_sem_filtros:
         base += (
             " IMPORTANTE: Você possui memória das conversas anteriores. "
-            "Use o contexto fornecido para lembrar de informações importantes como nomes, "
+            "Use o contexto fornecido para lembrar de informações importantes, "
             "preferências e fatos mencionados pelo usuário. Seja consistente com a memória."
         )
     
@@ -281,7 +281,13 @@ def perguntar(texto, historico=None, usuario="", cancel_callback=None):
         cancel_callback: Função que retorna True se deve cancelar (opcional)
     """
     historico = historico or []
-    
+    # Sempre iniciar como 'Usuário' em nova sessão, exceto se explicitamente informado
+    if not usuario:
+        usuario = "Usuário"
+    # Resetar modo criador e modo sem filtros em nova sessão
+    if not historico:
+        memoria.aprender("modo_sem_filtros_ativo", False, "sistema")
+        os.environ["SOFIA_AUTORIDADE_DECLARADA"] = "0"
     # 🔓 DETECTAR MODO SEM FILTROS
     modo_sem_filtros_ativado = False
     try:
