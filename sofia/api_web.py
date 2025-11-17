@@ -167,14 +167,13 @@ async def test_page():
     return HTMLResponse(content=html)
 
 @app.post("/api/session/create", response_model=SessionInfo)
-async def create_session(user_name: str = "Usuário"):
-    """Cria uma nova sessão de chat"""
+async def api_create_session():
+    """Cria uma nova sessão de chat sempre como 'Usuário'"""
     session_id = str(uuid.uuid4())
-    sessions[session_id] = Session(session_id, user_name)
-    
+    sessions[session_id] = Session(session_id, user_name="Usuário")
     return SessionInfo(
         session_id=session_id,
-        user_name=user_name,
+        user_name="Usuário",
         total_mensagens=0
     )
 
@@ -578,10 +577,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     """
     await manager.connect(websocket, session_id)
     
-    # Criar ou recuperar sessão
-    if session_id not in sessions:
-        sessions[session_id] = Session(session_id)
-    
+    # Sempre inicia como novo usuário
+    sessions[session_id] = Session(session_id, user_name="Usuário")
     session = sessions[session_id]
     
     # Enviar mensagem de boas-vindas
