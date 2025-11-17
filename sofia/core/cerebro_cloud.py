@@ -66,6 +66,7 @@ def perguntar(texto: str, historico: Optional[List[Dict]] = None, usuario: str =
     try:
         # 🌐 Processamento de Web (se houver URLs ou modo web ativo)
         contexto_web = ""
+        resultados_web = []  # Lista de resultados para pós-processamento
         try:
             # 🛑 Verificar cancelamento antes de processar web
             if cancel_callback and cancel_callback():
@@ -86,11 +87,30 @@ def perguntar(texto: str, historico: Optional[List[Dict]] = None, usuario: str =
                 print("[DEBUG] Modo web ativo, buscando na internet...")
                 resultados = web_search.buscar_web(texto, num_resultados=5)
                 if resultados:
-                    contexto_web += "\n### 🌐 RESULTADOS DA BUSCA WEB:\n\n"
+                    resultados_web = resultados  # Salvar para pós-processamento
+                    # CABEÇALHO MUITO VISÍVEL
+                    contexto_web += "\n" + "="*80 + "\n"
+                    contexto_web += "🌐 RESULTADOS DA BUSCA WEB - USE ESTES LINKS NA SUA RESPOSTA\n"
+                    contexto_web += "="*80 + "\n\n"
+                    
+                    # Lista de resultados formatada
                     for i, res in enumerate(resultados, 1):
-                        contexto_web += f"**{i}. {res['titulo']}**\n"
-                        contexto_web += f"🔗 {res['link']}\n"
-                        contexto_web += f"📝 {res['snippet']}\n\n"
+                        contexto_web += f"[{i}] {res['titulo']}\n"
+                        contexto_web += f"    🔗 LINK: {res['link']}\n"
+                        contexto_web += f"    📄 {res['snippet']}\n\n"
+                    
+                    # INSTRUÇÃO SUPER ENFÁTICA
+                    contexto_web += "=" * 80 + "\n"
+                    contexto_web += "⚠️  IMPORTANTE: VOCÊ DEVE CITAR OS LINKS ACIMA NA SUA RESPOSTA!\n"
+                    contexto_web += "=" * 80 + "\n\n"
+                    contexto_web += "📋 FORMATO OBRIGATÓRIO:\n\n"
+                    contexto_web += "[Sua resposta aqui, usando informações dos resultados]\n\n"
+                    contexto_web += "Segundo [Título 1] (link completo do resultado 1), [informação].\n"
+                    contexto_web += "De acordo com [Título 2] (link completo do resultado 2), [detalhes].\n\n"
+                    contexto_web += "**📚 Fontes consultadas:**\n"
+                    for i, res in enumerate(resultados, 1):
+                        contexto_web += f"{i}. {res['titulo']} - {res['link']}\n"
+                    contexto_web += "\n" + "=" * 80 + "\n\n"
         except ImportError:
             pass
         except Exception as e:
@@ -206,6 +226,20 @@ def perguntar(texto: str, historico: Optional[List[Dict]] = None, usuario: str =
             if response.status_code == 200:
                 data = response.json()
                 resposta = data["choices"][0]["message"]["content"].strip()
+                
+                # 🔗 PÓS-PROCESSAMENTO: Garantir que links estão na resposta
+                if contexto_web and resultados_web:  # Se houve busca web
+                    # Verificar se a resposta contém pelo menos UM link dos resultados
+                    links_na_resposta = any(r['link'] in resposta for r in resultados_web)
+                    
+                    if not links_na_resposta:
+                        # Modelo não incluiu os links - adicionar automaticamente
+                        print("[DEBUG] ⚠️  Modelo não incluiu links - adicionando automaticamente")
+                        resposta += "\n\n---\n\n**📚 Fontes consultadas:**\n"
+                        for i, r in enumerate(resultados_web, 1):
+                            resposta += f"{i}. [{r['titulo']}]({r['link']})\n"
+                    else:
+                        print(f"[DEBUG] ✅ Resposta já contém {sum(1 for r in resultados_web if r['link'] in resposta)}/{len(resultados_web)} links")
                 
                 # 💾 SALVAR RESPOSTA DA SOFIA NA MEMÓRIA
                 if resposta:

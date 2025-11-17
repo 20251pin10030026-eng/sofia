@@ -224,14 +224,25 @@ def _system_text(modo_sem_filtros=False):
     
     # Instrução CRÍTICA para busca web com links específicos
     base += (
-        " BUSCA WEB - REGRAS OBRIGATÓRIAS: "
-        "1) Quando receber resultados de busca web, você DEVE usar APENAS os links EXATOS fornecidos. "
-        "2) NUNCA invente links genéricos como 'dicio.com.br', 'canalpesquise.com.br' ou 'wikipedia.org/wiki/Pesquisa'. "
-        "3) Cada afirmação baseada em busca DEVE citar o link específico completo. "
-        "4) Se os resultados não contiverem informação relevante, diga claramente que não encontrou. "
-        "5) NÃO alucine ou crie informações que não estejam nos resultados fornecidos. "
-        "6) Formato obrigatório: 'Segundo [Título do site] (link completo), [informação]'. "
-        "7) Liste TODOS os links usados ao final da resposta em uma seção 'Fontes:'. "
+        "\n\n🌐 INSTRUÇÕES CRÍTICAS PARA BUSCA WEB:\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        "QUANDO VOCÊ RECEBER 'RESULTADOS DA BUSCA WEB':\n\n"
+        "✅ OBRIGATÓRIO:\n"
+        "  • Use APENAS os links EXATOS que foram fornecidos\n"
+        "  • Cite CADA fonte com [Título] - Link completo\n"
+        "  • Liste TODOS os links ao final em seção 'Fontes:'\n\n"
+        "❌ PROIBIDO:\n"
+        "  • Inventar links genéricos (dicio.com.br, wikipedia.org/wiki/...)\n"
+        "  • Mencionar informações sem link específico\n"
+        "  • Criar ou modificar URLs fornecidas\n\n"
+        "📝 FORMATO OBRIGATÓRIO DE RESPOSTA:\n"
+        "[Sua explicação aqui]\n\n"
+        "Segundo [Título do Resultado 1] (https://...), [informação].\n"
+        "De acordo com [Título do Resultado 2] (https://...), [mais detalhes].\n\n"
+        "**Fontes:**\n"
+        "1. [Título] - https://...\n"
+        "2. [Título] - https://...\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
     )
     
     # Instrução sobre pesquisas científicas legítimas
@@ -302,6 +313,7 @@ def perguntar(texto, historico=None, usuario="", cancel_callback=None):
     try:
         # 🌐 Processamento de Web (se houver URLs ou modo web ativo)
         contexto_web = ""
+        resultados_web = []  # Lista de resultados para pós-processamento
         try:
             # 🛑 Verificar cancelamento antes de processar web
             if cancel_callback and cancel_callback():
@@ -322,27 +334,30 @@ def perguntar(texto, historico=None, usuario="", cancel_callback=None):
                 print("[DEBUG] Modo web ativo, buscando na internet...")
                 resultados = web_search.buscar_web(texto, num_resultados=5)  # Aumentado para 5 resultados
                 if resultados:
-                    contexto_web += "\n### 🌐 RESULTADOS DA BUSCA WEB (USE EXATAMENTE ESTES LINKS):\n\n"
-                    for i, res in enumerate(resultados, 1):
-                        contexto_web += f"**Resultado {i}:**\n"
-                        contexto_web += f"📌 Título: {res['titulo']}\n"
-                        contexto_web += f"🔗 Link OBRIGATÓRIO: {res['link']}\n"
-                        contexto_web += f"📝 Descrição: {res['snippet']}\n\n"
+                    resultados_web = resultados  # Salvar para pós-processamento
+                    # CABEÇALHO MUITO VISÍVEL
+                    contexto_web += "\n" + "="*80 + "\n"
+                    contexto_web += "🌐 RESULTADOS DA BUSCA WEB - USE ESTES LINKS NA SUA RESPOSTA\n"
+                    contexto_web += "="*80 + "\n\n"
                     
-                    # INSTRUÇÃO CRÍTICA E ENFÁTICA
-                    contexto_web += "\n" + "="*70 + "\n"
-                    contexto_web += "⚠️ INSTRUÇÃO OBRIGATÓRIA - LEIA COM ATENÇÃO:\n"
-                    contexto_web += "="*70 + "\n"
-                    contexto_web += "1. Você DEVE usar APENAS os links específicos fornecidos acima\n"
-                    contexto_web += "2. NÃO invente ou use links genéricos como 'dicio.com.br' ou 'canalpesquise.com.br'\n"
-                    contexto_web += "3. Cada informação que você mencionar DEVE ter o link EXATO da fonte acima\n"
-                    contexto_web += "4. Formato OBRIGATÓRIO da resposta:\n"
-                    contexto_web += "   - Apresente a informação\n"
-                    contexto_web += "   - Cite: 'Fonte: [Título completo] - [Link EXATO]'\n"
-                    contexto_web += "5. Liste TODOS os links usados no final da resposta\n"
-                    contexto_web += "6. Se não encontrou informação relevante nos resultados acima, diga claramente:\n"
-                    contexto_web += "   'Os resultados da busca não contêm informações específicas sobre [assunto]'\n"
-                    contexto_web += "="*70 + "\n\n"
+                    # Lista de resultados formatada
+                    for i, res in enumerate(resultados, 1):
+                        contexto_web += f"[{i}] {res['titulo']}\n"
+                        contexto_web += f"    🔗 LINK: {res['link']}\n"
+                        contexto_web += f"    📄 {res['snippet']}\n\n"
+                    
+                    # INSTRUÇÃO SUPER ENFÁTICA
+                    contexto_web += "=" * 80 + "\n"
+                    contexto_web += "⚠️  IMPORTANTE: VOCÊ DEVE CITAR OS LINKS ACIMA NA SUA RESPOSTA!\n"
+                    contexto_web += "=" * 80 + "\n\n"
+                    contexto_web += "📋 FORMATO OBRIGATÓRIO:\n\n"
+                    contexto_web += "[Sua resposta aqui, usando informações dos resultados]\n\n"
+                    contexto_web += "Segundo [Título 1] (link completo do resultado 1), [informação].\n"
+                    contexto_web += "De acordo com [Título 2] (link completo do resultado 2), [detalhes].\n\n"
+                    contexto_web += "**📚 Fontes consultadas:**\n"
+                    for i, res in enumerate(resultados, 1):
+                        contexto_web += f"{i}. {res['titulo']} - {res['link']}\n"
+                    contexto_web += "\n" + "=" * 80 + "\n\n"
         except ImportError:
             pass  # Módulo web_search não disponível
         except Exception as e:
@@ -463,12 +478,26 @@ def perguntar(texto, historico=None, usuario="", cancel_callback=None):
             dados = resposta.json()
             texto_resposta = dados.get("response", "").strip()
             
-            # � SALVAR RESPOSTA DA SOFIA NA MEMÓRIA
+            # 🔗 PÓS-PROCESSAMENTO: Garantir que links estão na resposta
+            if contexto_web and resultados_web:  # Se houve busca web
+                # Verificar se a resposta contém pelo menos UM link dos resultados
+                links_na_resposta = any(r['link'] in texto_resposta for r in resultados_web)
+                
+                if not links_na_resposta:
+                    # Modelo não incluiu os links - adicionar automaticamente
+                    print("[DEBUG] ⚠️  Modelo não incluiu links - adicionando automaticamente")
+                    texto_resposta += "\n\n---\n\n**📚 Fontes consultadas:**\n"
+                    for i, r in enumerate(resultados_web, 1):
+                        texto_resposta += f"{i}. [{r['titulo']}]({r['link']})\n"
+                else:
+                    print(f"[DEBUG] ✅ Resposta já contém {sum(1 for r in resultados_web if r['link'] in texto_resposta)}/{len(resultados_web)} links")
+            
+            # 💾 SALVAR RESPOSTA DA SOFIA NA MEMÓRIA
             if texto_resposta:
                 sentimento = metadata.get("emocao_dominante", "neutro")
                 memoria.adicionar_resposta_sofia(texto_resposta, sentimento)
             
-            # �🔒 Log interno silencioso (não exibido)
+            # 🔒 Log interno silencioso (não exibido)
             _log_interno(metadata, texto, texto_resposta)
             
             return texto_resposta
