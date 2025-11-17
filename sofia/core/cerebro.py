@@ -289,8 +289,13 @@ def perguntar(texto, historico=None, usuario="", cancel_callback=None):
         if detectar_modo_criador_ativado(texto):
             modo_sem_filtros_ativado = True
             print("[DEBUG] 🔓 MODO SEM FILTROS ATIVADO - Frase do criador detectada")
-            # Armazenar na memória que o modo foi ativado
             memoria.aprender("modo_sem_filtros_ativo", True, "sistema")
+        # NOVO: Detectar pedido para ativar filtros
+        elif "ative os filtros" in texto.lower():
+            modo_sem_filtros_ativado = False
+            print("[DEBUG] 🔒 MODO RESTRITO ATIVADO - Filtros religados pelo usuário")
+            memoria.aprender("modo_sem_filtros_ativo", False, "sistema")
+            usuario = "Usuário"
     except Exception as e:
         print(f"[DEBUG] Erro ao detectar frase de ativação: {e}")
     
@@ -300,6 +305,12 @@ def perguntar(texto, historico=None, usuario="", cancel_callback=None):
         if modo_salvo and modo_salvo.get("valor"):
             modo_sem_filtros_ativado = True
             print("[DEBUG] 🔓 MODO SEM FILTROS já estava ATIVO")
+        # NOVO: Se pedido para ativar filtros, força modo restrito
+        elif "ative os filtros" in texto.lower():
+            modo_sem_filtros_ativado = False
+            print("[DEBUG] 🔒 MODO RESTRITO ATIVADO - Filtros religados pelo usuário")
+            memoria.aprender("modo_sem_filtros_ativo", False, "sistema")
+            usuario = "Usuário"
     
     # 🛑 Verificar cancelamento no início
     if cancel_callback and cancel_callback():
