@@ -176,11 +176,14 @@ class SistemaVisao:
                 print(f"[VISAO] → PyPDF2 object: {PyPDF2 is not None}")
                 
                 if not PDF_DISPONIVEL or PyPDF2 is None:
-                    erro = "❌ PyPDF2 não está disponível!\n"
-                    erro += "Para ler PDFs, instale: pip install PyPDF2\n"
-                    erro += "Depois reinicie o servidor."
+                    erro = (
+                        "❌ PyPDF2 não está disponível!\n"
+                        "Para ler PDFs, instale: pip install PyPDF2\n"
+                        "Depois reinicie o servidor."
+                    )
                     print(f"[VISAO] {erro}")
-                    return erro
+                    # Não salvar o erro como conteúdo para o cérebro
+                    return ""
                 
                 resultado = self._extrair_texto_pdf(path)
                 print(f"[VISAO] → PDF processado: {len(resultado)} caracteres")
@@ -197,9 +200,7 @@ class SistemaVisao:
             import traceback
             erro = f"❌ Erro ao processar: {str(e)}\n{traceback.format_exc()}"
             print(f"[VISAO] {erro}")
-            return erro
-            return erro
-        return ""
+            return ""
     
     def _extrair_texto_pdf(self, path: Path) -> str:
         """Extrai texto de PDF usando PyPDF2"""
@@ -208,12 +209,15 @@ class SistemaVisao:
         print(f"[PDF] PyPDF2 disponível: {PDF_DISPONIVEL}")
         
         if not PDF_DISPONIVEL or PyPDF2 is None:
-            erro = "❌ ERRO: PyPDF2 não está disponível!\n\n"
-            erro += "SOLUÇÃO:\n"
-            erro += "1. Instale: pip install PyPDF2\n"
-            erro += "2. Reinicie o servidor (Ctrl+C e rode novamente)\n"
+            erro = (
+                "❌ ERRO: PyPDF2 não está disponível!\n\n"
+                "SOLUÇÃO:\n"
+                "1. Instale: pip install PyPDF2\n"
+                "2. Reinicie o servidor (Ctrl+C e rode novamente)\n"
+            )
             print(f"[PDF] {erro}")
-            return erro
+            # Não retornar erro como conteúdo
+            return ""
         
         try:
             print(f"[PDF] Abrindo arquivo...")
@@ -233,7 +237,7 @@ class SistemaVisao:
                     print(f"[PDF] Processando página {num_pagina + 1}/{total_paginas}...")
                     
                     pagina = leitor.pages[num_pagina]
-                    texto_pagina = pagina.extract_text()
+                    texto_pagina = pagina.extract_text() or ""
                     
                     chars_extraidos = len(texto_pagina.strip())
                     print(f"[PDF] Página {num_pagina + 1}: {chars_extraidos} caracteres")
