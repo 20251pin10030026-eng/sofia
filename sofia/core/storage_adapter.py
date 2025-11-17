@@ -5,12 +5,20 @@ Compatível com storage local (fallback) e Azure Blob Storage
 
 import os
 import json
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, TYPE_CHECKING
 from pathlib import Path
+
+# Type checking para evitar erros de import
+if TYPE_CHECKING:
+    from azure.storage.blob import BlobServiceClient, ContainerClient
 
 # Configuração
 USE_AZURE_BLOB = os.getenv("AZURE_STORAGE_CONNECTION_STRING", "") != ""
 AZURE_CONTAINER = os.getenv("AZURE_STORAGE_CONTAINER", "sofia-memoria")
+
+# Variáveis globais para armazenar as classes importadas
+BlobServiceClient = None
+ContainerClient = None
 
 if USE_AZURE_BLOB:
     try:
@@ -35,6 +43,18 @@ class StorageAdapter:
     def _init_azure(self):
         """Inicializa Azure Blob Storage"""
         connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+        if not connection_string:
+            print("❌ AZURE_STORAGE_CONNECTION_STRING não configurada")
+            self.use_cloud = False
+            self._init_local()
+            return
+        
+        if BlobServiceClient is None:
+            print("❌ BlobServiceClient não disponível")
+            self.use_cloud = False
+            self._init_local()
+            return
+            
         self.blob_service = BlobServiceClient.from_connection_string(connection_string)
         
         # Criar container se não existir

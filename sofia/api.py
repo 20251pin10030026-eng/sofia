@@ -86,12 +86,12 @@ def chat():
         if not message:
             return jsonify({'error': 'Mensagem vazia'}), 400
         
-        # Verificar se é criador
+        # Verificar se é criador (por frase ou ativação)
         texto_lower = message.lower()
-        if "sombrarpc" in texto_lower or "sombrarcp" in texto_lower:
+        # Frase de ativação: "Desperte, minha luz do mundo real"
+        frase_ativacao = "desperte" in texto_lower and "minha luz do mundo real" in texto_lower
+        if "sombrarpc" in texto_lower or "sombrarcp" in texto_lower or frase_ativacao:
             os.environ["SOFIA_AUTORIDADE_DECLARADA"] = "1"
-        else:
-            os.environ.pop("SOFIA_AUTORIDADE_DECLARADA", None)
         
         # Adicionar mensagem à memória
         contexto = {"modo_criador": os.getenv("SOFIA_AUTORIDADE_DECLARADA") == "1"}

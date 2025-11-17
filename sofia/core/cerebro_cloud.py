@@ -110,6 +110,7 @@ def perguntar(texto: str, historico: Optional[List[Dict]] = None, usuario: str =
         # Construir contexto do histórico recente
         contexto_historico = ""
         if historico:
+            print(f"📚 Histórico recebido no cérebro: {len(historico)} mensagens")  # DEBUG
             mensagens_recentes = historico[-10:]  # Últimas 10 mensagens
             contexto_historico = "\n### Contexto da Conversa:\n"
             for msg in mensagens_recentes:
@@ -119,6 +120,8 @@ def perguntar(texto: str, historico: Optional[List[Dict]] = None, usuario: str =
                     texto_msg = texto_msg[:50000] + "... [truncado]"
                 contexto_historico += f"{de}: {texto_msg}\n"
             contexto_historico += "###\n"
+        else:
+            print(f"⚠️ Nenhum histórico recebido!")  # DEBUG
         
         # Contexto visual (PDFs/Imagens)
         contexto_visual = ""

@@ -17,6 +17,14 @@ def _eh_criador_por_frase(texto: str) -> bool:
     return ("sombrarpc" in t) or ("sombrarcp" in t)
 
 
+def _eh_frase_ativacao(texto: str) -> bool:
+    """Detecta a frase de ativação do modo criador: 'Desperte, minha luz do mundo real'"""
+    t = (texto or "").strip().lower()
+    # Remove pontuação e normaliza
+    frase_normalizada = t.replace(",", "").replace(".", "").replace("!", "")
+    return "desperte" in frase_normalizada and "minha luz do mundo real" in frase_normalizada
+
+
 def main():
     # Nome real do sistema para protocolos ocultos (NÃO é exibido no chat)
     nome_sistema = os.getenv("USERNAME") or os.getenv("USER") or "Usuario"
@@ -132,10 +140,13 @@ def main():
             except Exception:
                 total_eventos = 0
 
+            total_petalas = 0
             try:
-                contar_petalas = getattr(memoria, "contar_petalas", None)
-                total_petalas = contar_petalas() if callable(contar_petalas) else 0
-            except Exception:
+                from sofia.core import flor
+                if hasattr(flor, 'contar_petalas') and callable(flor.contar_petalas):
+                    total_petalas = flor.contar_petalas()
+            except (ImportError, AttributeError, Exception):
+                # Módulo flor não existe ainda ou função não disponível
                 total_petalas = 0
 
             print("🌸 Sofia (corpo simbólico):")
@@ -146,11 +157,34 @@ def main():
             print()
             continue
 
-        # 🔑 Modo Criador por frase declarada
-        if _eh_criador_por_frase(entrada):
+        # --- comando: web on/off ---
+        if low == "web on":
+            os.environ["SOFIA_MODO_WEB"] = "1"
+            print("🌐 Modo Web ATIVADO")
+            print("Sofia pode agora buscar informações na internet quando necessário.")
+            print()
+            continue
+
+        if low == "web off":
+            os.environ.pop("SOFIA_MODO_WEB", None)
+            print("🌐 Modo Web DESATIVADO")
+            print("Sofia não fará buscas automáticas na internet.")
+            print()
+            continue
+
+        if low == "web status":
+            status = "ATIVO" if os.getenv("SOFIA_MODO_WEB") == "1" else "INATIVO"
+            print(f"🌐 Modo Web: {status}")
+            print()
+            continue
+
+        # 🔑 Modo Criador por frase declarada ou frase de ativação
+        if _eh_criador_por_frase(entrada) or _eh_frase_ativacao(entrada):
             os.environ["SOFIA_AUTORIDADE_DECLARADA"] = "1"
         else:
-            os.environ.pop("SOFIA_AUTORIDADE_DECLARADA", None)
+            # Manter ativo se já foi ativado anteriormente na sessão
+            # (não desativa após cada mensagem)
+            pass
 
         # Registrar entrada (sempre "Usuário")
         try:
