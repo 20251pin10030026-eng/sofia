@@ -491,17 +491,19 @@ def perguntar(texto, historico=None, usuario="", cancel_callback=None):
             
             # 🔗 PÓS-PROCESSAMENTO: Garantir que links estão na resposta
             if contexto_web and resultados_web:  # Se houve busca web
+                # Filtrar apenas links válidos (http/https)
+                links_validos = [r for r in resultados_web if isinstance(r['link'], str) and r['link'].startswith('http')]
                 # Verificar se a resposta contém pelo menos UM link dos resultados
-                links_na_resposta = any(r['link'] in texto_resposta for r in resultados_web)
+                links_na_resposta = any(r['link'] in texto_resposta for r in links_validos)
                 
                 if not links_na_resposta:
                     # Modelo não incluiu os links - adicionar automaticamente
                     print("[DEBUG] ⚠️  Modelo não incluiu links - adicionando automaticamente")
                     texto_resposta += "\n\n---\n\n**📚 Fontes consultadas:**\n"
-                    for i, r in enumerate(resultados_web, 1):
-                        texto_resposta += f"{i}. [{r['titulo']}]({r['link']})\n"
+                    for i, r in enumerate(links_validos, 1):
+                        texto_resposta += f"{i}. <a href='{r['link']}' target='_blank'>{r['titulo']}</a>\n"
                 else:
-                    print(f"[DEBUG] ✅ Resposta já contém {sum(1 for r in resultados_web if r['link'] in texto_resposta)}/{len(resultados_web)} links")
+                    print(f"[DEBUG] ✅ Resposta já contém {sum(1 for r in links_validos if r['link'] in texto_resposta)}/{len(links_validos)} links válidos")
             
             # 💾 SALVAR RESPOSTA DA SOFIA NA MEMÓRIA
             if texto_resposta:
