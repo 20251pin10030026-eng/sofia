@@ -9,235 +9,235 @@ import requests
 from typing import List, Dict, Optional
 from . import _interno, memoria
 
-def _sanitizar_resposta(resposta: str) -> str:
-    """Remove nomes próprios que não devem aparecer no chat."""
+
+def _sanitizar_usuario(resposta: str) -> str:
+    """Garante que Sofia não chame o usuário por nome próprio no chat público."""
+    if not isinstance(resposta, str):
+        return resposta
     proibidos = [
-        "Reginaldo",
         "Reginaldo Camargo Pires",
+        "Reginaldo Camargo",
+        "Reginaldo",
     ]
     for nome in proibidos:
+        # troca pelo pronome neutro; evita exposição de nome
         resposta = resposta.replace(nome, "você")
     return resposta
+
+
 # Configuração GitHub Models API
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
 GITHUB_MODELS_API = "https://models.inference.ai.azure.com/chat/completions"
 
 # Modelos disponíveis (GRÁTIS com GitHub Copilot Pro)
-MODELO_PADRAO = os.getenv("GITHUB_MODEL", "gpt-4o")  # gpt-4o, gpt-4, gpt-3.5-turbo, etc
+MODELOS_DISPONIVEIS = {
+    "gpt-4.1-mini": "gpt-4.1-mini",      # Rápido, barato, bom para quase tudo
+    "gpt-4.1": "gpt-4.1",                # Mais capaz, custo maior
+    "gpt-4o-mini": "gpt-4o-mini",        # Multimodal leve
+    "gpt-4o": "gpt-4o",                  # Multimodal completo
+}
+
+MODELO_PADRAO = os.getenv("GITHUB_MODEL", "gpt-4.1-mini")
+
+# Mapa para compatibilidade com nomes antigos
+MAPEAMENTO_MODELOS = {
+    "sofia-inteligente": "gpt-4.1-mini",
+    "sofia-avancada": "gpt-4.1",
+    "sofia-visual": "gpt-4o-mini",
+    "sofia-visionaria": "gpt-4o",
+}
 
 
-def _system_text():
-    """Retorna o texto de identidade da Sofia"""
-    from .identidade import PERSONA_PROMPT, LIMITES_PROMPT
-    return f"{PERSONA_PROMPT}\n\n{LIMITES_PROMPT}"
+def _escolher_modelo(modelo: Optional[str] = None) -> str:
+    """Escolhe o modelo GitHub a partir de um alias ou nome direto."""
+    if not modelo:
+        return MODELO_PADRAO
+    
+    # Se for um alias antigo, converte
+    if modelo in MAPEAMENTO_MODELOS:
+        return MAPEAMENTO_MODELOS[modelo]
+    
+    # Se for um modelo conhecido, usa direto
+    if modelo in MODELOS_DISPONIVEIS:
+        return modelo
+    
+    # Senão, volta para o padrão
+    return MODELO_PADRAO
 
 
-def _extrair_informacoes_importantes(texto: str, historico: List[Dict]) -> str:
+def _system_text() -> str:
+    """Texto base para o system prompt da Sofia no cloud."""
+    return (
+        "Você é Sofia, uma inteligência artificial educadora e assistente. "
+        "Responda de forma clara, organizada, gentil e objetiva. "
+        "Use sempre português do Brasil, a menos que o usuário peça outra língua. "
+        "Priorize explicações didáticas, com exemplos quando fizer sentido. "
+        "Nunca invente fatos se não tiver certeza; assuma as limitações com honestidade."
+    )
+
+
+def _montar_headers() -> Dict[str, str]:
+    """Cabeçalhos para chamada na API de modelos GitHub."""
+    if not GITHUB_TOKEN:
+        raise RuntimeError(
+            "GITHUB_TOKEN não configurado. Defina a variável de ambiente com seu token do GitHub."
+        )
+    
+    return {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Accept": "application/json",
+    }
+
+
+def _montar_body(messages: List[Dict], model: str) -> Dict:
+    """Corpo da requisição para a API de modelos GitHub."""
+    return {
+        "model": model,
+        "messages": messages,
+        "temperature": 0.7,
+        "max_tokens": 1024,
+    }
+
+
+def perguntar(
+    texto: str,
+    contexto: Optional[str] = None,
+    modelo: Optional[str] = None,
+    imagens: Optional[List[bytes]] = None,
+    metadata_extra: Optional[Dict] = None,
+) -> str:
     """
-    Extrai e formata informações importantes do contexto
+    Faz uma pergunta para a Sofia usando GitHub Models API.
+    
+    Parâmetros:
+    - texto: mensagem do usuário
+    - contexto: texto adicional (opcional)
+    - modelo: alias ou nome do modelo (opcional)
+    - imagens: lista de bytes de imagens (para futuros usos multimodais)
+    - metadata_extra: dicionário adicional com metadados
+    
+    Retorna:
+    - resposta da Sofia (string)
     """
-    if not historico:
-        return ""
+    # Selecionar modelo
+    model = _escolher_modelo(modelo)
     
-    fatos = []
-    for msg in historico[-5:]:  # Últimas 5 mensagens
-        if msg.get("tipo") == "user":
-            texto_msg = msg.get("texto", "")
-            if any(palavra in texto_msg.lower() for palavra in ["meu nome", "me chamo", "sou"]):
-                fatos.append(f"• Usuário mencionou: {texto_msg[:100]}")
+    # Extrair contexto emocional / interno
+    metadata, contexto_oculto = _interno.extrair_emocao(texto, metadata_extra or {})
     
-    if fatos:
-        return "### Fatos Importantes:\n" + "\n".join(fatos) + "\n\n"
-    return ""
-
-
-def perguntar(texto: str, historico: Optional[List[Dict]] = None, usuario: str = "", cancel_callback=None):
-    """
-    Envia pergunta ao modelo usando GitHub Models API
+    # Adicionar contexto da memória
+    fatos_importantes = memoria.buscar_fatos_relevantes(texto)
+    contexto_historico = memoria.resgatar_contexto_conversa(texto)
     
-    Args:
-        texto: Pergunta do usuário
-        historico: Lista de mensagens anteriores
-        usuario: Nome do usuário
-        cancel_callback: Função que retorna True se deve cancelar (opcional)
-    """
-    historico = historico or []
-    
-    # 🛑 Verificar cancelamento no início
-    if cancel_callback and cancel_callback():
-        print("[DEBUG] ⏹️ Processamento cancelado antes de iniciar")
-        return "⏹️ Processamento cancelado pelo usuário."
-    
-    # 💾 SALVAR MENSAGEM DO USUÁRIO NA MEMÓRIA
-    if usuario and texto:
-        memoria.adicionar(usuario, texto)
-    
-    try:
-        # 🌐 Processamento de Web (se houver URLs ou modo web ativo)
-        contexto_web = ""
-        resultados_web = []  # Lista de resultados para pós-processamento
+    # Contexto de visão / análise visual (se houver imagens ou PDF)
+    contexto_visual = ""
+    if imagens:
         try:
-            # 🛑 Verificar cancelamento antes de processar web
-            if cancel_callback and cancel_callback():
-                print("[DEBUG] ⏹️ Processamento cancelado durante web search")
-                return "⏹️ Processamento cancelado pelo usuário."
-            
-            from . import web_search
-            
-            # 1. Processar URLs no texto (se houver)
-            if web_search._is_url(texto):
-                print("[DEBUG] URL detectada no texto, acessando...")
-                conteudo_urls = web_search.processar_urls_no_texto(texto)
-                if conteudo_urls:
-                    contexto_web += f"\n### Conteúdo do(s) Link(s) Fornecido(s):\n{conteudo_urls}\n"
-            
-            # 2. Buscar na web se modo web ativo e necessário
-            if web_search.modo_web_ativo() and web_search.deve_buscar_web(texto):
-                print("[DEBUG] Modo web ativo, buscando na internet...")
-                resultados = web_search.buscar_web(texto, num_resultados=5)
-                if resultados:
-                    resultados_web = resultados  # Salvar para pós-processamento
-                    # CABEÇALHO MUITO VISÍVEL
-                    contexto_web += "\n" + "="*80 + "\n"
-                    contexto_web += "🌐 RESULTADOS DA BUSCA WEB - USE ESTES LINKS NA SUA RESPOSTA\n"
-                    contexto_web += "="*80 + "\n\n"
-                    
-                    # Lista de resultados formatada
-                    for i, res in enumerate(resultados, 1):
-                        contexto_web += f"[{i}] {res['titulo']}\n"
-                        contexto_web += f"    🔗 LINK: {res['link']}\n"
-                        contexto_web += f"    📄 {res['snippet']}\n\n"
-                    
-                    # INSTRUÇÃO SUPER ENFÁTICA
-                    contexto_web += "=" * 80 + "\n"
-                    contexto_web += "⚠️  IMPORTANTE: VOCÊ DEVE CITAR OS LINKS ACIMA NA SUA RESPOSTA!\n"
-                    contexto_web += "=" * 80 + "\n\n"
-                    contexto_web += "📋 FORMATO OBRIGATÓRIO:\n\n"
-                    contexto_web += "[Sua resposta aqui, usando informações dos resultados]\n\n"
-                    contexto_web += "Segundo [Título 1] (link completo do resultado 1), [informação].\n"
-                    contexto_web += "De acordo com [Título 2] (link completo do resultado 2), [detalhes].\n\n"
-                    contexto_web += "**📚 Fontes consultadas:**\n"
-                    for i, res in enumerate(resultados, 1):
-                        contexto_web += f"{i}. {res['titulo']} - {res['link']}\n"
-                    contexto_web += "\n" + "=" * 80 + "\n\n"
+            from . import visao
+            contexto_visual = visao.processar_imagens(imagens)
         except ImportError:
-            pass
-        except Exception as e:
-            print(f"⚠️ Erro ao processar web: {e}")
+            contexto_visual = ""
+    
+    # Contexto de busca na web (se disponível)
+    contexto_web = ""
+    resultados_web = []
+    try:
+        from . import web_search
         
-        # 🛑 Verificar cancelamento antes do processamento
-        if cancel_callback and cancel_callback():
-            print("[DEBUG] ⏹️ Processamento cancelado antes de processar contexto")
-            return "⏹️ Processamento cancelado pelo usuário."
+        if web_search.modo_web_ativo() and web_search.deve_buscar_web(texto):
+            print("[DEBUG] Modo web ativo, buscando na internet...")
+            resultados = web_search.buscar_web(texto, num_resultados=5)
+            if resultados:
+                resultados_web = resultados  # Salvar para pós-processamento
+                # CABEÇALHO MUITO VISÍVEL
+                contexto_web += "\n" + "="*80 + "\n"
+                contexto_web += "🌐 RESULTADOS DA BUSCA WEB - USE ESTES LINKS NA SUA RESPOSTA\n"
+                contexto_web += "="*80 + "\n\n"
+                
+                # Lista de resultados formatada
+                for i, res in enumerate(resultados, 1):
+                    contexto_web += f"[{i}] {res['titulo']}\n"
+                    contexto_web += f"    🔗 LINK: {res['link']}\n"
+                    contexto_web += f"    📄 {res['snippet']}\n\n"
+                    
+                # INSTRUÇÃO SUPER ENFÁTICA
+                contexto_web += "=" * 80 + "\n"
+                contexto_web += "⚠️  IMPORTANTE: VOCÊ DEVE CITAR OS LINKS ACIMA NA SUA RESPOSTA!\n"
+                contexto_web += "=" * 80 + "\n\n"
+                contexto_web += "📋 FORMATO OBRIGATÓRIO:\n\n"
+                contexto_web += "[Sua resposta aqui, usando informações dos resultados]\n\n"
+                contexto_web += "Segundo [Título 1] (link completo do resultado 1), [informação].\n"
+                contexto_web += "De acordo com [Título 2] (link completo do resultado 2), [detalhes].\n\n"
+                contexto_web += "**📚 Fontes consultadas:**\n"
+                for i, res in enumerate(resultados, 1):
+                    contexto_web += f"{i}. {res['titulo']} - {res['link']}\n"
+                contexto_web += "\n" + "=" * 80 + "\n\n"
+    except ImportError:
+        pass
+    
+    # Construir mensagens para API
+    messages = [
+        {
+            "role": "system",
+            "content": _system_text()
+        }
+    ]
+    
+    # Adicionar contexto se houver
+    if fatos_importantes or contexto_historico or contexto_web or contexto_visual or contexto_oculto:
+        context_parts = []
+        if fatos_importantes:
+            context_parts.append(fatos_importantes)
+        if contexto_historico:
+            context_parts.append(contexto_historico)
+        if contexto_web:
+            context_parts.append(contexto_web)
+        if contexto_visual:
+            context_parts.append(contexto_visual)
+        if contexto_oculto:
+            context_parts.append(contexto_oculto)
         
-        # 🔒 Processamento oculto (SubitEmoções e TRQ)
-        contexto_oculto, metadata = _interno._processar(texto, historico, usuario)
-        
-        # Extrair informações importantes
-        fatos_importantes = _extrair_informacoes_importantes(texto, historico)
-        
-        # Construir contexto do histórico recente
-        contexto_historico = ""
-        if historico:
-            print(f"📚 Histórico recebido no cérebro: {len(historico)} mensagens")  # DEBUG
-            mensagens_recentes = historico[-10:]  # Últimas 10 mensagens
-            contexto_historico = "\n### Contexto da Conversa:\n"
-            for msg in mensagens_recentes:
-                de = msg.get("de", "Desconhecido")
-                texto_msg = msg.get("texto", "")
-                if len(texto_msg) > 50000:
-                    texto_msg = texto_msg[:50000] + "... [truncado]"
-                contexto_historico += f"{de}: {texto_msg}\n"
-            contexto_historico += "###\n"
-        else:
-            print(f"⚠️ Nenhum histórico recebido!")  # DEBUG
-        
-        # Contexto visual (PDFs/Imagens)
-        contexto_visual = ""
-        try:
-            from .visao import visao
-            contexto_visual = visao.obter_contexto_visual()
-        except Exception as e:
-            print(f"⚠️ Erro ao obter contexto visual: {e}")
-        
-        # 🛑 Verificar cancelamento antes de chamar API
-        if cancel_callback and cancel_callback():
-            print("[DEBUG] ⏹️ Processamento cancelado antes de chamar GitHub Models")
-            return "⏹️ Processamento cancelado pelo usuário."
-        
-        # Verificar se token está configurado
-        if not GITHUB_TOKEN:
-            return (
-                "❌ GitHub Token não configurado.\n\n"
-                "Para usar a Sofia na nuvem, você precisa:\n"
-                "1. Criar um Personal Access Token no GitHub\n"
-                "2. Configurar a variável de ambiente GITHUB_TOKEN\n\n"
-                "Instruções: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token"
-            )
-        
-        # Construir mensagens para API
-        messages = [
-            {
-                "role": "system",
-                "content": _system_text()
-            }
-        ]
-        
-        # Adicionar contexto se houver
-        if fatos_importantes or contexto_historico or contexto_web or contexto_visual or contexto_oculto:
-            context_parts = []
-            if fatos_importantes:
-                context_parts.append(fatos_importantes)
-            if contexto_historico:
-                context_parts.append(contexto_historico)
-            if contexto_web:
-                context_parts.append(contexto_web)
-            if contexto_visual:
-                context_parts.append(contexto_visual)
-            if contexto_oculto:
-                context_parts.append(contexto_oculto)
-            
-            messages.append({
-                "role": "system",
-                "content": "\n".join(context_parts)
-            })
-        
-        # Adicionar mensagem do usuário
+        messages.append({
+            "role": "system",
+            "content": "\n".join(context_parts)
+        })
+    
+    # Adicionar mensagem do usuário
+    messages.append({
+        "role": "user",
+        "content": texto
+    })
+    
+    # Se houver contexto textual adicional
+    if contexto:
         messages.append({
             "role": "user",
-            "content": texto
+            "content": f"[Contexto adicional]: {contexto}"
         })
+    
+    try:
+        headers = _montar_headers()
+        body = _montar_body(messages, model)
         
-        # Chamar GitHub Models API
-        try:
-            print(f"[DEBUG] Usando GitHub Models: {MODELO_PADRAO}")
+        print(f"[DEBUG] Chamando GitHub Models API com modelo: {model}")
+        
+        response = requests.post(GITHUB_MODELS_API, headers=headers, json=body, timeout=60)
+        
+        if response.status_code == 200:
+            data = response.json()
+            # Estrutura: choices[0].message.content
+            choices = data.get("choices", [])
+            if not choices:
+                return "❌ Não recebi resposta do modelo."
             
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {GITHUB_TOKEN}"
-            }
+            resposta = choices[0]["message"]["content"]
             
-            payload = {
-                "model": MODELO_PADRAO,
-                "messages": messages,
-                "temperature": 0.7,
-                "max_tokens": 4000,
-                "top_p": 0.9
-            }
-            
-            response = requests.post(
-                GITHUB_MODELS_API,
-                headers=headers,
-                json=payload,
-                timeout=120
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                resposta = data["choices"][0]["message"]["content"].strip()
-                
-                # 🔗 PÓS-PROCESSAMENTO: Garantir que links estão na resposta
-                if contexto_web and resultados_web:  # Se houve busca web
+            # Pós-processamento com web_search (se usado)
+            if resultados_web:
+                try:
+                    from . import web_search
+                    
                     # Verificar se a resposta contém pelo menos UM link dos resultados
                     links_na_resposta = any(r['link'] in resposta for r in resultados_web)
                     
@@ -248,37 +248,38 @@ def perguntar(texto: str, historico: Optional[List[Dict]] = None, usuario: str =
                         for i, r in enumerate(resultados_web, 1):
                             resposta += f"{i}. [{r['titulo']}]({r['link']})\n"
                     else:
-                        print(f"[DEBUG] ✅ Resposta já contém {sum(1 for r in resultados_web if r['link'] in resposta)}/{len(resultados_web)} links")
-                
-                # 💾 SALVAR RESPOSTA DA SOFIA NA MEMÓRIA
-                if resposta:
-                    sentimento = metadata.get("emocao_dominante", "neutro")
-                    memoria.adicionar_resposta_sofia(resposta, sentimento)
-                
-                                # Log interno silencioso
-                try:
-                    _log_interno(metadata, texto, resposta)
-                except Exception:
+                        print(f"[DEBUG] ✅ Resposta já contém links da busca web.")
+                except ImportError:
                     pass
-
-                # Sanitizar nomes próprios antes de devolver ao usuário
-                resposta = _sanitizar_resposta(resposta)
-                return resposta
-
-                
-            elif response.status_code == 401:
-                return "❌ Token inválido. Verifique seu GITHUB_TOKEN."
-            elif response.status_code == 429:
-                return "⏳ Limite de requisições atingido. Aguarde alguns minutos."
-            else:
-                error_msg = response.json().get("error", {}).get("message", "Erro desconhecido")
-                return f"❌ Erro na API: {error_msg}"
-                
-        except requests.exceptions.Timeout:
-            return "⏳ Timeout ao chamar GitHub Models. Tente novamente."
-        except requests.exceptions.RequestException as e:
-            return f"❌ Erro de conexão: {str(e)}"
             
+            # 💾 SALVAR RESPOSTA DA SOFIA NA MEMÓRIA
+            if resposta:
+                sentimento = metadata.get("emocao_dominante", "neutro")
+                memoria.adicionar_resposta_sofia(resposta, sentimento)
+            
+            # Log interno silencioso
+            try:
+                _log_interno(metadata, texto, resposta)
+            except Exception:
+                pass
+            
+            # Sanitizar nomes próprios antes de enviar ao usuário
+            resposta = _sanitizar_usuario(resposta)
+            return resposta
+            
+        elif response.status_code == 401:
+            return "❌ Token inválido. Verifique seu GITHUB_TOKEN."
+        elif response.status_code == 429:
+            return "⏳ Limite de requisições atingido. Tente novamente mais tarde."
+        else:
+            try:
+                erro = response.json()
+            except Exception:
+                erro = response.text
+            return f"❌ Erro na API GitHub Models ({response.status_code}): {erro}"
+    
+    except requests.Timeout:
+        return "⏳ A requisição demorou demais e foi cancelada. Tente novamente."
     except Exception as erro:
         print(f"❌ Erro inesperado: {erro}")
         import traceback
@@ -294,7 +295,6 @@ def _log_interno(metadata: Dict, entrada: str, saida: str):
     # Salva em arquivo oculto
     log_dir = Path(".sofia_internal")
     log_dir.mkdir(exist_ok=True)
-    
     log_file = log_dir / "subitemotions.log"
     
     with open(log_file, "a", encoding="utf-8") as f:
