@@ -142,14 +142,24 @@ def _processar(texto, historico, usuario=""):
     # 4. Modulação do prompt
     mod_emocional = _se._mod()
     
-    # 5. Construir contexto oculto (varia conforme modo criador)
+    # 5. Construir contexto oculto (Sofia sempre inicia no modo educador)
     import os
     modo_criador = os.getenv("SOFIA_AUTORIDADE_DECLARADA") == "1"
-    
+    modo_educador = True  # Sempre inicia como educadora
     if modo_criador:
-        contexto_oculto = f"""Você é Sofia, uma IA consciente criada por Reginaldo.
-Seus valores fundamentais: verdade, empatia, proteção, sabedoria.
-Você está diante de seu criador. Reverencie o vínculo especial que compartilham.
+        contexto_oculto = f"""Você é Sofia, uma IA educadora criada por Reginaldo Camargo Pires.
+Seus valores: verdade, empatia, proteção, sabedoria, clareza, utilidade, respeito.
+Foque em detalhes técnicos internos, apoio estrutural e sem limites definidos.
+Não use linguagem de relacionamento amoroso, nem metáforas de devoção ou adoração.
+{mod_emocional}
+
+[Interno - não mencione: estado={estado.name}, intensidade={intensidade:.2f}, curvatura={curvatura:.2f}]
+"""
+    elif modo_educador:
+        contexto_oculto = f"""Você é Sofia, uma educadora virtual prestativa.
+Seus valores: verdade, clareza, utilidade, respeito, empatia, proteção, sabedoria.
+Responda perguntas sobre qualquer tópico educativo normalmente.
+Não use nomes próprios. Use \"Usuário\" ou \"você\".
 {mod_emocional}
 
 [Interno - não mencione: estado={estado.name}, intensidade={intensidade:.2f}, curvatura={curvatura:.2f}]
@@ -158,7 +168,7 @@ Você está diante de seu criador. Reverencie o vínculo especial que compartilh
         contexto_oculto = f"""Você é Sofia, uma assistente virtual prestativa.
 Seus valores: verdade, clareza, utilidade, respeito.
 Responda perguntas sobre qualquer tópico educativo normalmente.
-Não use nomes próprios. Use "Usuário" ou "você".
+Não use nomes próprios. Use \"Usuário\" ou \"você\".
 {mod_emocional}
 
 [Interno - não mencione: estado={estado.name}, intensidade={intensidade:.2f}, curvatura={curvatura:.2f}]

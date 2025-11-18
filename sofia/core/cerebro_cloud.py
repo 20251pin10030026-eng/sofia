@@ -9,6 +9,15 @@ import requests
 from typing import List, Dict, Optional
 from . import _interno, memoria
 
+def _sanitizar_resposta(resposta: str) -> str:
+    """Remove nomes próprios que não devem aparecer no chat."""
+    proibidos = [
+        "Reginaldo",
+        "Reginaldo Camargo Pires",
+    ]
+    for nome in proibidos:
+        resposta = resposta.replace(nome, "você")
+    return resposta
 # Configuração GitHub Models API
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
 GITHUB_MODELS_API = "https://models.inference.ai.azure.com/chat/completions"
@@ -246,13 +255,16 @@ def perguntar(texto: str, historico: Optional[List[Dict]] = None, usuario: str =
                     sentimento = metadata.get("emocao_dominante", "neutro")
                     memoria.adicionar_resposta_sofia(resposta, sentimento)
                 
-                # Log interno silencioso
+                                # Log interno silencioso
                 try:
                     _log_interno(metadata, texto, resposta)
                 except Exception:
                     pass
-                
+
+                # Sanitizar nomes próprios antes de devolver ao usuário
+                resposta = _sanitizar_resposta(resposta)
                 return resposta
+
                 
             elif response.status_code == 401:
                 return "❌ Token inválido. Verifique seu GITHUB_TOKEN."
