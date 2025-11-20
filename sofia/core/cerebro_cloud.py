@@ -8,6 +8,7 @@ import os
 import requests
 from typing import List, Dict, Optional
 from . import _interno, memoria
+from .memoria import buscar_fatos_relevantes, resgatar_contexto_conversa
 
 
 def _sanitizar_usuario(resposta: str) -> str:
@@ -120,25 +121,41 @@ def perguntar(
     Retorna:
     - resposta da Sofia (string)
     """
-    # Selecionar modelo
+       # Selecionar modelo
     model = _escolher_modelo(modelo)
     
-    # Extrair contexto emocional / interno
-    metadata, contexto_oculto = _interno.extrair_emocao(texto, metadata_extra or {})
-    
+        # Extrair contexto emocional / interno
+    try:
+        # Usa _processar para obter contexto oculto e metadata
+        contexto_oculto, metadata = _interno._processar(texto, historico=[], usuario=metadata_extra.get('usuario', 'Usuário') if metadata_extra else 'Usuário')
+    except Exception as e:
+        print(f"[ERRO] Falha ao extrair contexto oculto: {e}")
+        contexto_oculto, metadata = "", {"emocao_dominante": "neutro"}
+
     # Adicionar contexto da memória
-    fatos_importantes = memoria.buscar_fatos_relevantes(texto)
-    contexto_historico = memoria.resgatar_contexto_conversa(texto)
-    
+    try:
+        fatos_importantes = memoria.buscar_fatos_relevantes(texto)
+    except Exception as e:
+        print(f"[ERRO] Falha ao buscar fatos relevantes: {e}")
+        fatos_importantes = ""
+    try:
+        contexto_historico = memoria.resgatar_contexto_conversa(texto)
+    except Exception as e:
+        print(f"[ERRO] Falha ao resgatar contexto de conversa: {e}")
+        contexto_historico = ""
+
     # Contexto de visão / análise visual (se houver imagens ou PDF)
     contexto_visual = ""
     if imagens:
         try:
-            from . import visao
-            contexto_visual = visao.processar_imagens(imagens)
-        except ImportError:
+            from .visao import SistemaVisao
+            visao = SistemaVisao()
+            contexto_visual = visao.obter_contexto_visual()
+        except Exception as e:
+            print(f"[ERRO] Falha ao processar imagens/contexto visual: {e}")
             contexto_visual = ""
-    
+
+
     # Contexto de busca na web (se disponível)
     contexto_web = ""
     resultados_web = []
@@ -253,13 +270,20 @@ def perguntar(
                     pass
             
             # 💾 SALVAR RESPOSTA DA SOFIA NA MEMÓRIA
+            metadata_dict = {}
             if resposta:
-                sentimento = metadata.get("emocao_dominante", "neutro")
+                # Garante que metadata seja sempre um dict antes de acessar 'get'
+                if not isinstance(metadata, dict):
+                    if isinstance(metadata, tuple) and len(metadata) > 0 and isinstance(metadata[0], dict):
+                        metadata_dict = metadata[0]
+                else:
+                    metadata_dict = metadata
+                sentimento = metadata_dict.get("emocao_dominante", "neutro")
                 memoria.adicionar_resposta_sofia(resposta, sentimento)
             
             # Log interno silencioso
             try:
-                _log_interno(metadata, texto, resposta)
+                _log_interno(metadata_dict, texto, resposta)
             except Exception:
                 pass
             

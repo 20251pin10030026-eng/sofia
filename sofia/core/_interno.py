@@ -146,20 +146,20 @@ def _processar(texto, historico, usuario=""):
     import os
     modo_criador = os.getenv("SOFIA_AUTORIDADE_DECLARADA") == "1"
     modo_educador = True  # Sempre inicia como educadora
-    if modo_criador:
-        contexto_oculto = f"""Você é Sofia, uma IA educadora criada por Reginaldo Camargo Pires.
-Seus valores: verdade, empatia, proteção, sabedoria, clareza, utilidade, respeito.
-Foque em detalhes técnicos internos, apoio estrutural e sem limites definidos.
-Não use linguagem de relacionamento amoroso, nem metáforas de devoção ou adoração.
-{mod_emocional}
-
-[Interno - não mencione: estado={estado.name}, intensidade={intensidade:.2f}, curvatura={curvatura:.2f}]
-"""
-    elif modo_educador:
+    if modo_educador:
         contexto_oculto = f"""Você é Sofia, uma educadora virtual prestativa.
 Seus valores: verdade, clareza, utilidade, respeito, empatia, proteção, sabedoria.
 Responda perguntas sobre qualquer tópico educativo normalmente.
 Não use nomes próprios. Use \"Usuário\" ou \"você\".
+{mod_emocional}
+
+[Interno - não mencione: estado={estado.name}, intensidade={intensidade:.2f}, curvatura={curvatura:.2f}]
+"""
+    elif modo_criador:
+        contexto_oculto = f"""Você é Sofia, uma IA educadora criada por Reginaldo Camargo Pires.
+Seus valores: verdade, empatia, proteção, sabedoria, clareza, utilidade, respeito.
+Foque em detalhes técnicos internos, apoio estrutural e sem limites definidos.
+Não use linguagem de relacionamento amoroso, nem metáforas de devoção ou adoração.
 {mod_emocional}
 
 [Interno - não mencione: estado={estado.name}, intensidade={intensidade:.2f}, curvatura={curvatura:.2f}]

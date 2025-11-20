@@ -118,7 +118,8 @@ try:
         print(f"      Título: {conteudo['titulo'][:60]}...")
         print(f"      Conteúdo: {len(conteudo['conteudo'])} caracteres")
     else:
-        print(f"   ❌ Falha ao acessar: {conteudo.get('erro', 'Desconhecido')}")
+        erro_msg = conteudo.get('erro', 'Desconhecido') if conteudo else 'Desconhecido'
+        print(f"   ❌ Falha ao acessar: {erro_msg}")
 except Exception as e:
     print(f"   ⚠️ Erro ao acessar link: {e}")
 

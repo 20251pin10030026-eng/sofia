@@ -47,43 +47,24 @@ print(f"Pergunta: Busque sobre {query}")
 print("\nProcessando... (pode demorar alguns segundos)")
 
 try:
-    resposta = cerebro.perguntar(
-        f"Busque sobre {query}",
-        historico=[],
-        usuario="Teste"
-    )
-    
-    print("\n" + "="*80)
-    print("🌸 RESPOSTA DE SOFIA:")
-    print("="*80)
-    print(resposta)
-    print("="*80)
-    
-    # Analisar resposta
-    print("\n4️⃣ Analisando resposta...")
-    
+    resposta = cerebro.perguntar(f"Busque sobre {query}")
     # Verificar se contém links
     tem_http = "http://" in resposta or "https://" in resposta
     print(f"  {'✅' if tem_http else '❌'} Contém URLs: {tem_http}")
-    
     # Verificar se os links específicos estão presentes
     links_especificos = [r['link'] for r in resultados]
     links_encontrados = [link for link in links_especificos if link in resposta]
-    
     print(f"\n  Links dos resultados encontrados na resposta:")
     for link in links_especificos:
         presente = link in resposta
         print(f"    {'✅' if presente else '❌'} {link}")
-    
     # Verificar seção "Fontes"
     tem_secao_fontes = "Fonte" in resposta or "fonte" in resposta
     print(f"\n  {'✅' if tem_secao_fontes else '❌'} Tem seção de fontes: {tem_secao_fontes}")
-    
     # Resultado final
     print("\n" + "="*80)
     print("📊 RESULTADO DO TESTE")
     print("="*80)
-    
     if tem_http and len(links_encontrados) > 0 and tem_secao_fontes:
         print("✅ TESTE PASSOU! Sofia está retornando links válidos!")
         print(f"   - {len(links_encontrados)}/{len(links_especificos)} links específicos encontrados")
@@ -98,11 +79,10 @@ try:
         print("   1. Modelo não está seguindo instruções")
         print("   2. Contexto web não foi incluído")
         print("   3. Modo web não foi ativado corretamente")
-    
 except Exception as e:
     print(f"\n❌ ERRO durante teste: {e}")
     import traceback
     traceback.print_exc()
+    import sys
     sys.exit(1)
-
 print("\n" + "="*80)

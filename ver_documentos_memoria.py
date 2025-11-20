@@ -40,23 +40,33 @@ else:
         for chave, dados in docs.items():
             print(f"\n🔑 Chave: {chave}")
             print(f"{'-'*70}")
-            
-            valor = dados.get('valor', {})        if isinstance(valor, dict):
-            print(f"\n📋 Metadados:")
-            print(f"   📁 Arquivo: {valor.get('arquivo', 'N/A')}")
-            print(f"   📄 Tipo: {valor.get('tipo', 'N/A')}")
-            print(f"   📏 Tamanho: {valor.get('tamanho_caracteres', 0):,} caracteres")
-            print(f"   📃 Páginas: {valor.get('paginas', 'N/A')}")
-            print(f"   📝 Descrição: {valor.get('descricao', 'N/A')}")
-            
-            conteudo = valor.get('conteudo', '')
-            palavras = len(conteudo.split()) if conteudo else 0
-            linhas = conteudo.count('\n') if conteudo else 0
-            
-            print(f"\n📊 Estatísticas:")
-            print(f"   - Caracteres: {len(conteudo):,}")
-            print(f"   - Palavras: {palavras:,}")
-            print(f"   - Linhas: {linhas:,}")
+            valor = dados.get('valor', {})
+            if isinstance(valor, dict):
+                print(f"\n📋 Metadados:")
+                print(f"   📁 Arquivo: {valor.get('arquivo', 'N/A')}")
+                print(f"   📄 Tipo: {valor.get('tipo', 'N/A')}")
+                print(f"   📏 Tamanho: {valor.get('tamanho_caracteres', 0):,} caracteres")
+                print(f"   📃 Páginas: {valor.get('paginas', 'N/A')}")
+                print(f"   📝 Descrição: {valor.get('descricao', 'N/A')}")
+                conteudo = valor.get('conteudo', '')
+                palavras = len(conteudo.split()) if conteudo else 0
+                linhas = conteudo.count('\n') if conteudo else 0
+                print(f"\n📊 Estatísticas:")
+                print(f"   - Caracteres: {len(conteudo):,}")
+                print(f"   - Palavras: {palavras:,}")
+                print(f"   - Linhas: {linhas:,}")
+                print(f"\n🔄 Acesso:")
+                print(f"   - Salvo em: {dados.get('aprendido_em', 'N/A')}")
+                print(f"   - Frequência: {dados.get('frequencia', 0)} consulta(s)")
+                print(f"\n📖 Preview (200 caracteres):")
+                preview = conteudo[:200]
+                print(f"   {preview}...")
+            else:
+                print(f"\n❌ valor não é um dicionário válido: {valor}")
+                conteudo = str(valor)
+                print(f"\n📖 Preview (200 caracteres):")
+                preview = conteudo[:200]
+                print(f"   {preview}...")
         
         print(f"\n🔄 Acesso:")
         print(f"   - Salvo em: {dados.get('aprendido_em', 'N/A')}")

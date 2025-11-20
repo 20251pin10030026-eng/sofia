@@ -196,6 +196,9 @@ class SistemaVisao:
                     return analisador.analisar_imagem_completa(path)
                 else:
                     return self._analisar_imagem(path)
+            else:
+                # Formato não reconhecido
+                return ""
         except Exception as e:
             import traceback
             erro = f"❌ Erro ao processar: {str(e)}\n{traceback.format_exc()}"

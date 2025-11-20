@@ -3,9 +3,13 @@ os.environ['SOFIA_USE_CLOUD'] = 'true'
 os.environ['GITHUB_TOKEN'] = 'ghp_REDACTED'
 os.environ['GITHUB_MODEL'] = 'gpt-4o'
 
-from cerebro import Cerebro
+try:
+    from sofia.core.cerebro_cloud import perguntar
+except ImportError:
+    print("[ERRO] Não foi possível importar 'perguntar' do caminho correto. Verifique o PYTHONPATH ou use importação relativa.")
+    perguntar = None
 
-print("Testando Cerebro com GitHub Models...")
-cerebro = Cerebro()
-resposta = cerebro.gerar_resposta("Ola, voce esta usando GPT-4o?", "test")
-print(f"Resposta: {resposta}")
+if perguntar:
+    print("Testando Sofia com GitHub Models...")
+    resposta = perguntar("Ola, voce esta usando GPT-4o?", contexto="test")
+    print(f"Resposta: {resposta}")
