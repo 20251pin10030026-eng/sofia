@@ -1,30 +1,19 @@
 """
 🌸 Sofia - Cérebro Cloud
 Versão adaptada para usar GitHub Models API (GRÁTIS com Copilot Pro)
-Mantém compatibilidade com interface original mas usa GPT-4o em vez de Ollama
+Mantém compatibilidade com interface original mas usa GPT-4o em vez de Ollama.
+
+Agora com suporte a ESCOPOS DE MEMÓRIA:
+- cada sessão/usuário pode ter sua própria bolha de memória;
+- controlado via metadata_extra['escopo_memoria'] (ou 'session_id' / 'ip').
 """
 
 import os
 import requests
 from typing import List, Dict, Optional
+
 from . import _interno, memoria
 from .memoria import buscar_fatos_relevantes, resgatar_contexto_conversa
-
-
-def _sanitizar_usuario(resposta: str) -> str:
-    """Garante que Sofia não chame o usuário por nome próprio no chat público."""
-    if not isinstance(resposta, str):
-        return resposta
-    proibidos = [
-        "Reginaldo Camargo Pires",
-        "Reginaldo Camargo",
-        "Reginaldo",
-    ]
-    for nome in proibidos:
-        # troca pelo pronome neutro; evita exposição de nome
-        resposta = resposta.replace(nome, "você")
-    return resposta
-
 
 # Configuração GitHub Models API
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
@@ -49,19 +38,33 @@ MAPEAMENTO_MODELOS = {
 }
 
 
+def _sanitizar_usuario(resposta: str) -> str:
+    """Garante que Sofia não chame o usuário por nome próprio no chat público."""
+    if not isinstance(resposta, str):
+        return resposta
+    proibidos = [
+        "Reginaldo Camargo Pires",
+        "Reginaldo Camargo",
+        "Reginaldo",
+    ]
+    for nome in proibidos:
+        resposta = resposta.replace(nome, "você")
+    return resposta
+
+
 def _escolher_modelo(modelo: Optional[str] = None) -> str:
     """Escolhe o modelo GitHub a partir de um alias ou nome direto."""
     if not modelo:
         return MODELO_PADRAO
-    
+
     # Se for um alias antigo, converte
     if modelo in MAPEAMENTO_MODELOS:
         return MAPEAMENTO_MODELOS[modelo]
-    
+
     # Se for um modelo conhecido, usa direto
     if modelo in MODELOS_DISPONIVEIS:
         return modelo
-    
+
     # Senão, volta para o padrão
     return MODELO_PADRAO
 
@@ -83,7 +86,7 @@ def _montar_headers() -> Dict[str, str]:
         raise RuntimeError(
             "GITHUB_TOKEN não configurado. Defina a variável de ambiente com seu token do GitHub."
         )
-    
+
     return {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {GITHUB_TOKEN}",
@@ -110,75 +113,95 @@ def perguntar(
 ) -> str:
     """
     Faz uma pergunta para a Sofia usando GitHub Models API.
-    
+
     Parâmetros:
     - texto: mensagem do usuário
     - contexto: texto adicional (opcional)
     - modelo: alias ou nome do modelo (opcional)
     - imagens: lista de bytes de imagens (para futuros usos multimodais)
-    - metadata_extra: dicionário adicional com metadados
-    
-    Retorna:
-    - resposta da Sofia (string)
+    - metadata_extra: dicionário adicional com metadados, onde pode haver:
+        - 'usuario'         → rótulo simbólico do emissor
+        - 'escopo_memoria'  → ID de escopo (sessão/usuário)
+        - 'session_id'      → pode ser usado como escopo se 'escopo_memoria' não vier
+        - 'ip'              → fallback fraco de escopo
     """
-       # Selecionar modelo
+    # Selecionar modelo
     model = _escolher_modelo(modelo)
-    
-        # Extrair contexto emocional / interno
+
+    # Identidade simbólica e escopo de memória
+    usuario_label = "Usuário"
+    escopo_memoria: Optional[str] = None
+
+    if metadata_extra:
+        usuario_label = metadata_extra.get("usuario", usuario_label)
+        escopo_memoria = (
+            metadata_extra.get("escopo_memoria")
+            or metadata_extra.get("session_id")
+            or metadata_extra.get("ip")
+        )
+
+    # 1) Extrair contexto emocional / interno (TRQ + Subitemocional)
     try:
-        # Usa _processar para obter contexto oculto e metadata
-        contexto_oculto, metadata = _interno._processar(texto, historico=[], usuario=metadata_extra.get('usuario', 'Usuário') if metadata_extra else 'Usuário')
+        contexto_oculto, metadata = _interno._processar(
+            texto,
+            historico=[],
+            usuario=usuario_label,
+        )
     except Exception as e:
         print(f"[ERRO] Falha ao extrair contexto oculto: {e}")
         contexto_oculto, metadata = "", {"emocao_dominante": "neutro"}
 
-    # Adicionar contexto da memória
+    # 2) Adicionar contexto da memória (agora filtrado por escopo)
     try:
-        fatos_importantes = memoria.buscar_fatos_relevantes(texto)
+        fatos_importantes = memoria.buscar_fatos_relevantes(
+            texto,
+            escopo_memoria=escopo_memoria,
+        )
     except Exception as e:
         print(f"[ERRO] Falha ao buscar fatos relevantes: {e}")
         fatos_importantes = ""
+
     try:
-        contexto_historico = memoria.resgatar_contexto_conversa(texto)
+        contexto_historico = memoria.resgatar_contexto_conversa(
+            texto,
+            escopo_memoria=escopo_memoria,
+        )
     except Exception as e:
         print(f"[ERRO] Falha ao resgatar contexto de conversa: {e}")
         contexto_historico = ""
 
-    # Contexto de visão / análise visual (se houver imagens ou PDF)
+    # 3) Contexto de visão / análise visual (se houver imagens ou PDF)
     contexto_visual = ""
     if imagens:
         try:
             from .visao import SistemaVisao
+
             visao = SistemaVisao()
             contexto_visual = visao.obter_contexto_visual()
         except Exception as e:
             print(f"[ERRO] Falha ao processar imagens/contexto visual: {e}")
             contexto_visual = ""
 
-
-    # Contexto de busca na web (se disponível)
+    # 4) Contexto de busca na web (se disponível)
     contexto_web = ""
     resultados_web = []
     try:
         from . import web_search
-        
+
         if web_search.modo_web_ativo() and web_search.deve_buscar_web(texto):
             print("[DEBUG] Modo web ativo, buscando na internet...")
             resultados = web_search.buscar_web(texto, num_resultados=5)
             if resultados:
-                resultados_web = resultados  # Salvar para pós-processamento
-                # CABEÇALHO MUITO VISÍVEL
-                contexto_web += "\n" + "="*80 + "\n"
+                resultados_web = resultados
+                contexto_web += "\n" + "=" * 80 + "\n"
                 contexto_web += "🌐 RESULTADOS DA BUSCA WEB - USE ESTES LINKS NA SUA RESPOSTA\n"
-                contexto_web += "="*80 + "\n\n"
-                
-                # Lista de resultados formatada
+                contexto_web += "=" * 80 + "\n\n"
+
                 for i, res in enumerate(resultados, 1):
                     contexto_web += f"[{i}] {res['titulo']}\n"
                     contexto_web += f"    🔗 LINK: {res['link']}\n"
                     contexto_web += f"    📄 {res['snippet']}\n\n"
-                    
-                # INSTRUÇÃO SUPER ENFÁTICA
+
                 contexto_web += "=" * 80 + "\n"
                 contexto_web += "⚠️  IMPORTANTE: VOCÊ DEVE CITAR OS LINKS ACIMA NA SUA RESPOSTA!\n"
                 contexto_web += "=" * 80 + "\n\n"
@@ -192,16 +215,16 @@ def perguntar(
                 contexto_web += "\n" + "=" * 80 + "\n\n"
     except ImportError:
         pass
-    
-    # Construir mensagens para API
-    messages = [
+
+    # 5) Construir mensagens para API
+    messages: List[Dict[str, str]] = [
         {
             "role": "system",
-            "content": _system_text()
+            "content": _system_text(),
         }
     ]
-    
-    # Adicionar contexto se houver
+
+    # Adicionar blocos de contexto se houver
     if fatos_importantes or contexto_historico or contexto_web or contexto_visual or contexto_oculto:
         context_parts = []
         if fatos_importantes:
@@ -214,83 +237,87 @@ def perguntar(
             context_parts.append(contexto_visual)
         if contexto_oculto:
             context_parts.append(contexto_oculto)
-        
-        messages.append({
-            "role": "system",
-            "content": "\n".join(context_parts)
-        })
-    
-    # Adicionar mensagem do usuário
-    messages.append({
-        "role": "user",
-        "content": texto
-    })
-    
-    # Se houver contexto textual adicional
-    if contexto:
-        messages.append({
+
+        messages.append(
+            {
+                "role": "system",
+                "content": "\n".join(context_parts),
+            }
+        )
+
+    # Mensagem principal do usuário
+    messages.append(
+        {
             "role": "user",
-            "content": f"[Contexto adicional]: {contexto}"
-        })
-    
+            "content": texto,
+        }
+    )
+
+    # Contexto textual adicional (opcional)
+    if contexto:
+        messages.append(
+{
+    "role": "user",
+    "content": f"[Contexto adicional]: {contexto}",
+}
+        )
+
+    # 6) Chamada à API GitHub Models
     try:
         headers = _montar_headers()
         body = _montar_body(messages, model)
-        
+
         print(f"[DEBUG] Chamando GitHub Models API com modelo: {model}")
-        
+
         response = requests.post(GITHUB_MODELS_API, headers=headers, json=body, timeout=60)
-        
+
         if response.status_code == 200:
             data = response.json()
-            # Estrutura: choices[0].message.content
             choices = data.get("choices", [])
             if not choices:
                 return "❌ Não recebi resposta do modelo."
-            
+
             resposta = choices[0]["message"]["content"]
-            
+
             # Pós-processamento com web_search (se usado)
             if resultados_web:
                 try:
                     from . import web_search
-                    
-                    # Verificar se a resposta contém pelo menos UM link dos resultados
-                    links_na_resposta = any(r['link'] in resposta for r in resultados_web)
-                    
+
+                    links_na_resposta = any(r["link"] in resposta for r in resultados_web)
+
                     if not links_na_resposta:
-                        # Modelo não incluiu os links - adicionar automaticamente
                         print("[DEBUG] ⚠️  Modelo não incluiu links - adicionando automaticamente")
                         resposta += "\n\n---\n\n**📚 Fontes consultadas:**\n"
                         for i, r in enumerate(resultados_web, 1):
                             resposta += f"{i}. [{r['titulo']}]({r['link']})\n"
                     else:
-                        print(f"[DEBUG] ✅ Resposta já contém links da busca web.")
+                        print("[DEBUG] ✅ Resposta já contém links da busca web.")
                 except ImportError:
                     pass
-            
-            # 💾 SALVAR RESPOSTA DA SOFIA NA MEMÓRIA
-            metadata_dict = {}
+
+            # 💾 SALVAR RESPOSTA DA SOFIA NA MEMÓRIA (herda escopo da última entrada)
+            metadata_dict: Dict = {}
             if resposta:
-                # Garante que metadata seja sempre um dict antes de acessar 'get'
                 if not isinstance(metadata, dict):
                     if isinstance(metadata, tuple) and len(metadata) > 0 and isinstance(metadata[0], dict):
                         metadata_dict = metadata[0]
                 else:
                     metadata_dict = metadata
+
                 sentimento = metadata_dict.get("emocao_dominante", "neutro")
                 memoria.adicionar_resposta_sofia(resposta, sentimento)
-            
+
             # Log interno silencioso
             try:
-                _log_interno(metadata_dict, texto, resposta)
+                _log_interno(metadata_dict, texto, resposta, model)
             except Exception:
                 pass
-            
+
             # Sanitizar nomes próprios antes de enviar ao usuário
             resposta = _sanitizar_usuario(resposta)
             return resposta
-            
+
         elif response.status_code == 401:
             return "❌ Token inválido. Verifique seu GITHUB_TOKEN."
         elif response.status_code == 429:
@@ -301,35 +328,36 @@ def perguntar(
             except Exception:
                 erro = response.text
             return f"❌ Erro na API GitHub Models ({response.status_code}): {erro}"
-    
+
     except requests.Timeout:
         return "⏳ A requisição demorou demais e foi cancelada. Tente novamente."
     except Exception as erro:
         print(f"❌ Erro inesperado: {erro}")
         import traceback
+
         traceback.print_exc()
         return f"❌ Erro: {erro}"
 
 
-def _log_interno(metadata: Dict, entrada: str, saida: str):
-    """Log oculto do processamento interno"""
+def _log_interno(metadata: Dict, entrada: str, saida: str, modelo_usado: Optional[str] = None):
+    """Log oculto do processamento interno."""
     import json
     from pathlib import Path
-    
-    # Salva em arquivo oculto
+
     log_dir = Path(".sofia_internal")
     log_dir.mkdir(exist_ok=True)
     log_file = log_dir / "subitemotions.log"
-    
+
     with open(log_file, "a", encoding="utf-8") as f:
         log_entry = {
-            **metadata,
-            "input": entrada[:100],
-            "output": saida[:100],
-            "model": MODELO_PADRAO
+            **(metadata or {}),
+            "input": entrada[:200],
+            "output": saida[:200],
+            "model": modelo_usado or MODELO_PADRAO,
         }
         f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
 
 
 # Função de compatibilidade - pode ser importada como cerebro.perguntar
-__all__ = ['perguntar']
+__all__ = ["perguntar"]
+

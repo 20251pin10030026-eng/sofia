@@ -1,19 +1,23 @@
 """
 Memória persistente de conversas com aprendizado
-Sistema de memória de 5GB para armazenar e aprender com conversas
+Sistema de memória de 5GB para armazenar e aprender com conversas.
+
+Agora com suporte a ESCOPOS DE MEMÓRIA:
+- cada sessão/usuário pode ter sua própria bolha de memória,
+  via contexto['escopo_memoria'].
 """
+
 import json
-import os
 from pathlib import Path
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 # Configurações
 MEMORIA_DIR = Path(__file__).resolve().parents[1] / ".sofia_internal" / "memoria"
 MEMORIA_ARQUIVO = MEMORIA_DIR / "conversas.json"
 APRENDIZADOS_ARQUIVO = MEMORIA_DIR / "aprendizados.json"
 MAX_SIZE_BYTES = 5 * 1024 * 1024 * 1024  # 5 GB
-CONTEXTO_RECENTE = 200  # Número de mensagens recentes mantidas em RAM (aumentado de 50)
+CONTEXTO_RECENTE = 200  # Número de mensagens recentes mantidas em RAM
 MAX_CHARS_POR_MENSAGEM = 100000  # Máximo de 100.000 caracteres por mensagem individual
 
 # Memória em RAM (cache)
@@ -22,12 +26,12 @@ aprendizados: Dict[str, Dict[str, Any]] = {}
 
 
 def _garantir_diretorio():
-    """Cria o diretório de memória se não existir"""
+    """Cria o diretório de memória se não existir."""
     MEMORIA_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def _calcular_tamanho_memoria():
-    """Calcula o tamanho total da memória em disco"""
+def _calcular_tamanho_memoria() -> int:
+    """Calcula o tamanho total da memória em disco."""
     tamanho = 0
     if MEMORIA_ARQUIVO.exists():
         tamanho += MEMORIA_ARQUIVO.stat().st_size
@@ -37,7 +41,7 @@ def _calcular_tamanho_memoria():
 
 
 def _carregar_memoria():
-    """Carrega o histórico do disco"""
+    """Carrega o histórico do disco para o cache em RAM."""
     global historico
     _garantir_diretorio()
 
@@ -55,7 +59,7 @@ def _carregar_memoria():
 
 
 def _carregar_aprendizados():
-    """Carrega aprendizados do disco"""
+    """Carrega aprendizados do disco."""
     global aprendizados
     _garantir_diretorio()
 
@@ -69,7 +73,7 @@ def _carregar_aprendizados():
 
 
 def _salvar_memoria():
-    """Salva o histórico completo no disco"""
+    """Salva o histórico completo no disco (merge incremental)."""
     _garantir_diretorio()
 
     # Verifica o tamanho antes de salvar
@@ -104,8 +108,8 @@ def _salvar_memoria():
         print(f"⚠️ Erro ao salvar memória: {e}")
 
 
-def _salvar_memoria_forcado(conversas_para_salvar):
-    """Salva conversas específicas forçadamente (usado por limpar)"""
+def _salvar_memoria_forcado(conversas_para_salvar: List[Dict[str, Any]]):
+    """Salva conversas específicas forçadamente (usado por limpar)."""
     _garantir_diretorio()
 
     try:
@@ -123,7 +127,7 @@ def _salvar_memoria_forcado(conversas_para_salvar):
 
 
 def _salvar_aprendizados():
-    """Salva aprendizados no disco"""
+    """Salva aprendizados no disco."""
     _garantir_diretorio()
 
     try:
@@ -134,7 +138,7 @@ def _salvar_aprendizados():
 
 
 def _compactar_memoria():
-    """Remove 20% das conversas mais antigas quando atinge o limite"""
+    """Remove 20% das conversas mais antigas quando atinge o limite."""
     try:
         if MEMORIA_ARQUIVO.exists():
             with open(MEMORIA_ARQUIVO, "r", encoding="utf-8") as f:
@@ -152,27 +156,37 @@ def _compactar_memoria():
             with open(MEMORIA_ARQUIVO, "w", encoding="utf-8") as f:
                 json.dump(dados, f, ensure_ascii=False, indent=2)
 
-            print(
-                f"🗜️ Memória compactada: {quantidade_remover} conversas antigas removidas"
-            )
+            print(f"🗜️ Memória compactada: {quantidade_remover} conversas antigas removidas")
     except Exception as e:
         print(f"⚠️ Erro ao compactar memória: {e}")
 
 
 def inicializar():
-    """Inicializa o sistema de memória"""
+    """Inicializa o sistema de memória."""
     _carregar_memoria()
     _carregar_aprendizados()
 
 
+def _mesmo_escopo(msg: Dict[str, Any], escopo: Optional[str]) -> bool:
+    """
+    Retorna True se a mensagem pertence ao mesmo escopo de memória.
+
+    - escopo = None  → não filtra (comportamento global antigo).
+    - escopo = string → compara com contexto['escopo_memoria'].
+    """
+    if escopo is None:
+        return True
+
+    ctx = msg.get("contexto") or {}
+    return ctx.get("escopo_memoria") == escopo
+
+
 def adicionar(usuario: str, mensagem: str, contexto: Dict[str, Any] | None = None):
     """
-    Adiciona uma mensagem ao histórico com timestamp e contexto
+    Adiciona uma mensagem ao histórico com timestamp e contexto.
 
-    Args:
-        usuario: Nome do usuário
-        mensagem: Texto da mensagem (até 100.000 caracteres)
-        contexto: Dicionário opcional com informações adicionais
+    Se 'contexto' trouxer 'escopo_memoria', isso será usado depois para
+    filtrar buscas de memória (cada sessão/usuário em sua própria bolha).
     """
     global historico
 
@@ -192,7 +206,7 @@ def adicionar(usuario: str, mensagem: str, contexto: Dict[str, Any] | None = Non
         "texto": mensagem,
         "timestamp": datetime.now().isoformat(),
         "contexto": contexto or {},
-        "tamanho": len(mensagem),  # Adiciona informação de tamanho
+        "tamanho": len(mensagem),
     }
 
     historico.append(entrada)
@@ -204,12 +218,13 @@ def adicionar(usuario: str, mensagem: str, contexto: Dict[str, Any] | None = Non
 
 def adicionar_resposta_sofia(mensagem: str, sentimento: str | None = None):
     """
-    Adiciona uma resposta da Sofia ao histórico
+    Adiciona uma resposta da Sofia ao histórico.
 
-    Args:
-        mensagem: Texto da resposta (até 100.000 caracteres)
-        sentimento: Sentimento associado à resposta
+    A resposta herda o 'escopo_memoria' da última mensagem registrada,
+    para que pergunta e resposta fiquem no mesmo universo de memória.
     """
+    global historico
+
     # Validar tamanho da mensagem
     if len(mensagem) > MAX_CHARS_POR_MENSAGEM:
         print(
@@ -221,12 +236,22 @@ def adicionar_resposta_sofia(mensagem: str, sentimento: str | None = None):
             + "... [resposta truncada automaticamente]"
         )
 
+    escopo = None
+    if historico:
+        ctx_ult = historico[-1].get("contexto") or {}
+        escopo = ctx_ult.get("escopo_memoria")
+
+    contexto: Dict[str, Any] = {"sentimento": sentimento}
+    if escopo is not None:
+        contexto["escopo_memoria"] = escopo
+
     entrada = {
         "de": "Sofia",
         "texto": mensagem,
         "timestamp": datetime.now().isoformat(),
+        "contexto": contexto,
         "sentimento": sentimento,
-        "tamanho": len(mensagem),  # Adiciona informação de tamanho
+        "tamanho": len(mensagem),
     }
 
     historico.append(entrada)
@@ -235,7 +260,7 @@ def adicionar_resposta_sofia(mensagem: str, sentimento: str | None = None):
 
 def aprender(chave: str, valor: Any, categoria: str = "geral"):
     """
-    Armazena um aprendizado
+    Armazena um aprendizado.
 
     Args:
         chave: Identificador do aprendizado
@@ -260,24 +285,29 @@ def aprender(chave: str, valor: Any, categoria: str = "geral"):
 
 
 def buscar_aprendizado(chave: str, categoria: str = "geral"):
-    """Busca um aprendizado específico"""
+    """Busca um aprendizado específico."""
     return aprendizados.get(categoria, {}).get(chave)
 
 
 def listar_aprendizados(categoria: str | None = None):
-    """Lista todos os aprendizados de uma categoria ou todas"""
+    """Lista todos os aprendizados de uma categoria ou todas."""
     if categoria:
         return aprendizados.get(categoria, {})
     return aprendizados
 
 
-def buscar_conversas(termo: str, limite: int = 10) -> List[Dict]:
+def buscar_conversas(
+    termo: str,
+    limite: int = 10,
+    escopo_memoria: Optional[str] = None,
+) -> List[Dict[str, Any]]:
     """
-    Busca conversas que contenham um termo específico
+    Busca conversas que contenham um termo específico.
 
     Args:
         termo: Termo a buscar
         limite: Número máximo de resultados
+        escopo_memoria: se fornecido, filtra por 'escopo_memoria' no contexto
 
     Returns:
         Lista de conversas encontradas
@@ -292,6 +322,8 @@ def buscar_conversas(termo: str, limite: int = 10) -> List[Dict]:
                 conversas = dados.get("conversas", [])
 
                 for conv in conversas:
+                    if not _mesmo_escopo(conv, escopo_memoria):
+                        continue
                     if termo.lower() in conv.get("texto", "").lower():
                         resultados.append(conv)
                         if len(resultados) >= limite:
@@ -303,7 +335,7 @@ def buscar_conversas(termo: str, limite: int = 10) -> List[Dict]:
 
 
 def ver_historico(quantidade: int = 10) -> str:
-    """Mostra o histórico de conversas"""
+    """Mostra o histórico de conversas (apenas cache atual em RAM)."""
     if not historico:
         return "📭 Nenhuma conversa ainda."
 
@@ -318,30 +350,32 @@ def ver_historico(quantidade: int = 10) -> str:
             dt = datetime.fromisoformat(timestamp)
             hora = dt.strftime("%H:%M:%S")
             texto += f"[{hora}] "
-        texto += f"{msg['de']}: {msg['texto'][:100]}\n"
+        texto += f"{msg.get('de', 'desconhecido')}: {msg.get('texto', '')[:100]}\n"
     return texto
 
 
-def buscar_fatos_relevantes(texto: str, limite: int = 5) -> str:
+def buscar_fatos_relevantes(
+    texto: str,
+    limite: int = 5,
+    escopo_memoria: Optional[str] = None,
+) -> str:
     """
     Retorna um pequeno contexto com fatos/mensagens relevantes da memória
-    relacionados ao texto atual.
-    Se não houver suporte a busca, retorna string vazia.
+    relacionados ao texto atual, dentro do escopo de memória atual.
     """
-    # Se não existir função de busca, devolve vazio
     func_busca = globals().get("buscar_conversas")
     if not callable(func_busca):
         return ""
 
     try:
-        resultados = func_busca(texto, limite=limite)
+        resultados = func_busca(texto, limite=limite, escopo_memoria=escopo_memoria)
     except Exception:
         return ""
 
     if not resultados or not isinstance(resultados, list):
         return ""
 
-    partes = ["📌 Fatos relevantes da memória:"]
+    partes = ["📌 Fatos relevantes da memória (escopo atual):"]
     for conv in resultados:
         quem = conv.get("de", "desconhecido")
         trecho = conv.get("texto", "")[:200]
@@ -350,19 +384,32 @@ def buscar_fatos_relevantes(texto: str, limite: int = 5) -> str:
     return "\n".join(partes)
 
 
-def resgatar_contexto_conversa(texto: str = "", max_mensagens: int = 30) -> str:
+def resgatar_contexto_conversa(
+    texto: str = "",
+    max_mensagens: int = 30,
+    escopo_memoria: Optional[str] = None,
+) -> str:
     """
     Monta um contexto histórico recente da conversa a partir do 'historico'
-    mantido em memória. Se não existir, retorna string vazia.
+    mantido em memória, filtrando por escopo de memória se fornecido.
     O parâmetro 'texto' é mantido só por compatibilidade.
     """
     hist = globals().get("historico")
     if not isinstance(hist, list) or not hist:
         return ""
 
-    ultimas = hist[-max_mensagens:]
+    # Filtra apenas mensagens do mesmo escopo, se houver
+    msgs_filtradas: List[Dict[str, Any]] = []
+    for msg in hist:
+        if _mesmo_escopo(msg, escopo_memoria):
+            msgs_filtradas.append(msg)
 
-    partes = ["🧵 Contexto recente da conversa:"]
+    if not msgs_filtradas:
+        return ""
+
+    ultimas = msgs_filtradas[-max_mensagens:]
+
+    partes = ["🧵 Contexto recente da conversa (escopo atual):"]
     for msg in ultimas:
         de = msg.get("de", "desconhecido")
         trecho = msg.get("texto", "")[:400]
@@ -372,7 +419,7 @@ def resgatar_contexto_conversa(texto: str = "", max_mensagens: int = 30) -> str:
 
 
 def estatisticas() -> str:
-    """Mostra estatísticas da memória"""
+    """Mostra estatísticas da memória."""
     _garantir_diretorio()
 
     total_conversas = 0
@@ -391,7 +438,6 @@ def estatisticas() -> str:
 
     total_aprendizados = sum(len(cat) for cat in aprendizados.values())
 
-    # Calcular estatísticas de tamanho das mensagens
     tamanhos = [
         msg.get("tamanho", len(msg.get("texto", ""))) for msg in historico
     ]
@@ -409,14 +455,14 @@ def estatisticas() -> str:
 📝 Tamanho médio por mensagem: {tamanho_medio:.0f} caracteres
 📏 Maior mensagem: {tamanho_maximo:,} caracteres
 💯 Capacidade por mensagem: {MAX_CHARS_POR_MENSAGEM:,} caracteres
-🔄 Contexto enviado à IA: últimas 30 mensagens
+🔄 Contexto enviado à IA: últimas 30 mensagens (por escopo)
 {"="*50}
 """
     return stats
 
 
 def limpar():
-    """Limpa o histórico (mantém aprendizados)"""
+    """Limpa o histórico (mantém aprendizados)."""
     global historico
     historico = []
     _salvar_memoria_forcado([])  # Força salvamento de lista vazia
@@ -424,7 +470,7 @@ def limpar():
 
 
 def limpar_tudo():
-    """Limpa tudo: histórico e aprendizados"""
+    """Limpa tudo: histórico e aprendizados."""
     global historico, aprendizados
     historico = []
     aprendizados = {}
@@ -438,7 +484,7 @@ def limpar_tudo():
 
 
 def salvar_tudo():
-    """Força salvamento de tudo"""
+    """Força salvamento de tudo."""
     _salvar_memoria()
     _salvar_aprendizados()
     print("💾 Memória salva com sucesso!")
