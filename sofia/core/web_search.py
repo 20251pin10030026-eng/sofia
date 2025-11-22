@@ -2,6 +2,7 @@
 Módulo de Busca Web para Sofia
 Permite buscar informações na internet e acessar links fornecidos
 """
+
 import re
 import requests
 from bs4 import BeautifulSoup
@@ -40,7 +41,11 @@ def acessar_link(url: str, timeout: int = 10) -> Optional[Dict[str, Any]]:
     try:
         # Headers para parecer um navegador real
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            'User-Agent': (
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                'AppleWebKit/537.36 (KHTML, like Gecko) '
+                'Chrome/91.0.4472.124 Safari/537.36'
+            )
         }
         
         response = requests.get(url, headers=headers, timeout=timeout)
@@ -72,7 +77,9 @@ def acessar_link(url: str, timeout: int = 10) -> Optional[Dict[str, Any]]:
         if main_content:
             # Pega parágrafos
             paragrafos = main_content.find_all('p')
-            conteudo = '\n\n'.join([p.get_text().strip() for p in paragrafos if p.get_text().strip()])
+            conteudo = '\n\n'.join(
+                [p.get_text().strip() for p in paragrafos if p.get_text().strip()]
+            )
             
             # Limita tamanho (primeiros 3000 caracteres)
             if len(conteudo) > 3000:
@@ -108,34 +115,121 @@ def acessar_link(url: str, timeout: int = 10) -> Optional[Dict[str, Any]]:
         }
 
 
+# ---------------------- FILTRO DE RELEVÂNCIA ---------------------- #
+
+# Stopwords bem simples PT/EN, para sobrar só o que importa na consulta
+_STOPWORDS = {
+    "o", "a", "os", "as", "um", "uma", "de", "da", "do", "das", "dos",
+    "em", "no", "na", "nos", "nas", "por", "para", "pra", "com",
+    "sobre", "que", "e", "ou", "se", "é", "foi", "ser",
+    "atualizacoes", "atualização", "atualizações", "atualizacao",
+    "informacoes", "informação", "informações", "noticias", "notícia",
+    "notícias", "recentes", "novas", "ultimas", "últimas",
+    # EN
+    "the", "of", "in", "on", "for", "and", "or", "is", "are", "to",
+    "about", "with", "latest", "news", "update", "updates",
+}
+
+
+def _tokenizar_consulta(query: str) -> List[str]:
+    """
+    Quebra a consulta em tokens relevantes (sem stopwords).
+    Ex.: 'Busque atualizações sobre o 3I Atlas' -> ['3i', 'atlas']
+    """
+    tokens = re.findall(r'\w+', query.lower())
+    tokens_filtrados = [t for t in tokens if t not in _STOPWORDS and len(t) > 1]
+    return tokens_filtrados or tokens  # se tudo virar stopword, volta tokens brutos
+
+
+def _pontuar_resultado(resultado: Dict[str, str], tokens: List[str]) -> int:
+    """
+    Dá uma pontuação de relevância a um resultado com base na presença
+    dos tokens da consulta no título/snippet.
+    """
+    titulo = resultado.get('title', '') or resultado.get('titulo', '')
+    corpo = resultado.get('body', '') or resultado.get('snippet', '')
+    texto_alvo = (titulo + " " + corpo).lower()
+    score = 0
+    for t in tokens:
+        if t in texto_alvo:
+            score += 1
+    return score
+
+
+def _dominio_irrelevante(link: str) -> bool:
+    """
+    Filtra domínios claramente irrelevantes para busca geral em PT/EN.
+    Ex.: zhihu chinês aparecendo para consultas aleatórias.
+    """
+    try:
+        dominio = urlparse(link).netloc.lower()
+    except Exception:
+        return False
+
+    # Lista simples de domínios a evitar
+    blacklist = [
+        "zhihu.com",
+    ]
+    return any(bad in dominio for bad in blacklist)
+
+
 def buscar_web(query: str, num_resultados: int = 3) -> Optional[List[Dict[str, str]]]:
     """
-    Busca na web usando DuckDuckGo
-    
-    Args:
-        query: Termo de busca
-        num_resultados: Número de resultados a retornar
-        
-    Returns:
-        Lista de dicionários com título, link e snippet
+    Busca na web usando DuckDuckGo, com filtro de relevância.
+
+    Lógica nova:
+    - Extrai as palavras importantes da consulta (sem stopwords).
+    - Busca na web.
+    - Mantém só resultados cujo título/snippet contenham pelo menos
+      um desses tokens relevantes.
+    - Descarta domínios obviamente fora de contexto (ex.: zhihu).
+    - Se nada passar no filtro → retorna None (sem inventar link lixo).
     """
     try:
         # Usar ddgs (nova versão do pacote)
         from duckduckgo_search import DDGS
         
+        tokens = _tokenizar_consulta(query)
+        
         with DDGS() as ddgs:
-            # Converter iterator para lista
-            resultados_raw = list(ddgs.text(query, max_results=num_resultados))
+            resultados_raw = list(ddgs.text(query, max_results=num_resultados * 3))
         
-        resultados = []
-        for resultado in resultados_raw:
-            resultados.append({
-                'titulo': resultado.get('title', ''),
-                'link': resultado.get('href', ''),
-                'snippet': resultado.get('body', '')
+        if not resultados_raw:
+            return None
+
+        resultados_filtrados: List[Dict[str, str]] = []
+
+        for r in resultados_raw:
+            titulo = r.get('title', '') or ''
+            link = r.get('href', '') or ''
+            snippet = r.get('body', '') or ''
+
+            if not link:
+                continue
+
+            # Filtrar domínios irrelevantes
+            if _dominio_irrelevante(link):
+                continue
+
+            score = _pontuar_resultado(r, tokens)
+
+            # Se nenhum token relevante aparece no título/snippet,
+            # provavelmente é resultado genérico ou fora de contexto
+            if score <= 0:
+                continue
+
+            resultados_filtrados.append({
+                'titulo': titulo,
+                'link': link,
+                'snippet': snippet
             })
-        
-        return resultados if resultados else None
+
+        if not resultados_filtrados:
+            # Melhor assumir "não achei nada útil" do que inventar coisa errada
+            return None
+
+        # Limitar ao número pedido, já com filtro
+        return resultados_filtrados[:num_resultados]
         
     except ImportError:
         print("⚠️ Biblioteca duckduckgo-search não instalada. Instale com: pip install duckduckgo-search")
@@ -182,7 +276,10 @@ def processar_urls_no_texto(texto: str) -> Optional[str]:
     
     # Adicionar instrução para mencionar os links na resposta
     if conteudo_final:
-        conteudo_final += "\n\n**INSTRUÇÃO**: Ao responder sobre este(s) conteúdo(s), SEMPRE mencione o(s) link(s) de origem na sua resposta.\n"
+        conteudo_final += (
+            "\n\n**INSTRUÇÃO**: Ao responder sobre este(s) conteúdo(s), "
+            "SEMPRE mencione o(s) link(s) de origem na sua resposta.\n"
+        )
     
     return conteudo_final
 
@@ -205,7 +302,9 @@ def deve_buscar_web(texto: str) -> bool:
     keywords_busca = [
         'busque', 'pesquise', 'procure na internet', 'procure na web',
         'o que aconteceu', 'notícias sobre', 'última novidade',
-        'pesquisa sobre', 'informações sobre', 'buscar sobre'
+        'pesquisa sobre', 'informações sobre', 'buscar sobre',
+        'busca online', 'buscas online', 'modo web', 'buscador',
+        'atualizações sobre', 'atualizacoes sobre'
     ]
     
     texto_lower = texto.lower()
