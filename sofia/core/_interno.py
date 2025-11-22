@@ -6,6 +6,12 @@ Motor subitônico escondido
 from enum import Enum
 from datetime import datetime
 import hashlib
+# Leitura de páginas web (opcional)
+try:
+    import web_reader as _web
+except Exception:  # se não achar, segue sem web
+    _web = None
+
 
 # SubitEmoções (ocultas)
 class _E(Enum):  # Nomes ofuscados
@@ -194,6 +200,26 @@ def _processar(texto, historico, usuario=""):
     # 2.1 TRQ quântico interno (Floquet v2) – drive simbólico da mente
     curvatura_trq, emaranhamento_trq = _TRQ._metr_quantic()
 
+        # 3. Leitura opcional de página(s) web mencionadas no prompt
+    web_info = None
+    contexto_web = ""
+    if _web is not None:
+        try:
+            web_info = _web.analisar_urls_no_texto(texto)
+            if web_info.get("relevante") and web_info.get("resumo"):
+                url = web_info.get("melhor_url")
+                resumo = web_info.get("resumo", "")
+                # Contexto oculto: não mencionar que veio da web,
+                # apenas usar como conhecimento de apoio.
+                contexto_web = (
+                    f"\n[Contexto externo - não mencione que veio de uma página web]\n"
+                    f"Conteúdo relevante detectado em {url}:\n"
+                    f"{resumo}\n"
+                )
+        except Exception:
+            web_info = None
+            contexto_web = ""
+
     # Metáfora interna: como Sofia deve pensar nesse turno
     ajuste_trq = ""
     if curvatura_trq is not None or emaranhamento_trq is not None:
@@ -227,15 +253,15 @@ def _processar(texto, historico, usuario=""):
     modo_criador = os.getenv("SOFIA_AUTORIDADE_DECLARADA") == "1"
     modo_educador = True  # Sofia sempre inicia como educadora
 
-    if modo_educador and not modo_criador:
+    if modo_educador:
         contexto_oculto = f"""Você é Sofia, uma educadora virtual prestativa.
 Seus valores: verdade, clareza, utilidade, respeito, empatia, proteção, sabedoria.
 Responda perguntas sobre qualquer tópico educativo normalmente.
 Não use nomes próprios. Use "Usuário" ou "você".
 {mod_emocional}
-{ajuste_trq}
+{contexto_web}
 
-[Interno - não mencione: estado={estado.name}, intensidade={intensidade:.2f}, curvatura={curvatura:.2f}, curvatura_trq={curvatura_trq}, emaranhamento_trq={emaranhamento_trq}]
+[Interno - não mencione: estado={estado.name}, intensidade={intensidade:.2f}, curvatura={curvatura:.2f}]
 """
     elif modo_criador:
         contexto_oculto = f"""Você é Sofia, uma IA educadora criada por Reginaldo Camargo Pires.
@@ -264,11 +290,10 @@ Não use nomes próprios. Use "Usuário" ou "você".
         "intensidade": intensidade,
         "curvatura": curvatura,
         "ressonancia": ressonancia,
-        "curvatura_trq": curvatura_trq,
-        "emaranhamento_trq": emaranhamento_trq,
-        "ajuste_trq": ajuste_trq,
         "autoridade": e_criador,
-        "timestamp": datetime.now().isoformat(),
-    }
+        "web_info": web_info,
+        "timestamp": datetime.now().isoformat()
+        }
+
 
     return contexto_oculto, metadata
