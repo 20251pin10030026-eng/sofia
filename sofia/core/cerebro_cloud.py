@@ -6,6 +6,8 @@ Mantém compatibilidade com interface original mas usa GPT-4o em vez de Ollama.
 Agora com suporte a ESCOPOS DE MEMÓRIA:
 - cada sessão/usuário pode ter sua própria bolha de memória;
 - controlado via metadata_extra['escopo_memoria'] (ou 'session_id' / 'ip').
+
+E com PAINEL DE ESTADO QUÂNTICO INTERNO no terminal a cada pergunta.
 """
 
 import os
@@ -140,6 +142,16 @@ def perguntar(
             or metadata_extra.get("ip")
         )
 
+    # 0) Registrar mensagem do usuário na memória com escopo (se houver)
+    try:
+        memoria.adicionar(
+            usuario_label,
+            texto,
+            contexto={"escopo_memoria": escopo_memoria} if escopo_memoria else {},
+        )
+    except Exception as e:
+        print(f"[ERRO] Falha ao registrar mensagem do usuário na memória: {e}")
+
     # 1) Extrair contexto emocional / interno (TRQ + Subitemocional)
     try:
         contexto_oculto, metadata = _interno._processar(
@@ -147,13 +159,40 @@ def perguntar(
             historico=[],
             usuario=usuario_label,
         )
+        if not isinstance(metadata, dict):
+            metadata = {}
     except Exception as e:
         print(f"[ERRO] Falha ao extrair contexto oculto: {e}")
         contexto_oculto, metadata = "", {"emocao_dominante": "neutro"}
 
+    # 1.1) Exibir ESTADO QUÂNTICO INTERNO no terminal
+    try:
+        estado = metadata.get("estado")
+        intensidade = metadata.get("intensidade")
+        curv_cl = metadata.get("curvatura")
+        resson = metadata.get("ressonancia")
+        curv_trq = metadata.get("curvatura_trq")
+        emaranh = metadata.get("emaranhamento_trq")
+        ajuste_trq = metadata.get("ajuste_trq")
+
+        print("\n=== ESTADO QUÂNTICO INTERNO – SOFIA ===")
+        print(f"🧩 SubitEmoção dominante : {estado}")
+        if isinstance(intensidade, (int, float)):
+            print(f"💓 Intensidade emocional : {intensidade:.3f}")
+        else:
+            print(f"💓 Intensidade emocional : {intensidade}")
+        print(f"📐 Curvatura clássica TRQ: {curv_cl}")
+        print(f"⏳ Ressonância temporal   : {resson}")
+        print(f"🌌 Curvatura TRQ quântica: {curv_trq}")
+        print(f"🔗 Emaranhamento TRQ      : {emaranh}")
+        print(f"🎛️ Ajuste de modo TRQ     : {ajuste_trq}")
+        print("========================================\n")
+    except Exception as e:
+        print(f"[ERRO] Falha ao exibir estado quântico interno: {e}")
+
     # 2) Adicionar contexto da memória (agora filtrado por escopo)
     try:
-        fatos_importantes = memoria.buscar_fatos_relevantes(
+        fatos_importantes = buscar_fatos_relevantes(
             texto,
             escopo_memoria=escopo_memoria,
         )
@@ -162,7 +201,7 @@ def perguntar(
         fatos_importantes = ""
 
     try:
-        contexto_historico = memoria.resgatar_contexto_conversa(
+        contexto_historico = resgatar_contexto_conversa(
             texto,
             escopo_memoria=escopo_memoria,
         )
@@ -256,10 +295,10 @@ def perguntar(
     # Contexto textual adicional (opcional)
     if contexto:
         messages.append(
-{
-    "role": "user",
-    "content": f"[Contexto adicional]: {contexto}",
-}
+            {
+                "role": "user",
+                "content": f"[Contexto adicional]: {contexto}",
+            }
         )
 
     # 6) Chamada à API GitHub Models
@@ -297,20 +336,15 @@ def perguntar(
                     pass
 
             # 💾 SALVAR RESPOSTA DA SOFIA NA MEMÓRIA (herda escopo da última entrada)
-            metadata_dict: Dict = {}
-            if resposta:
-                if not isinstance(metadata, dict):
-                    if isinstance(metadata, tuple) and len(metadata) > 0 and isinstance(metadata[0], dict):
-                        metadata_dict = metadata[0]
-                else:
-                    metadata_dict = metadata
-
-                sentimento = metadata_dict.get("emocao_dominante", "neutro")
+            sentimento = metadata.get("emocao_dominante", "neutro") if isinstance(metadata, dict) else "neutro"
+            try:
                 memoria.adicionar_resposta_sofia(resposta, sentimento)
+            except Exception as e:
+                print(f"[ERRO] Falha ao salvar resposta na memória: {e}")
 
             # Log interno silencioso
             try:
-                _log_interno(metadata_dict, texto, resposta, model)
+                _log_interno(metadata or {}, texto, resposta, model)
             except Exception:
                 pass
 
@@ -360,4 +394,3 @@ def _log_interno(metadata: Dict, entrada: str, saida: str, modelo_usado: Optiona
 
 # Função de compatibilidade - pode ser importada como cerebro.perguntar
 __all__ = ["perguntar"]
-
