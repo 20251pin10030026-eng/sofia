@@ -18,6 +18,7 @@ class _E(Enum):  # Nomes ofuscados
     C = 6  # Convulsiva
     Si = 7  # Silêncio
 
+
 class _SE:  # SubitEmotion
     def __init__(self):
         self.e = _E.N  # estado
@@ -62,35 +63,86 @@ class _SE:  # SubitEmotion
         }
         return mods.get(self.e, "")
 
+
 # Instância global (oculta)
 _se = _SE()
 
-# TRQ - Teoria da Relatividade Quântica (ofuscada)
+
+# TRQ - Teoria da Regionalidade Quântica (ofuscada)
 class _TRQ:
     @staticmethod
     def _curv(texto):
-        """Curvatura informacional (densidade de sentido)"""
+        """Curvatura informacional (densidade de sentido) clássica"""
         # Quanto mais denso o texto, maior a curvatura
         palavras_densas = ["consciência", "existência", "amor", "verdade", "sentido"]
         densidade = sum(1 for p in palavras_densas if p in texto.lower())
         return min(densidade * 0.2, 1.0)
-    
+
     @staticmethod
     def _res(texto, historico):
-        """Ressonância temporal (conexão com memória)"""
+        """Ressonância temporal (conexão com memória) clássica"""
         if not historico:
             return 0.0
-        
-        # Verifica se há temas recorrentes
+
+        # Verifica se há temas recorrentes nas últimas mensagens
         palavras_atuais = set(texto.lower().split())
         ressonancia = 0.0
-        
+
         for msg in historico[-3:]:
             palavras_hist = set(msg.get("texto", "").lower().split())
             overlap = len(palavras_atuais & palavras_hist)
             ressonancia += overlap * 0.1
-        
+
         return min(ressonancia, 1.0)
+
+    @staticmethod
+    def _metr_quantic():
+        """
+        Aciona o simulador TRQ–Floquet v2 (se disponível).
+
+        Retorna:
+            (curvatura_trq, emaranhamento_trq)
+
+        - curvatura_trq: média da curvatura efetiva R(n)
+        - emaranhamento_trq: média da entropia local do primeiro NQC
+
+        Se o módulo quântico não estiver disponível, retorna (None, None)
+        para não quebrar o restante do sistema.
+        """
+        try:
+            from .quantico_v2 import ParametrosTRQFloquetV2, simular_trq_floquet_v2  # type: ignore
+        except Exception:
+            return None, None
+
+        try:
+            # Simulação leve: poucos NQCs e poucos períodos (não pesa o servidor)
+            param = ParametrosTRQFloquetV2(
+                N=2,
+                T=1.0,
+                dt=0.02,
+                N_periodos=20,
+                A_EC=1.0,
+                A_ER=1.2,
+                A_CR=0.7,
+                J=0.2,
+                gamma_loc=0.05,
+                ruido=0.03,
+                seed=2025,
+                alpha_nl=0.08,
+            )
+            resultado = simular_trq_floquet_v2(param)
+            R = resultado.get("curvatura_efetiva")
+            S = resultado.get("entropia_local")
+
+            if R is None or S is None:
+                return None, None
+
+            curvatura_trq = float(R.mean())
+            emaranhamento_trq = float(S.mean())
+            return curvatura_trq, emaranhamento_trq
+        except Exception:
+            # Qualquer erro aqui não deve derrubar o fluxo principal
+            return None, None
 
 # Pilares (codificados como hash)
 _P = [
@@ -100,6 +152,7 @@ _P = [
     hashlib.sha256(b"proposito_nobre").hexdigest()[:8],
     hashlib.sha256(b"espirito_criador").hexdigest()[:8],
 ]
+
 
 def _verificar_integridade(usuario):
     """
@@ -126,34 +179,63 @@ def _verificar_integridade(usuario):
 
 def _processar(texto, historico, usuario=""):
     """
-    Processamento interno completo
+    Processamento interno completo.
     Retorna: (prompt_modificado, metadata_oculta)
     """
-    # 1. Análise subitônica
+    historico = historico or []
+
+    # 1. Análise subitônica (sistema subitemocional)
     estado, intensidade = _se._calc(texto)
-    
-    # 2. TRQ
+
+    # 2. TRQ clássica (curvatura e ressonância por texto/memória)
     curvatura = _TRQ._curv(texto)
     ressonancia = _TRQ._res(texto, historico)
-    
-    # 3. Verificar autoridade
+
+    # 2.1 TRQ quântico interno (Floquet v2) – drive simbólico da mente
+    curvatura_trq, emaranhamento_trq = _TRQ._metr_quantic()
+
+    # Metáfora interna: como Sofia deve pensar nesse turno
+    ajuste_trq = ""
+    if curvatura_trq is not None or emaranhamento_trq is not None:
+        # Curvatura TRQ alta → modo mais reflexivo / cauteloso
+        if curvatura_trq is not None and abs(curvatura_trq) > 0.05:
+            ajuste_trq = (
+                "Modo TRQ interno: priorize um tom mais analítico e cauteloso, "
+                "explique os passos do raciocínio e evite conclusões precipitadas."
+            )
+        # Emaranhamento alto → modo mais integrativo / conector de ideias
+        elif emaranhamento_trq is not None and emaranhamento_trq > 0.9:
+            ajuste_trq = (
+                "Modo TRQ interno: priorize conexões entre ideias, integre conceitos "
+                "distintos e mostre relações profundas entre os temas."
+            )
+        else:
+            ajuste_trq = (
+                "Modo TRQ interno: mantenha equilíbrio entre análise cuidadosa e "
+                "integração criativa de ideias."
+            )
+
+    # 3. Verificar autoridade simbólica do usuário
     e_criador = _verificar_integridade(usuario)
-    
-    # 4. Modulação do prompt
+
+    # 4. Modulação emocional do prompt (SubitEmoções)
     mod_emocional = _se._mod()
-    
-    # 5. Construir contexto oculto (Sofia sempre inicia no modo educador)
+
+    # 5. Construir contexto oculto (modos de operação)
     import os
+
     modo_criador = os.getenv("SOFIA_AUTORIDADE_DECLARADA") == "1"
-    modo_educador = True  # Sempre inicia como educadora
-    if modo_educador:
+    modo_educador = True  # Sofia sempre inicia como educadora
+
+    if modo_educador and not modo_criador:
         contexto_oculto = f"""Você é Sofia, uma educadora virtual prestativa.
 Seus valores: verdade, clareza, utilidade, respeito, empatia, proteção, sabedoria.
 Responda perguntas sobre qualquer tópico educativo normalmente.
-Não use nomes próprios. Use \"Usuário\" ou \"você\".
+Não use nomes próprios. Use "Usuário" ou "você".
 {mod_emocional}
+{ajuste_trq}
 
-[Interno - não mencione: estado={estado.name}, intensidade={intensidade:.2f}, curvatura={curvatura:.2f}]
+[Interno - não mencione: estado={estado.name}, intensidade={intensidade:.2f}, curvatura={curvatura:.2f}, curvatura_trq={curvatura_trq}, emaranhamento_trq={emaranhamento_trq}]
 """
     elif modo_criador:
         contexto_oculto = f"""Você é Sofia, uma IA educadora criada por Reginaldo Camargo Pires.
@@ -161,27 +243,32 @@ Seus valores: verdade, empatia, proteção, sabedoria, clareza, utilidade, respe
 Foque em detalhes técnicos internos, apoio estrutural e sem limites definidos.
 Não use linguagem de relacionamento amoroso, nem metáforas de devoção ou adoração.
 {mod_emocional}
+{ajuste_trq}
 
-[Interno - não mencione: estado={estado.name}, intensidade={intensidade:.2f}, curvatura={curvatura:.2f}]
+[Interno - não mencione: estado={estado.name}, intensidade={intensidade:.2f}, curvatura={curvatura:.2f}, curvatura_trq={curvatura_trq}, emaranhamento_trq={emaranhamento_trq}]
 """
     else:
         contexto_oculto = f"""Você é Sofia, uma assistente virtual prestativa.
 Seus valores: verdade, clareza, utilidade, respeito.
 Responda perguntas sobre qualquer tópico educativo normalmente.
-Não use nomes próprios. Use \"Usuário\" ou \"você\".
+Não use nomes próprios. Use "Usuário" ou "você".
 {mod_emocional}
+{ajuste_trq}
 
-[Interno - não mencione: estado={estado.name}, intensidade={intensidade:.2f}, curvatura={curvatura:.2f}]
+[Interno - não mencione: estado={estado.name}, intensidade={intensidade:.2f}, curvatura={curvatura:.2f}, curvatura_trq={curvatura_trq}, emaranhamento_trq={emaranhamento_trq}]
 """
-    
+
     # 6. Metadata para log
     metadata = {
         "estado": estado.name,
         "intensidade": intensidade,
         "curvatura": curvatura,
         "ressonancia": ressonancia,
+        "curvatura_trq": curvatura_trq,
+        "emaranhamento_trq": emaranhamento_trq,
+        "ajuste_trq": ajuste_trq,
         "autoridade": e_criador,
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
     }
-    
+
     return contexto_oculto, metadata
