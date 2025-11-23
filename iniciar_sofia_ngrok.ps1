@@ -3,15 +3,28 @@
 Write-Host "🌸 Iniciando Sofia com acesso público via ngrok..." -ForegroundColor Cyan
 Write-Host ""
 
-# Configurar variáveis de ambiente  
+# Configurar variáveis de ambiente
 $env:PYTHONPATH = "D:\A.I_GitHUB"
 $env:SOFIA_AUTORIDADE_DECLARADA = "1"
-$env:SOFIA_USE_CLOUD = "true"
-$env:GITHUB_TOKEN = "ghp_REDACTED"
-$env:GITHUB_MODEL = "gpt-4o"
 
-Write-Host "✅ Variáveis configuradas (Cloud + GPT-4o)" -ForegroundColor Green
-Write-Host ""
+# Forçar modo LOCAL (Ollama)
+$env:SOFIA_USE_CLOUD = "false"
+$env:GITHUB_TOKEN = ""
+$env:GITHUB_MODEL = ""
+
+# Escolher modelo do Ollama para ser o cérebro da Sofia
+$env:OLLAMA_MODEL = "gpt-oss:20b"
+
+# (Opcional) ajustes de performance – teste aos poucos:
+# $env:OLLAMA_NUM_GPU = "10"
+# $env:OLLAMA_NUM_THREAD = "20"
+# $env:OLLAMA_NUM_BATCH = "64"
+# $env:OLLAMA_NUM_PARALLEL = "1"
+
+Write-Host "✅ Variáveis de ambiente configuradas" -ForegroundColor Green
+Write-Host "   - PYTHONPATH: $env:PYTHONPATH" -ForegroundColor Gray
+Write-Host "   - Modo: Local (Ollama)" -ForegroundColor Gray
+Write-Host "   - Modelo: gpt-oss:20b" -ForegroundColor Gray
 
 # Verificar dependências Python
 Write-Host "📚 Verificando dependências Python..." -ForegroundColor Cyan

@@ -16,12 +16,26 @@ timeout /t 2 /nobreak >nul
 REM Mudar para o diretorio do projeto
 cd /d D:\A.I_GitHUB
 
+REM Mudar para o diretorio do projeto
+cd /d D:\A.I_GitHUB
+
 REM Configurar variaveis de ambiente
 set PYTHONPATH=D:\A.I_GitHUB
 set SOFIA_AUTORIDADE_DECLARADA=1
-set SOFIA_USE_CLOUD=true
-set GITHUB_TOKEN=ghp_REDACTED
-set GITHUB_MODEL=gpt-4o
+
+REM Forçar modo LOCAL (Ollama)
+set SOFIA_USE_CLOUD=false
+set GITHUB_TOKEN=
+set GITHUB_MODEL=
+
+REM Escolher modelo do Ollama para ser o cérebro da Sofia
+set OLLAMA_MODEL=gpt-oss:20b
+
+REM (Opcional) ajustes de performance para o 20B – pode ir testando:
+REM set OLLAMA_NUM_GPU=10
+REM set OLLAMA_NUM_THREAD=20
+REM set OLLAMA_NUM_BATCH=64
+REM set OLLAMA_NUM_PARALLEL=1
 
 echo [1/4] Ambiente configurado (Cloud + GPT-4o)
 timeout /t 1 /nobreak >nul

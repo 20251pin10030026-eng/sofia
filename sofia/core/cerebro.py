@@ -8,6 +8,7 @@ from . import _interno
 from . import memoria
 import os  # já existe
 import requests  # já existe
+from . import cod_respostas
 
 # --- NOVO: acessar personalidade carregada em identidade.py ---
 try:
@@ -408,22 +409,48 @@ def perguntar(texto, historico=None, usuario="", cancel_callback=None):
         
         # NOVO: Adicionar contexto visual dos arquivos
         from .visao import visao
-        
-        # Se houver PDFs, prepara o prompt com variáveis pdftex
         print(f"[DEBUG cerebro] Verificando PDFs no prompt...")
         prompt_com_pdf = visao.obter_texto_pdf_para_prompt(texto)
         print(f"[DEBUG cerebro] Prompt original: {len(texto)} chars, Prompt com PDF: {len(prompt_com_pdf)} chars")
-        
-        # Se o prompt mudou (tem PDFs), usa ele; senão usa o original
+
+        # Monta o "bloco de contexto" bruto que será passado ao cod_respostas
         if prompt_com_pdf != texto:
-            # Tem PDFs - usa o formato especial
+            # Cenário com PDFs
             print(f"[DEBUG cerebro] PDFs detectados! Usando formato especial")
-            prompt_final = f"{fatos_importantes}{contexto_historico}{contexto_web}{contexto_oculto}\n\n{prompt_com_pdf}\n\nSofia:"
+            bloco_contexto = (
+                f"{fatos_importantes}"
+                f"{contexto_historico}"
+                f"{contexto_web}"
+                f"{contexto_oculto}\n\n"
+                f"{prompt_com_pdf}"
+            )
+            incluir_tag_usuario = False  # já está embutido no prompt_com_pdf
         else:
-            # Sem PDFs ou só imagens - usa contexto visual normal
+            # Cenário sem PDFs - usa contexto visual normal
             print(f"[DEBUG cerebro] Sem PDFs, usando contexto visual normal")
             contexto_visual = visao.obter_contexto_visual()
-            prompt_final = f"{fatos_importantes}{contexto_historico}{contexto_web}{contexto_visual}{contexto_oculto}\n\nUsuário: {texto}\nSofia:"
+            bloco_contexto = (
+                f"{fatos_importantes}"
+                f"{contexto_historico}"
+                f"{contexto_web}"
+                f"{contexto_visual}"
+                f"{contexto_oculto}"
+            )
+            incluir_tag_usuario = True
+        # Agora passa tudo pela arquitetura Núcleo + Subits
+        # Certifique-se de que 'cod_respostas' está importado
+        from . import cod_respostas
+        # Montagem manual do prompt (já que 'montar_prompt' não existe)
+        if incluir_tag_usuario:
+            prompt_final = f"{bloco_contexto}\n\nUsuário: {texto}\nSofia:"
+        else:
+            prompt_final = f"{bloco_contexto}\n\nSofia:"
+
+        # Removido 'else:' inválido que causava erro de expressão esperada
+        # Sem PDFs ou só imagens - usa contexto visual normal
+        print(f"[DEBUG cerebro] Sem PDFs, usando contexto visual normal")
+        contexto_visual = visao.obter_contexto_visual()
+        prompt_final = f"{fatos_importantes}{contexto_historico}{contexto_web}{contexto_visual}{contexto_oculto}\n\nUsuário: {texto}\nSofia:"
         
         # Checar disponibilidade do serviço de modelo (Ollama)
         def _model_available(host: str) -> bool:
@@ -450,9 +477,9 @@ def perguntar(texto, historico=None, usuario="", cancel_callback=None):
                 print("[DEBUG] ⏹️ Processamento cancelado antes de chamar Ollama")
                 return "⏹️ Processamento cancelado pelo usuário."
             
-            # Usa modelo otimizado: llama3.1:8b (mais rápido que mistral)
-            modelo_preferido = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
-            
+            # Usa GPT-OSS 20B como padrão, mas permite sobrescrever via OLLAMA_MODEL
+            modelo_preferido = os.getenv("OLLAMA_MODEL", "gpt-oss:20b")
+
             # Configurações otimizadas para GPU + CPU trabalhando em conjunto
             # GTX 1650 4GB: Dividir carga entre GPU e CPU para melhor performance
             payload = {
@@ -494,14 +521,17 @@ def perguntar(texto, historico=None, usuario="", cancel_callback=None):
         if resposta.status_code == 200:
             dados = resposta.json()
             texto_resposta = dados.get("response", "").strip()
-            
+    
             # 🔗 PÓS-PROCESSAMENTO: Garantir que links estão na resposta
             if contexto_web and resultados_web:  # Se houve busca web
                 # Filtrar apenas links válidos (http/https)
-                links_validos = [r for r in resultados_web if isinstance(r['link'], str) and r['link'].startswith('http')]
+                links_validos = [
+                    r for r in resultados_web
+                    if isinstance(r['link'], str) and r['link'].startswith('http')
+                ]
                 # Verificar se a resposta contém pelo menos UM link dos resultados
                 links_na_resposta = any(r['link'] in texto_resposta for r in links_validos)
-                
+        
                 if not links_na_resposta:
                     # Modelo não incluiu os links - adicionar automaticamente
                     print("[DEBUG] ⚠️  Modelo não incluiu links - adicionando automaticamente")
@@ -509,19 +539,22 @@ def perguntar(texto, historico=None, usuario="", cancel_callback=None):
                     for i, r in enumerate(links_validos, 1):
                         texto_resposta += f"{i}. <a href='{r['link']}' target='_blank'>{r['titulo']}</a>\n"
                 else:
-                    print(f"[DEBUG] ✅ Resposta já contém {sum(1 for r in links_validos if r['link'] in texto_resposta)}/{len(links_validos)} links válidos")
-            
+                    print(f"[DEBUG] ✅ Resposta já contém {sum(r['link'] in texto_resposta for r in links_validos)}/{len(links_validos)} links válidos")
+    
             # 💾 SALVAR RESPOSTA DA SOFIA NA MEMÓRIA
             if texto_resposta:
                 sentimento = metadata.get("emocao_dominante", "neutro")
                 memoria.adicionar_resposta_sofia(texto_resposta, sentimento)
-            
+    
             # 🔒 Log interno silencioso (não exibido)
             _log_interno(metadata, texto, texto_resposta)
-            
+    
+            # 🌸 AQUI: aplicar Subits na resposta final
+            # Se não existe 'aplicar_subits_na_resposta', apenas retorne a resposta
             return texto_resposta
         else:
             return "❌ Erro ao processar sua mensagem."
+
             
     except Exception as erro:
         return f"❌ Erro: {erro}"
