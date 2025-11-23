@@ -13,16 +13,17 @@ if exist venv\Scripts\activate.bat (
     call venv\Scripts\activate.bat
 )
 
+REM Configura variáveis de ambiente da Sofia
 set SOFIA_MODO_WEB=1
 set SOFIA_AUTORIDADE_DECLARADA=1
 
-REM Inicia o servidor
-echo Servidor iniciando em http://localhost:5000
-echo Abra web/index.html no seu navegador
+REM Inicia o servidor FastAPI/WebSocket
+echo Servidor iniciando em http://localhost:8000
+echo Acesse a interface web da Sofia no navegador.
 echo.
 echo Pressione Ctrl+C para parar o servidor
 echo.
 
-python api.py
+python api_web.py
 
 pause
