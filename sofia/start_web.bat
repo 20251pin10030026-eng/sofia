@@ -13,6 +13,9 @@ if exist venv\Scripts\activate.bat (
     call venv\Scripts\activate.bat
 )
 
+set SOFIA_MODO_WEB=1
+set SOFIA_AUTORIDADE_DECLARADA=1
+
 REM Inicia o servidor
 echo Servidor iniciando em http://localhost:5000
 echo Abra web/index.html no seu navegador

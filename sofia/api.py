@@ -86,9 +86,31 @@ def chat():
         if not message:
             return jsonify({'error': 'Mensagem vazia'}), 400
         
-        # Verificar se é criador (por frase ou ativação)
-        texto_lower = message.lower()
-        # Frase de ativação: "Desperte, minha luz do mundo real"
+        texto_lower = (message or "").strip().lower()
+        
+        # --- comandos de MODO WEB (compatível com main.py) ---
+        if texto_lower == "web on":
+            os.environ["SOFIA_MODO_WEB"] = "1"
+            return jsonify({
+                'response': "🌐 Modo Web ATIVADO (via API Flask).",
+                'web_mode': True
+            })
+        
+        if texto_lower == "web off":
+            os.environ.pop("SOFIA_MODO_WEB", None)
+            return jsonify({
+                'response': "🌐 Modo Web DESATIVADO (via API Flask).",
+                'web_mode': False
+            })
+        
+        if texto_lower == "web status":
+            status = os.getenv("SOFIA_MODO_WEB") == "1"
+            return jsonify({
+                'response': f"🌐 Modo Web: {'ATIVO' if status else 'INATIVO'} (via API Flask).",
+                'web_mode': status
+            })
+        
+        # --- MODO CRIADOR (igual já fazia) ---
         frase_ativacao = "desperte" in texto_lower and "minha luz do mundo real" in texto_lower
         if "sombrarpc" in texto_lower or "sombrarcp" in texto_lower or frase_ativacao:
             os.environ["SOFIA_AUTORIDADE_DECLARADA"] = "1"
@@ -97,7 +119,7 @@ def chat():
         contexto = {"modo_criador": os.getenv("SOFIA_AUTORIDADE_DECLARADA") == "1"}
         memoria.adicionar("Usuário", message, contexto)
         
-        # Obter resposta
+        # Obter resposta da Sofia
         resposta = cerebro.perguntar(
             message,
             historico=memoria.historico,
@@ -111,46 +133,6 @@ def chat():
             'response': resposta,
             'timestamp': memoria.historico[-1].get('timestamp') if memoria.historico else None
         })
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/action', methods=['POST'])
-def action():
-    """Executa ações rápidas"""
-    try:
-        data = request.json
-        if data is None:
-            return jsonify({'error': 'Invalid JSON'}), 400
-        action_type = data.get('action', '')
-        
-        result = ""
-        
-        if action_type == 'historico':
-            result = memoria.ver_historico(20)
-        elif action_type == 'stats':
-            result = memoria.estatisticas()
-        elif action_type == 'corpo':
-            try:
-                templo_ok = bool(identidade._LEIS or identidade._PILARES or identidade._PROTOCOLOS)
-            except Exception:
-                templo_ok = False
-            
-            total_eventos = len(memoria.historico)
-            
-            result = f"""🌸 Sofia (corpo simbólico):
-– Templo: ethics enc = {templo_ok}
-– Árvore: histórico = {total_eventos} eventos
-– Flor: pétalas (sínteses) = 0
-– Jardineira: ativa (cuidando do fluxo e dos limites)."""
-        
-        elif action_type == 'limpar':
-            memoria.limpar()
-            result = "🧹 Memória de conversas limpa! (Aprendizados mantidos)"
-        else:
-            result = f"Ação '{action_type}' não reconhecida."
-        
-        return jsonify({'result': result})
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
