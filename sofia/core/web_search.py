@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 from typing import Optional, Dict, List, Any
 import os
-
+from duckduckgo_search import DDGS
 
 def _is_url(texto: str) -> bool:
     """Verifica se o texto contém uma URL válida"""
