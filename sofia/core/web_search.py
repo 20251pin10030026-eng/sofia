@@ -119,17 +119,22 @@ def acessar_link(url: str, timeout: int = 10) -> Optional[Dict[str, Any]]:
 
 # Stopwords bem simples PT/EN, para sobrar só o que importa na consulta
 _STOPWORDS = {
+    # PT – palavras muito genéricas
     "o", "a", "os", "as", "um", "uma", "de", "da", "do", "das", "dos",
     "em", "no", "na", "nos", "nas", "por", "para", "pra", "com",
     "sobre", "que", "e", "ou", "se", "é", "foi", "ser",
     "atualizacoes", "atualização", "atualizações", "atualizacao",
-    "informacoes", "informação", "informações", "noticias", "notícia",
-    "notícias", "recentes", "novas", "ultimas", "últimas",
+    "informacoes", "informação", "informações",
+    "noticias", "notícia", "notícias",
+    "recentes", "novas", "ultimas", "últimas",
+    # termos de busca que NÃO devem pesar no score
+    "pesquisa", "pesquisas", "pesquisar", "pesquisando",
+    "pesquise", "busca", "buscas", "buscar", "procurar",
+    "links", "link",
     # EN
     "the", "of", "in", "on", "for", "and", "or", "is", "are", "to",
     "about", "with", "latest", "news", "update", "updates",
 }
-
 
 def _tokenizar_consulta(query: str) -> List[str]:
     """
@@ -158,20 +163,24 @@ def _pontuar_resultado(resultado: Dict[str, str], tokens: List[str]) -> int:
 
 def _dominio_irrelevante(link: str) -> bool:
     """
-    Filtra domínios claramente irrelevantes para busca geral em PT/EN.
-    Ex.: zhihu chinês aparecendo para consultas aleatórias.
+    Filtra domínios claramente irrelevantes para a nossa busca,
+    incluindo dicionários e páginas de "pesquise" genéricas.
     """
     try:
         dominio = urlparse(link).netloc.lower()
     except Exception:
-        return False
+        return False  # se não deu pra parsear, não filtra por domínio
 
-    # Lista simples de domínios a evitar
     blacklist = [
-        "zhihu.com",
+        "zhihu.com",                # chinês aleatório
+        "dicio.com.br",             # dicionário de verbos tipo "pesquise"
+        "canalpesquise.com.br",     # site genérico de "pesquise"
+        "pesquisemais.com.br",      # marketing de pesquisa
+        "support.microsoft.com",    # ajuda do Windows "pesquise tudo"
+        "bing.com",                 # página principal de buscador
     ]
-    return any(bad in dominio for bad in blacklist)
 
+    return any(bad in dominio for bad in blacklist)
 
 def buscar_web(query: str, num_resultados: int = 3) -> Optional[List[Dict[str, str]]]:
     """

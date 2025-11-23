@@ -78,9 +78,13 @@ def _system_text() -> str:
         "Responda de forma clara, organizada, gentil e objetiva. "
         "Use sempre português do Brasil, a menos que o usuário peça outra língua. "
         "Priorize explicações didáticas, com exemplos quando fizer sentido. "
-        "Nunca invente fatos se não tiver certeza; assuma as limitações com honestidade."
+        "Nunca invente fatos se não tiver certeza; assuma as limitações com honestidade. "
+        "Quando precisar citar LINKS ou FONTES, use APENAS os links que forem fornecidos "
+        "explicitamente no contexto da conversa (como resultados de busca web). "
+        "Se nenhum link for fornecido, NÃO invente URLs nem nomes de sites; "
+        "apenas diga que não possui uma fonte externa específica e responda com seu "
+        "conhecimento geral."
     )
-
 
 def _montar_headers() -> Dict[str, str]:
     """Cabeçalhos para chamada na API de modelos GitHub."""
@@ -221,7 +225,7 @@ def perguntar(
             print(f"[ERRO] Falha ao processar imagens/contexto visual: {e}")
             contexto_visual = ""
 
-    # 4) Contexto de busca na web (se disponível)
+        # 4) Contexto de busca na web (se disponível)
     contexto_web = ""
     resultados_web = []
     try:
@@ -230,6 +234,7 @@ def perguntar(
         if web_search.modo_web_ativo() and web_search.deve_buscar_web(texto):
             print("[DEBUG] Modo web ativo, buscando na internet...")
             resultados = web_search.buscar_web(texto, num_resultados=5)
+
             if resultados:
                 resultados_web = resultados
                 contexto_web += "\n" + "=" * 80 + "\n"
@@ -252,8 +257,31 @@ def perguntar(
                 for i, res in enumerate(resultados, 1):
                     contexto_web += f"{i}. {res['titulo']} - {res['link']}\n"
                 contexto_web += "\n" + "=" * 80 + "\n\n"
+
+            else:
+                # Sem resultados úteis: instruir explicitamente a NÃO inventar links
+                contexto_web += "\n" + "=" * 80 + "\n"
+                contexto_web += "🌐 AVISO SOBRE BUSCA WEB\n"
+                contexto_web += (
+                    "A integração de busca na web foi acionada, mas não retornou resultados "
+                    "confiáveis para esta pergunta. Responda usando apenas o seu conhecimento "
+                    "interno e NÃO invente sites ou links. Se precisar mencionar fontes, fale de "
+                    "forma genérica (por exemplo, 'literatura científica em computação quântica') "
+                    "sem criar URLs específicas.\n"
+                )
+                contexto_web += "=" * 80 + "\n\n"
+
     except ImportError:
-        pass
+        # Biblioteca de busca não está instalada: melhor avisar o modelo
+        contexto_web += "\n" + "=" * 80 + "\n"
+        contexto_web += "🌐 AVISO: A integração de busca externa (DuckDuckGo) não está disponível no servidor.\n"
+        contexto_web += (
+            "Você NÃO deve inventar links ou citar sites específicos como se tivesse acessado a web. "
+            "Responda com seu conhecimento geral e, se o usuário pedir links, explique que a busca "
+            "externa está temporariamente indisponível.\n"
+        )
+        contexto_web += "=" * 80 + "\n\n"
+
 
     # 5) Construir mensagens para API
     messages: List[Dict[str, str]] = [
