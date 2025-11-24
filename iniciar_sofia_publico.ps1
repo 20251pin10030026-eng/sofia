@@ -46,6 +46,8 @@ Write-Host "   ✅ Python encontrado: $pythonExe" -ForegroundColor Green
 Write-Host "   📦 Instalando PyPDF2 no ambiente correto..." -ForegroundColor Cyan
 & $pythonExe -m pip install --upgrade --quiet PyPDF2 2>&1 | Out-Null
 
+& $pythonExe -m pip install --upgrade --quiet duckduckgo-search 2>&1 | Out-Null
+
 # Verificar se instalou com sucesso
 $pypdfCheck = & $pythonExe -c "import PyPDF2; print(f'PyPDF2 {PyPDF2.__version__}')" 2>&1
 
