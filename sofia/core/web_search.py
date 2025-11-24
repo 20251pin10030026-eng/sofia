@@ -9,7 +9,6 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 from typing import Optional, Dict, List, Any
 import os
-from duckduckgo_search import DDGS
 
 def _is_url(texto: str) -> bool:
     """Verifica se o texto contém uma URL válida"""
@@ -120,20 +119,30 @@ def acessar_link(url: str, timeout: int = 10) -> Optional[Dict[str, Any]]:
 # Stopwords bem simples PT/EN, para sobrar só o que importa na consulta
 _STOPWORDS = {
     # PT – palavras muito genéricas
-    "o", "a", "os", "as", "um", "uma", "de", "da", "do", "das", "dos",
-    "em", "no", "na", "nos", "nas", "por", "para", "pra", "com",
-    "sobre", "que", "e", "ou", "se", "é", "foi", "ser",
+    "o", "a", "os", "as", "um", "uma",
+    "de", "da", "do", "das", "dos",
+    "em", "no", "na", "nos", "nas",
+    "por", "para", "pra", "com",
+    "sobre", "que", "e", "ou", "se",
+    "é", "foi", "ser",
     "atualizacoes", "atualização", "atualizações", "atualizacao",
     "informacoes", "informação", "informações",
     "noticias", "notícia", "notícias",
     "recentes", "novas", "ultimas", "últimas",
-    # termos de busca que NÃO devem pesar no score
-    "pesquisa", "pesquisas", "pesquisar", "pesquisando",
-    "pesquise", "busca", "buscas", "buscar", "procurar",
-    "links", "link",
+
+    # Termos de busca genéricos que NÃO devem influenciar relevância
+    "busque", "buscar", "busca", "buscas",
+    "pesquise", "pesquisa", "pesquisas", "pesquisando",
+    "procurar", "procure", "procurando",
+    "link", "links",
+    "web", "internet", "online",
+    "me", "mostre", "mostrar",
+
     # EN
-    "the", "of", "in", "on", "for", "and", "or", "is", "are", "to",
-    "about", "with", "latest", "news", "update", "updates",
+    "the", "of", "in", "on", "for",
+    "and", "or", "is", "are", "to",
+    "about", "with", "latest", "news",
+    "update", "updates",
 }
 
 def _tokenizar_consulta(query: str) -> List[str]:
@@ -164,22 +173,29 @@ def _pontuar_resultado(resultado: Dict[str, str], tokens: List[str]) -> int:
 def _dominio_irrelevante(link: str) -> bool:
     """
     Filtra domínios claramente irrelevantes para a nossa busca,
-    incluindo dicionários e páginas de "pesquise" genéricas.
+    incluindo dicionários e conjugadores que estavam aparecendo
+    quando a intenção era buscar conteúdo técnico/científico.
+
+    Exemplos:
+    - Dicionários e conjugadores (quando a consulta é sobre algoritmos, física etc.).
+    - Sites genéricos de sinônimos/gramática.
+    - Zhihu (resultados em chinês fora de contexto).
     """
     try:
         dominio = urlparse(link).netloc.lower()
     except Exception:
-        return False  # se não deu pra parsear, não filtra por domínio
+        return False
 
+    # Lista simples de domínios a evitar
     blacklist = [
-        "zhihu.com",                # chinês aleatório
-        "dicio.com.br",             # dicionário de verbos tipo "pesquise"
-        "canalpesquise.com.br",     # site genérico de "pesquise"
-        "pesquisemais.com.br",      # marketing de pesquisa
-        "support.microsoft.com",    # ajuda do Windows "pesquise tudo"
-        "bing.com",                 # página principal de buscador
+        "zhihu.com",
+        # Dicionários / conjugação / sinônimos que apareceram no seu teste
+        "conjugacao.com.br",
+        "sinonimos.com.br",
+        "infopedia.pt",
+        "glosbe.com",
+        "dicionarioinformal.com.br",
     ]
-
     return any(bad in dominio for bad in blacklist)
 
 def buscar_web(query: str, num_resultados: int = 3) -> Optional[List[Dict[str, str]]]:
