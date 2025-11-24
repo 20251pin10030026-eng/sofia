@@ -1,6 +1,6 @@
 // API Configuration
-const API_URL = 'https://4a761e7f5866.ngrok-free.app';
-const WS_URL = 'wss://4a761e7f5866.ngrok-free.app';
+const API_URL = 'https://35eb37781d11.ngrok-free.app';
+const WS_URL = 'wss://35eb37781d11.ngrok-free.app';
 
 // WebSocket
 let ws = null;
