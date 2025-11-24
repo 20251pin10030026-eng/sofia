@@ -46,8 +46,6 @@ Write-Host "   ✅ Python encontrado: $pythonExe" -ForegroundColor Green
 Write-Host "   📦 Instalando PyPDF2 no ambiente correto..." -ForegroundColor Cyan
 & $pythonExe -m pip install --upgrade --quiet PyPDF2 2>&1 | Out-Null
 
-& $pythonExe -m pip install --upgrade --quiet duckduckgo-search 2>&1 | Out-Null
-
 # Verificar se instalou com sucesso
 $pypdfCheck = & $pythonExe -c "import PyPDF2; print(f'PyPDF2 {PyPDF2.__version__}')" 2>&1
 
@@ -59,6 +57,25 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host ""
     Write-Host "   Tente manualmente:" -ForegroundColor Yellow
     Write-Host "   $pythonExe -m pip install PyPDF2" -ForegroundColor Gray
+    exit 1
+}
+Write-Host ""
+
+# FORÇAR instalação do duckduckgo-search no Python correto
+Write-Host "   🌐 Instalando duckduckgo-search no ambiente correto..." -ForegroundColor Cyan
+& $pythonExe -m pip install --upgrade --quiet duckduckgo-search 2>&1 | Out-Null
+
+# Verificar se instalou com sucesso
+$ddgCheck = & $pythonExe -c "from duckduckgo_search import DDGS; print('duckduckgo-search OK')" 2>&1
+
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "   ✅ $ddgCheck instalado e verificado!" -ForegroundColor Green
+} else {
+    Write-Host "   ❌ ERRO: Não foi possível instalar/importar duckduckgo-search" -ForegroundColor Red
+    Write-Host "   Saída do erro: $ddgCheck" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "   Tente manualmente:" -ForegroundColor Yellow
+    Write-Host "   $pythonExe -m pip install duckduckgo-search" -ForegroundColor Gray
     exit 1
 }
 Write-Host ""
