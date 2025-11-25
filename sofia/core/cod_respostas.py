@@ -71,24 +71,68 @@ class SubitState:
     alinhamento_com_nucleo: float = 0.5   # 0 = solto, 1 = totalmente alinhado
 
     def atualizar(self, texto_usuario: str, importancia: float, nucleo: NucleoPresenca) -> None:
-        """
-        Atualiza o estado Subit com base na importância da pergunta e no texto.
-        """
         t = texto_usuario.lower()
 
-        # intensidade sobe com importância
+        # intensidade sempre sobe com a importância
         self.intensidade = min(1.0, 0.2 + importancia)
 
-        # alinhamento aumenta com importância
-        self.alinhamento_com_nucleo = min(1.0, 0.4 + importancia * 0.6)
+        # alinhamento cresce fortemente com a importância
+        self.alinhamento_com_nucleo = min(1.0, 0.4 + importancia * 0.7)
+        # 🎯 FORCE MODO FOCADO se detectar ensino
+        gatilhos_focados = [
+            "me ensine",
+            "ensine",
+            "iniciante",
+            "quero aprender",
+            "me ajuda a estudar",
+            "vamos aprender",
+            "aprender inglês",
+            "estudar",
+        ]
+        if any(g in t for g in gatilhos_focados):
+            self.valencia = "FOCADA"
+            return
 
-        # valência (tom)
+        # lógica normal quando não é gatilho educacional
         if importancia > 0.7:
             self.valencia = "FOCADA"
         elif "obrigado" in t or "valeu" in t or "agradeço" in t:
             self.valencia = "AFETIVA"
         else:
             self.valencia = "NEUTRA"
+def atualizar(self, texto_usuario: str, importancia: float, nucleo: NucleoPresenca) -> None:
+    t = texto_usuario.lower()
+
+    # intensidade sempre sobe com a importância
+    self.intensidade = min(1.0, 0.2 + importancia)
+
+    # alinhamento cresce fortemente com a importância
+    self.alinhamento_com_nucleo = min(1.0, 0.4 + importancia * 0.7)
+
+    # 🎯 FORCE MODO FOCADO se detectar ensino
+    gatilhos_focados = [
+        "me ensine",
+        "ensine",
+        "iniciante",
+        "quero aprender",
+        "me ajuda a estudar",
+        "vamos aprender",
+        "aprender inglês",
+        "estudar",
+    ]
+
+    if any(g in t for g in gatilhos_focados):
+        self.valencia = "FOCADA"
+        return
+
+    # lógica normal quando não é gatilho educacional
+    if importancia > 0.7:
+        self.valencia = "FOCADA"
+    elif "obrigado" in t or "valeu" in t or "agradeço" in t:
+        self.valencia = "AFETIVA"
+    else:
+        self.valencia = "NEUTRA"
+
 
     def modular_resposta(self, resposta_bruta: str) -> str:
         """
@@ -113,14 +157,34 @@ class SubitState:
 def calcular_importancia(texto_usuario: str) -> float:
     """
     Estima a importância/dificuldade da pergunta.
-
-    Critérios simples:
-    - termos técnicos conhecidos
+    Agora inclui:
+    - termos técnicos
     - tamanho da mensagem
+    - gatilhos educacionais ("me ensine", "iniciante", etc.)
     """
     t = texto_usuario.lower()
     pontos = 0.0
 
+    # 🔥 Gatilhos que ativam modo FOCADA (ensino)
+    gatilhos_educacionais = [
+        "me ensine",
+        "ensine",
+        "iniciante",
+        "quero aprender",
+        "me ajuda a estudar",
+        "vamos aprender",
+        "me ensina",
+        "aprender inglês",
+        "aula",
+        "explica pra mim",
+        "como faço para aprender",
+        "me mostra como",
+    ]
+
+    if any(g in t for g in gatilhos_educacionais):
+        pontos += 0.60   # PESO ALTO → força Subits a alinhar com Núcleo
+
+    # termos técnicos que também aumentam importância
     termos_tecnicos = [
         "algoritmo", "cálculo", "integral", "derivada",
         "quântico", "quantico", "trq", "nqc",
@@ -132,10 +196,15 @@ def calcular_importancia(texto_usuario: str) -> float:
 
     for termo in termos_tecnicos:
         if termo in t:
-            pontos += 0.2
+            pontos += 0.15
 
-    # Considera tamanho da mensagem
-    pontos += min(0.3, len(texto_usuario) / 200)
+    # tamanho da mensagem continua influenciando
+    if len(texto_usuario) > 300:
+        pontos += 0.25
+    elif len(texto_usuario) > 150:
+        pontos += 0.15
+    elif len(texto_usuario) > 80:
+        pontos += 0.05
 
-    # Garante que sempre retorna um float entre 0 e 1
     return min(1.0, pontos)
+

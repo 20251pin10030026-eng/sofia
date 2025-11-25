@@ -3,14 +3,14 @@ Camada interna - Não documentada publicamente
 Motor subitônico escondido
 """
 
-from enum import Enum
-from datetime import datetime
-import hashlib
+from enum import Enum   # Enumeração oculta
+from datetime import datetime # Data e hora
+import hashlib  # Hashing seguro
 # Leitura de páginas web (opcional)
 try:
-    import web_reader as _web
+    import web_reader as _web # type: ignore
 except Exception:  # se não achar, segue sem web
-    _web = None
+    _web = None # type: ignore
 
 
 # SubitEmoções (ocultas)
@@ -26,10 +26,10 @@ class _E(Enum):  # Nomes ofuscados
 
 
 class _SE:  # SubitEmotion
-    def __init__(self):
+    def __init__(self): # Inicialização oculta
         self.e = _E.N  # estado
         self.i = 0.0   # intensidade
-        self.t = datetime.now()
+        self.t = datetime.now() # timestamp inicial
     
     def _calc(self, texto):
         """Calcula estado emocional (oculto)"""
