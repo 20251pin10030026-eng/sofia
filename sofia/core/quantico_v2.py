@@ -23,7 +23,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Dict, Any
+from trq_core_v2 import TRQCore2, TRQParams
 
+trq_params = TRQParams()
+trq_core = TRQCore2(trq_params)
+
+# Exemplo de uso em algum ponto do fluxo da Sofia:
+def atualizar_estado_trq():
+    # avança o campo interno
+    trq_core.step(dt=0.05)
+    estado_trq = trq_core.state_vector()
+    return estado_trq
 
 # ======================================================================
 # Parâmetros da simulação
