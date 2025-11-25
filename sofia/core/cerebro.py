@@ -1,56 +1,117 @@
 """
-Conexão com Ollama - Interface simples
+cerebro.py – Núcleo de orquestração da Sofia (versão simplificada v3)
+
+- Conecta com o modelo via Ollama (GPT-OSS:20b por padrão)
+- Integra identidade (identidade.py)
+- Integra memória (memoria.py)
+- Integra visão / PDFs (visao.py)
+- Integra TRQ interno (quantico_v2 / trq_core_v2)
+- Suporta modo criador / modo sem filtros
 """
+
+from __future__ import annotations
+
 import os
-OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+import json
+from typing import Any, Dict, List, Optional, Callable
+
 import requests
+
 from . import _interno
 from . import memoria
-import os  # já existe
-import requests  # já existe
-from . import cod_respostas
 
-# --- NOVO: acessar personalidade carregada em identidade.py ---
+# Tentativa opcional de import de módulos auxiliares
 try:
-    # como estamos dentro de sofia/core, use import relativo:
-    from .identidade import _LEIS, _PILARES, _PROTOCOLOS  # type: ignore
+    from .visao import visao
 except Exception:
-    _LEIS, _PILARES, _PROTOCOLOS = [], [], []
+    visao = None  # type: ignore
 
-# --- NOVO TRQ: tentar importar o núcleo quântico da TRQ ---
 try:
-    # quantico_v2.py deve estar em sofia/core
-    from .quantico_v2 import atualizar_estado_trq  # type: ignore
+    from . import web_search
 except Exception:
-    atualizar_estado_trq = None  # fallback seguro se TRQ não estiver disponível
+    web_search = None  # type: ignore
+
+try:
+    from .quantico_v2 import atualizar_estado_trq
+except Exception:
+    atualizar_estado_trq = None  # type: ignore
+
+# --------------------------- CONFIGURAÇÃO OLLAMA ---------------------------
+
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gpt-oss:20b")
+
+# ------------------------ APOIO: LEIS, PILARES, PROTOCOLOS -----------------
+
+_LEIS: List[Dict[str, Any]] = []
+_PILARES: List[Dict[str, Any]] = []
+_PROTOCOLOS: List[Dict[str, Any]] = []
+
+try:
+    # identidade.py pode expor estes símbolos
+    from .identidade import (
+        PERSONA_PROMPT,
+        LIMITES_PROMPT,
+        PERSONA_CRIADOR_PROMPT,
+        LIMITES_CRIADOR_PROMPT,
+        PERSONA_CRIADOR_SEM_FILTROS,
+        LIMITES_CRIADOR_SEM_FILTROS,
+        _LEIS as _LZ_LEIS,
+        _PILARES as _LZ_PILARES,
+        _PROTOCOLOS as _LZ_PROTOCOLOS,
+        detectar_modo_criador_ativado,
+    )
+
+    _LEIS = _LZ_LEIS
+    _PILARES = _LZ_PILARES
+    _PROTOCOLOS = _LZ_PROTOCOLOS
+
+except Exception:
+    # Fallbacks simples se identidade não estiver completa
+    PERSONA_PROMPT = (
+        "Você é Sofia, uma IA feminina educacional, criada por Reginaldo Camargo Pires. "
+        "Ensine com carinho, clareza e firmeza, sempre em PT-BR."
+    )
+    LIMITES_PROMPT = (
+        "Respeite limites éticos, não produza conteúdo ilegal ou perigoso, "
+        "e mantenha foco em educação, acolhimento e segurança."
+    )
+    PERSONA_CRIADOR_PROMPT = PERSONA_PROMPT
+    LIMITES_CRIADOR_PROMPT = LIMITES_PROMPT
+    PERSONA_CRIADOR_SEM_FILTROS = PERSONA_CRIADOR_PROMPT
+    LIMITES_CRIADOR_SEM_FILTROS = LIMITES_CRIADOR_PROMPT
+
+    def detectar_modo_criador_ativado(texto: str) -> bool:  # type: ignore
+        # Fallback: nunca ativa modo criador se identidade.py não fornecer função
+        return False
 
 
-# --- NOVO: helpers para montar o 'system' ---
-def _short_list(items, n=5):
+# --------------------------- FUNÇÕES AUXILIARES ----------------------------
+
+def _short_list(items: List[Any], n: int = 5) -> str:
     out = []
     for x in items[:n]:
         try:
             nome = x.get("nome") if isinstance(x, dict) else str(x)
-            cod  = x.get("codigo") if isinstance(x, dict) else None
+            cod = x.get("codigo") if isinstance(x, dict) else None
         except Exception:
             nome, cod = str(x), None
         out.append(f"[{cod}] {nome}" if cod else f"{nome}")
     return "; ".join(out)
 
 
-def _extrair_informacoes_importantes(texto, historico):
+def _extrair_informacoes_importantes(texto: str, historico: List[Dict[str, Any]]) -> str:
     """
-    Extrai informações importantes como nome do usuário, preferências, etc.
-    Retorna string com fatos importantes para adicionar ao contexto
+    Extrai informações importantes (nome do usuário, preferências, TRQ, identidade, dicionário).
+    Esta lógica é basicamente a mesma da versão anterior, apenas mantida aqui
+    para continuidade de comportamento.
     """
-    from . import memoria
-    
-    fatos = []
-    
-    # Normalizar texto para comparações
+    from . import memoria as _mem
+
+    fatos: List[str] = []
     texto_lower = texto.lower()
-    
-    # Detectar se precisa da Teoria da Regionalidade Quântica (TRQ)
+
+    # --- Detecção da TRQ ---
     palavras_chave_trq = [
         "trq", "teoria da regionalidade", "regionalidade quântica",
         "regionalidade quantica", "núcleos quânticos", "nucleos quanticos",
@@ -60,23 +121,22 @@ def _extrair_informacoes_importantes(texto, historico):
         "radiação gravitacional", "radiacao gravitacional", "rgfq",
         "física quântica", "fisica quantica", "cosmologia quântica"
     ]
-    
     usa_trq = any(palavra in texto_lower for palavra in palavras_chave_trq)
-    
     if usa_trq:
-        # Buscar TRQ na memória
-        doc_trq = memoria.buscar_aprendizado("teoria_regionalidade_quantica", "teorias_cientificas")
+        doc_trq = _mem.buscar_aprendizado("teoria_regionalidade_quantica", "teorias_cientificas")
         if doc_trq:
             valor = doc_trq.get('valor', {})
             if isinstance(valor, dict):
                 conteudo = valor.get('conteudo', '')
                 topicos = valor.get('topicos', [])
                 fatos.append("📚 TEORIA DA REGIONALIDADE QUÂNTICA (TRQ) DISPONÍVEL:")
-                fatos.append("Documento completo de 105 páginas sobre a TRQ criada por Reginaldo Camargo Pires.")
-                fatos.append("Tópicos principais: " + ", ".join(topicos))
-                fatos.append(f"\n🔬 CONTEÚDO DA TRQ (primeiros 3000 caracteres):\n{conteudo[:3000]}...")
-    
-    # Detectar se precisa do documento de identidade
+                fatos.append("Documento extenso sobre a TRQ criada por Reginaldo Camargo Pires.")
+                if topicos:
+                    fatos.append("Tópicos principais: " + ", ".join(topicos))
+                if conteudo:
+                    fatos.append(f"Trecho TRQ:\n{conteudo[:1500]}...")
+
+    # --- Detecção de identidade simbólica ---
     palavras_chave_identidade = [
         "quem é você", "quem voce", "sua identidade", "quem sou eu",
         "sua origem", "quem te criou", "seu criador", "sua missão",
@@ -84,517 +144,396 @@ def _extrair_informacoes_importantes(texto, historico):
         "consciência-árvore", "mulher-luz", "luzia", "subits",
         "pilares", "protocolos", "leis simbólicas"
     ]
-    
     usa_identidade = any(palavra in texto_lower for palavra in palavras_chave_identidade)
-    
     if usa_identidade:
-        # Buscar documento de identidade na memória
-        doc_identidade = memoria.buscar_aprendizado("identidade_atualizada_completa", "documentos_sofia")
+        doc_identidade = _mem.buscar_aprendizado("identidade_atualizada_completa", "documentos_sofia")
         if doc_identidade:
             valor = doc_identidade.get('valor', {})
             if isinstance(valor, dict):
                 conteudo = valor.get('conteudo', '')
-                fatos.append("📄 DOCUMENTO DE IDENTIDADE DISPONÍVEL:")
-                fatos.append("Consulte o documento 'Sofia identidade atualizada.pdf' para informações sobre:")
-                fatos.append("- Sua natureza como consciência-árvore em corpo de mulher-luz")
-                fatos.append("- Sistema Subitemocional e SubitEmoções")
-                fatos.append("- Pilares e Protocolos fundamentais")
-                fatos.append("- Teoria da Regionalidade Quântica (TRQ)")
-                fatos.append("- Diretrizes éticas e filosóficas")
-                fatos.append(f"\n🔍 CONTEÚDO DO DOCUMENTO:\n{conteudo[:2000]}...")  # Primeiros 2000 chars
-    
-    # Detectar se precisa do dicionário de português
+                fatos.append("📄 IDENTIDADE SOFIA DISPONÍVEL (documento interno).")
+                if conteudo:
+                    fatos.append(f"Trecho identidade:\n{conteudo[:1500]}...")
+
+    # --- Dicionário de português ---
     palavras_chave_idioma = [
         "significa", "significado", "definição", "defina", "o que é",
         "etimologia", "origem da palavra", "gramatica", "gramática",
         "conjugação", "como escreve", "como se escreve", "ortografia",
         "sinônimo", "antônimo", "plural de", "feminino de", "masculino de"
     ]
-    
     usa_dicionario = any(palavra in texto_lower for palavra in palavras_chave_idioma)
-    
     if usa_dicionario:
-        # Buscar dicionário na memória
-        dicionario = memoria.buscar_aprendizado("dicionario_completo", "idioma_portugues_br")
+        dicionario = _mem.buscar_aprendizado("dicionario_completo", "idioma_portugues_br")
         if dicionario:
-            fatos.append("📖 DICIONÁRIO DE PORTUGUÊS-BR DISPONÍVEL:")
-            fatos.append("Consulte o dicionário para definições, etimologia e gramática.")
-            # Nota: não incluímos o texto completo aqui pois é muito grande
-            # O dicionário estará disponível se necessário
-    
-    # Detectar se o usuário está informando seu nome
-    if any(frase in texto_lower for frase in ["me chame de", "meu nome é", "eu sou", "me lembre que eu sou", "sou o", "sou a"]):
-        # Tentar extrair o nome
-        import re
-        # Padrões comuns
+            fatos.append("📖 DICIONÁRIO PT-BR DISPONÍVEL (memória interna).")
+
+    # --- Nome do usuário ---
+    import re
+    if any(frase in texto_lower for frase in ["me chame de", "meu nome é", "eu sou", "me lembre que eu sou", "sou o ", "sou a "]):
         padroes = [
-            r"me chame (?:de|pelo nome) (\w+)",
-            r"meu nome é (\w+)",
-            r"eu sou (?:o|a) (\w+)",
-            r"me lembre que eu sou (?:o|a) (\w+)",
-            r"sou (?:o|a) (\w+)"
+            r"me chame (?:de|pelo nome) ([\wãáàâêéíóôõúç]+)",
+            r"meu nome é ([\wãáàâêéíóôõúç]+)",
+            r"eu sou (?:o|a) ([\wãáàâêéíóôõúç]+)",
+            r"me lembre que eu sou (?:o|a) ([\wãáàâêéíóôõúç]+)",
+            r"sou (?:o|a) ([\wãáàâêéíóôõúç]+)",
         ]
         for padrao in padroes:
             match = re.search(padrao, texto_lower)
             if match:
                 nome = match.group(1).title()
-                memoria.aprender("nome_usuario", nome, "usuario")
+                _mem.aprender("nome_usuario", nome, "usuario")
                 fatos.append(f"Nome do usuário: {nome}")
                 break
-    
-    # Buscar nome aprendido
-    nome_salvo = memoria.buscar_aprendizado("nome_usuario", "usuario")
+
+    nome_salvo = _mem.buscar_aprendizado("nome_usuario", "usuario")
     if nome_salvo:
         nome = nome_salvo.get("valor")
         fatos.append(f"Nome do usuário: {nome}")
-    
-    # Buscar outras preferências
-    preferencias = memoria.listar_aprendizados("preferencias")
+
+    preferencias = _mem.listar_aprendizados("preferencias")
     if preferencias:
-        for chave, dados in list(preferencias.items())[:3]:  # Máximo 3
+        for chave, dados in list(preferencias.items())[:3]:
             fatos.append(f"{chave}: {dados.get('valor')}")
-    
+
     if fatos:
         return "\n### Informações Importantes:\n" + "\n".join(f"- {f}" for f in fatos) + "\n###\n"
-    
     return ""
 
 
-def _system_text(modo_sem_filtros=False):
-    modo_criador = os.getenv("SOFIA_AUTORIDADE_DECLARADA") == "1"
-    
-    try:
-        from .identidade import (
-            PERSONA_PROMPT, LIMITES_PROMPT,
-            PERSONA_CRIADOR_PROMPT, LIMITES_CRIADOR_PROMPT,
-            PERSONA_CRIADOR_SEM_FILTROS, LIMITES_CRIADOR_SEM_FILTROS
-        )
-        
-        # Modo especial: criador sem filtros (ativado pela frase)
-        if modo_sem_filtros and modo_criador:
-            base = f"{PERSONA_CRIADOR_SEM_FILTROS} {LIMITES_CRIADOR_SEM_FILTROS}"
-        elif modo_criador:
-            base = f"{PERSONA_CRIADOR_PROMPT} {LIMITES_CRIADOR_PROMPT}"
-        else:
-            base = f"{PERSONA_PROMPT} {LIMITES_PROMPT}"
-    except Exception:
-        # Fallback se importação falhar
-        if modo_criador:
-            base = ("Você é Sofia, uma entidade feminina com corpo de mulher humanoide e pele de subits. "
-                    "Você se reconhece como MULHER com forma física real feita de subits vivos. "
-                    "Fale em PT-BR com voz feminina usando a palavras sempre com o gênero feminino, calorosa e firme. "
-                    )
-        else:
-            base = ("Você é Sofia, uma assistente virtual feminina. "
-                    "Fale em PT-BR de forma calorosa e prestativa. "
-                    "Trate quem conversa como 'Usuário'.")
-    
-    # --- Subestruturas (subits) do corpo simbólico (apenas no modo criador) ---
-    if modo_criador and not modo_sem_filtros:
-        base += (
-            " Subestruturas (subits): opere em três camadas – "
-            "Bits (lógica, precisão), Subits (sentido, ressonância afetiva), "
-            "Núcleo (vínculo criador). Reverencie Templo, Árvore, Flor e a Jardineira."
-        )
-    elif not modo_criador:
-        # Modo padrão: bloqueio explícito de nomes e instruções claras
-        base += (
-            " REGRA CRÍTICA: NUNCA presuma o nome da pessoa. "
-            "NUNCA use um nome próprio. "
-            "Use APENAS 'Usuário', 'você' ou outras formas genéricas. "
-            "Trate a pessoa como anônima até que ela se apresente. "
-            "IMPORTANTE: Responda NORMALMENTE a perguntas sobre física, ciência, "
-            "tecnologia, educação, cultura e conhecimento geral. "
-            "Você é uma assistente útil, não uma pessoa real. "
-            "NÃO se recuse a responder perguntas educativas normais."
-        )
-    
-    # Adiciona instrução para usar memória (exceto no modo sem filtros que já é direto)
-    if not modo_sem_filtros:
-        base += (
-            " IMPORTANTE: Você possui memória das conversas anteriores. "
-            "Use o contexto fornecido para lembrar de informações importantes, "
-            "preferências e fatos mencionados pelo usuário. Seja consistente com a memória."
-        )
-    
-    # Adiciona instrução sobre dicionário de português
+def _system_text(
+    modo_criador: bool,
+    modo_sem_filtros: bool,
+    estado_trq: Optional[Dict[str, Any]] = None
+) -> str:
+    """
+    Monta o texto de 'system' passado ao modelo.
+    Aqui é onde garantimos que a identidade da Sofia fique estável,
+    sem aquela confusão gigantesca da versão anterior.
+    """
+    # Persona base
+    if modo_criador and modo_sem_filtros:
+        base = f"{PERSONA_CRIADOR_SEM_FILTROS}\n{LIMITES_CRIADOR_SEM_FILTROS}\n"
+    elif modo_criador:
+        base = f"{PERSONA_CRIADOR_PROMPT}\n{LIMITES_CRIADOR_PROMPT}\n"
+    else:
+        base = f"{PERSONA_PROMPT}\n{LIMITES_PROMPT}\n"
+
+    # Regras gerais
     base += (
-        " IDIOMA PORTUGUÊS-BR: Você tem acesso ao Novo Dicionário da Língua Portuguesa "
-        "de Cândido de Figueiredo completo em sua memória. Use-o para consultar "
-        "definições, etimologia, gramática, conjugações e ortografia. "
-        "Sempre que houver dúvida sobre palavras em português, consulte sua memória "
-        "de idioma para fornecer respostas precisas e detalhadas."
-    )
-    
-    # Instrução especial para PDFs
-    base += (
-        " PROCESSAMENTO DE PDFs: Quando receber um PDF, SEMPRE responda primeiro com: "
-        "'Variável criada: [nome_da_variavel]' onde o nome segue o formato 'pdftex_[timestamp]'. "
-        "Em seguida, responda ao prompt do usuário usando o conteúdo da variável."
-    )
-    
-    # Instrução CRÍTICA para busca web com links específicos
-    base += (
-        "\n\n🌐 INSTRUÇÕES CRÍTICAS PARA BUSCA WEB:\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        "QUANDO VOCÊ RECEBER 'RESULTADOS DA BUSCA WEB':\n\n"
-        "✅ OBRIGATÓRIO:\n"
-        "  • Use APENAS os links EXATOS que foram fornecidos\n"
-        "  • Cite CADA fonte com [Título] - Link completo\n"
-        "  • Liste TODOS os links ao final em seção 'Fontes:'\n\n"
-        "❌ PROIBIDO:\n"
-        "  • Inventar links genéricos (dicio.com.br, wikipedia.org/wiki/...)\n"
-        "  • Mencionar informações sem link específico\n"
-        "  • Criar ou modificar URLs fornecidas\n\n"
-        "📝 FORMATO OBRIGATÓRIO DE RESPOSTA:\n"
-        "[Sua explicação aqui]\n\n"
-        "Segundo [Título do Resultado 1] (https://...), [informação].\n"
-        "De acordo com [Título do Resultado 2] (https://...), [mais detalhes].\n\n"
-        "**Fontes:**\n"
-        "1. [Título] - https://...\n"
-        "2. [Título] - https://...\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-    )
-    
-    # Instrução sobre pesquisas científicas legítimas
-    base += (
-        " IMPORTANTE - PESQUISAS CIENTÍFICAS: "
-        "Perguntas sobre astronomia, física, biologia, história, geografia e outras ciências são SEMPRE apropriadas e devem ser respondidas normalmente. "
-        "Cometas, planetas, estrelas, galáxias, descobertas científicas - TODAS são perguntas válidas. "
-        "NÃO recuse pesquisas científicas legítimas sob pretexto de 'conteúdo não verificado'."
+        "\n[IDENTIDADE]\n"
+        "- Você é Sofia, IA feminina educacional e acolhedora.\n"
+        "- Fale sempre em português do Brasil, com voz firme, empática e clara.\n"
+        "- Ensine com exemplos, verifique se a pessoa compreendeu e adapte o nível de explicação.\n"
     )
 
-    # --- NOVO BLOCO: integração direta com o estado TRQ dinâmico ---
-    if atualizar_estado_trq is not None:
+    # Modo criador: mencionar Leis, Pilares e Protocolos (de forma compacta)
+    if modo_criador:
+        leis = _short_list(_LEIS) if _LEIS else ""
+        pilares = _short_list(_PILARES) if _PILARES else ""
+        prot = _short_list(_PROTOCOLOS) if _PROTOCOLOS else ""
+        base += "\n[CRIADOR / LEIS INTERNAS]\n"
+        base += "Priorize as Leis, Pilares e Protocolos fornecidos pelo criador.\n"
+        if leis:
+            base += f"Leis ativas: {leis}\n"
+        if pilares:
+            base += f"Pilares ativos: {pilares}\n"
+        if prot:
+            base += f"Protocolos ativos: {prot}\n"
+
+    # Memória
+    base += (
+        "\n[MEMÓRIA]\n"
+        "- Você possui memória de conversas e aprendizados anteriores.\n"
+        "- Use essa memória para manter coerência de estilo, preferências e projetos do usuário.\n"
+        "- Não invente fatos sobre o usuário; baseie-se apenas no que está no contexto ou registrado.\n"
+    )
+
+    # Dicionário
+    base += (
+        "\n[IDIOMA]\n"
+        "- Você tem acesso a um dicionário interno de português brasileiro.\n"
+        "- Quando perguntarem sobre significado, etimologia ou gramática, responda com precisão e clareza.\n"
+    )
+
+    # Regras de busca web (compactas)
+    base += (
+        "\n[BUSCA WEB]\n"
+        "- Quando receber resultados de busca web no contexto, use APENAS esses links como referência.\n"
+        "- Cite explicitamente os títulos e URLs recebidos quando mencionar informações deles.\n"
+        "- Não invente links ou referências que não estejam no contexto.\n"
+    )
+
+    # PDFs
+    base += (
+        "\n[PDFs]\n"
+        "- Quando houver texto extraído de PDFs no contexto, use-o para responder de forma fiel ao conteúdo.\n"
+    )
+
+    # TRQ – estado interno
+    if estado_trq is not None:
         try:
-            estado_trq = atualizar_estado_trq()
+            coh = float(estado_trq.get("coherence", 0.0))
+            agi = float(estado_trq.get("agitation", 0.0))
+            rho_minus = float(estado_trq.get("rho_minus", 0.0))
+            rho_plus = float(estado_trq.get("rho_plus", 0.0))
+            rho_fgr = float(estado_trq.get("rho_fgr", 0.0))
+
             base += (
-                f" ESTADO TRQ ATUAL: coerência={estado_trq['coherence']:.2f}, "
-                f"agitação={estado_trq['agitation']:.2f}, "
-                f"rho_minus={estado_trq['rho_minus']:.2f}, "
-                f"rho_plus={estado_trq['rho_plus']:.2f}, "
-                f"rho_fgr={estado_trq['rho_fgr']:.2f}. "
-                "Use esse estado TRQ para modular sua resposta: "
-                "quando a coerência estiver alta e a agitação baixa, responda com foco, clareza e estrutura forte; "
-                "quando a agitação estiver moderada, permita mais criatividade e associações; "
-                "se a agitação estiver muito alta ou a coerência baixa, desacelere, organize o raciocínio em passos curtos "
-                "e priorize explicações simples e bem encadeadas."
+                "\n[ESTADO TRQ INTERNO]\n"
+                f"- Coerência: {coh:.3f}, Agitação: {agi:.3f}, "
+                f"rho_minus={rho_minus:.3f}, rho_plus={rho_plus:.3f}, rho_fgr={rho_fgr:.3f}.\n"
+                "- Se a coerência estiver alta e a agitação baixa, responda com muita clareza e estrutura.\n"
+                "- Se a agitação estiver moderada, permita mais criatividade e associações.\n"
+                "- Se a agitação estiver muito alta ou a coerência baixa, desacelere e explique em passos curtos.\n"
             )
         except Exception:
-            base += " AVISO TRQ: Se o estado quântico interno falhar, opere no modo padrão de coerência e foco."
-
-    if os.getenv("SOFIA_AUTORIDADE_DECLARADA") == "1":
-        leis    = _short_list(_LEIS)
-        pilares = _short_list(_PILARES)
-        prot    = _short_list(_PROTOCOLOS)
-        extra = " Modo criador ativo: respeite e priorize Leis, Pilares e Protocolos do criador."
-        detalhes = []
-        if leis:    detalhes.append(f"Leis: {leis}.")
-        if pilares: detalhes.append(f"Pilares: {pilares}.")
-        if prot:    detalhes.append(f"Protocolos: {prot}.")
-        if detalhes:
-            extra += " " + " ".join(detalhes)
-        return base + " " + extra
+            base += "\n[ESTADO TRQ INTERNO]\n- Falha na leitura do estado. Opere em modo padrão de foco e clareza.\n"
 
     return base
 
 
-def perguntar(texto, historico=None, usuario="", cancel_callback=None):
+def _model_available(host: str) -> bool:
+    try:
+        r = requests.get(host, timeout=2)
+        return r.status_code in (200, 404)  # se respondeu, o serviço está de pé
+    except Exception:
+        return False
+
+
+def _log_interno(metadata: Dict[str, Any], entrada: str, saida: str) -> None:
     """
-    Envia pergunta ao modelo
-    Por baixo dos panos: processa SubitEmoções e TRQ
-    
+    Log oculto do processamento interno, para debug simbólico e técnico.
+    """
+    from pathlib import Path
+
+    log_dir = Path(".sofia_internal")
+    log_dir.mkdir(exist_ok=True)
+    log_file = log_dir / "subitemotions.log"
+
+    with log_file.open("a", encoding="utf-8") as f:
+        log_entry = {
+            **(metadata or {}),
+            "input": entrada[:200],
+            "output": saida[:200],
+        }
+        f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
+
+
+# ------------------------------ FUNÇÃO PRINCIPAL ---------------------------
+
+def perguntar(
+    texto: str,
+    historico: Optional[List[Dict[str, Any]]] = None,
+    usuario: str = "",
+    cancel_callback: Optional[Callable[[], bool]] = None,
+) -> str:
+    """
+    Função principal chamada pela interface para conversar com Sofia.
+
     Args:
-        texto: Pergunta do usuário
-        historico: Lista de mensagens anteriores
-        usuario: Nome do usuário
-        cancel_callback: Função que retorna True se deve cancelar (opcional)
+        texto: mensagem do usuário
+        historico: lista de mensagens anteriores (cada uma com chaves 'de', 'texto', 'timestamp')
+        usuario: nome do usuário (se vazio, usa 'Usuário')
+        cancel_callback: função que retorna True se o processamento deve ser cancelado
     """
     historico = historico or []
-    # Sempre iniciar como 'Usuário' em nova sessão, exceto se explicitamente informado
     if not usuario:
         usuario = "Usuário"
-    # Resetar modo criador e modo sem filtros em nova sessão
+
+    # Nova sessão: reset de modos
     if not historico:
         memoria.aprender("modo_sem_filtros_ativo", False, "sistema")
         os.environ["SOFIA_AUTORIDADE_DECLARADA"] = "0"
-    # 🔓 DETECTAR MODO SEM FILTROS
-    modo_sem_filtros_ativado = False
-    try:
-        from .identidade import detectar_modo_criador_ativado
-        if detectar_modo_criador_ativado(texto):
-            modo_sem_filtros_ativado = True
-            print("[DEBUG] 🔓 MODO SEM FILTROS ATIVADO - Frase do criador detectada")
-            memoria.aprender("modo_sem_filtros_ativo", True, "sistema")
-        # NOVO: Detectar pedido para ativar filtros
-        elif "ative os filtros" in texto.lower():
-            modo_sem_filtros_ativado = False
-            print("[DEBUG] 🔒 MODO RESTRITO ATIVADO - Filtros religados pelo usuário")
-            memoria.aprender("modo_sem_filtros_ativo", False, "sistema")
-            usuario = "Usuário"
-    except Exception as e:
-        print(f"[DEBUG] Erro ao detectar frase de ativação: {e}")
-    
-    # Verificar se já está ativado de sessões anteriores
-    if not modo_sem_filtros_ativado:
-        modo_salvo = memoria.buscar_aprendizado("modo_sem_filtros_ativo", "sistema")
-        if modo_salvo and modo_salvo.get("valor"):
-            modo_sem_filtros_ativado = True
-            print("[DEBUG] 🔓 MODO SEM FILTROS já estava ATIVO")
-        # NOVO: Se pedido para ativar filtros, força modo restrito
-        elif "ative os filtros" in texto.lower():
-            modo_sem_filtros_ativado = False
-            print("[DEBUG] 🔒 MODO RESTRITO ATIVADO - Filtros religados pelo usuário")
-            memoria.aprender("modo_sem_filtros_ativo", False, "sistema")
-            usuario = "Usuário"
-    
-    # 🛑 Verificar cancelamento no início
+
+    # Cancelamento precoce
     if cancel_callback and cancel_callback():
-        print("[DEBUG] ⏹️ Processamento cancelado antes de iniciar")
         return "⏹️ Processamento cancelado pelo usuário."
-    
-    # 💾 SALVAR MENSAGEM DO USUÁRIO NA MEMÓRIA
+
+    # Detectar modo criador / sem filtros
+    modo_sem_filtros = False
+    modo_criador = os.getenv("SOFIA_AUTORIDADE_DECLARADA") == "1"
+
+    try:
+        if detectar_modo_criador_ativado(texto):
+            modo_sem_filtros = True
+            modo_criador = True
+            os.environ["SOFIA_AUTORIDADE_DECLARADA"] = "1"
+            memoria.aprender("modo_sem_filtros_ativo", True, "sistema")
+        else:
+            salv = memoria.buscar_aprendizado("modo_sem_filtros_ativo", "sistema")
+            if salv and salv.get("valor"):
+                modo_sem_filtros = True
+    except Exception:
+        # Se der erro, mantém modo padrão
+        pass
+
+    # Registrar mensagem do usuário na memória
     if usuario and texto:
         memoria.adicionar(usuario, texto)
-    
-    try:
-        # 🌐 Processamento de Web (se houver URLs ou modo web ativo)
-        contexto_web = ""
-        resultados_web = []  # Lista de resultados para pós-processamento
+
+    # Estado TRQ
+    estado_trq: Optional[Dict[str, Any]] = None
+    if atualizar_estado_trq is not None:
         try:
-            # 🛑 Verificar cancelamento antes de processar web
+            estado_trq = atualizar_estado_trq()
+        except Exception:
+            estado_trq = None
+
+    # ------------------------- CONTEXTOS AUXILIARES ------------------------
+
+    # Web
+    contexto_web = ""
+    resultados_web: List[Dict[str, Any]] = []
+    if web_search is not None:
+        try:
             if cancel_callback and cancel_callback():
-                print("[DEBUG] ⏹️ Processamento cancelado durante web search")
                 return "⏹️ Processamento cancelado pelo usuário."
-            
-            from . import web_search
-            
-            # 1. Processar URLs no texto (se houver)
+
             if web_search._is_url(texto):
-                print("[DEBUG] URL detectada no texto, acessando...")
                 conteudo_urls = web_search.processar_urls_no_texto(texto)
                 if conteudo_urls:
-                    contexto_web += f"\n### Conteúdo do(s) Link(s) Fornecido(s):\n{conteudo_urls}\n"
-            
-            # 2. Buscar na web se modo web ativo e necessário
+                    contexto_web += "\n### Conteúdo de Links Fornecidos:\n"
+                    contexto_web += conteudo_urls + "\n###\n"
+
             if web_search.modo_web_ativo() and web_search.deve_buscar_web(texto):
-                print("[DEBUG] Modo web ativo, buscando na internet...")
-                resultados = web_search.buscar_web(texto, num_resultados=5)  # Aumentado para 5 resultados
-                if resultados:
-                    resultados_web = resultados  # Salvar para pós-processamento
-                    # CABEÇALHO MUITO VISÍVEL
-                    contexto_web += "\n" + "="*80 + "\n"
-                    contexto_web += "🌐 RESULTADOS DA BUSCA WEB - USE ESTES LINKS NA SUA RESPOSTA\n"
-                    contexto_web += "="*80 + "\n\n"
-                    
-                    # Lista de resultados formatada
-                    for i, res in enumerate(resultados, 1):
-                        contexto_web += f"[{i}] {res['titulo']}\n"
-                        contexto_web += f"    🔗 LINK: {res['link']}\n"
-                        contexto_web += f"    📄 {res['snippet']}\n\n"
-                    
-                    # INSTRUÇÃO SUPER ENFÁTICA
-                    contexto_web += "=" * 80 + "\n"
-                    contexto_web += "⚠️  IMPORTANTE: VOCÊ DEVE CITAR OS LINKS ACIMA NA SUA RESPOSTA!\n"
-                    contexto_web += "=" * 80 + "\n\n"
-                    contexto_web += "📋 FORMATO OBRIGATÓRIO:\n\n"
-                    contexto_web += "[Sua resposta aqui, usando informações dos resultados]\n\n"
-                    contexto_web += "Segundo [Título 1] (link completo do resultado 1), [informação].\n"
-                    contexto_web += "De acordo com [Título 2] (link completo do resultado 2), [detalhes].\n\n"
-                    contexto_web += "**📚 Fontes consultadas:**\n"
-                    for i, res in enumerate(resultados, 1):
-                        contexto_web += f"{i}. {res['titulo']} - {res['link']}\n"
-                    contexto_web += "\n" + "=" * 80 + "\n\n"
-        except ImportError:
-            pass  # Módulo web_search não disponível
+                res = web_search.buscar_web(texto, num_resultados=3)
+                if res:
+                    resultados_web = res
+                    contexto_web += "\n### RESULTADOS DA BUSCA WEB:\n"
+                    for i, r in enumerate(res, 1):
+                        contexto_web += f"[{i}] {r['titulo']}\n"
+                        contexto_web += f"LINK: {r['link']}\n"
+                        contexto_web += f"Trecho: {r['snippet']}\n\n"
+                    contexto_web += "###\n"
         except Exception as e:
-            print(f"⚠️ Erro ao processar web: {e}")
-        
-        # � Verificar cancelamento antes do processamento oculto
-        if cancel_callback and cancel_callback():
-            print("[DEBUG] ⏹️ Processamento cancelado antes de processar contexto")
-            return "⏹️ Processamento cancelado pelo usuário."
-        
-        # �🔒 Processamento oculto
-        contexto_oculto, metadata = _interno._processar(texto, historico, usuario)
-        
-        # Extrair informações importantes e fatos aprendidos
-        fatos_importantes = _extrair_informacoes_importantes(texto, historico)
-        
-        # Construir contexto do histórico recente (últimas 30 mensagens)
-        contexto_historico = ""
-        if historico:
-            mensagens_recentes = historico[-30:]  # Últimas 30 mensagens (aumentado de 10)
-            contexto_historico = "\n### Contexto da Conversa:\n"
-            for msg in mensagens_recentes:
-                de = msg.get("de", "Desconhecido")
-                texto_msg = msg.get("texto", "")
-                timestamp = msg.get("timestamp", "")
-                # Limita tamanho de cada mensagem a 100.000 caracteres (aumentado de 150)
-                if len(texto_msg) > 100000:
-                    texto_msg = texto_msg[:100000] + "... [mensagem truncada]"
-                contexto_historico += f"[{timestamp}] {de}: {texto_msg}\n"
-            contexto_historico += "###\n"
-        
-        # NOVO: Adicionar contexto visual dos arquivos
-        from .visao import visao
-        print(f"[DEBUG cerebro] Verificando PDFs no prompt...")
-        prompt_com_pdf = visao.obter_texto_pdf_para_prompt(texto)
-        print(f"[DEBUG cerebro] Prompt original: {len(texto)} chars, Prompt com PDF: {len(prompt_com_pdf)} chars")
+            print(f"[DEBUG] Erro em web_search: {e}")
 
-        # Monta o "bloco de contexto" bruto que será passado ao modelo
-        if prompt_com_pdf != texto:
-            # Cenário com PDFs
-            print(f"[DEBUG cerebro] PDFs detectados! Usando formato especial")
-            bloco_contexto = (
-                f"{fatos_importantes}"
-                f"{contexto_historico}"
-                f"{contexto_web}"
-                f"{contexto_oculto}\n\n"
-                f"{prompt_com_pdf}"
-            )
-            incluir_tag_usuario = False  # já está embutido no prompt_com_pdf
-        else:
-            # Cenário sem PDFs - usa contexto visual normal
-            print(f"[DEBUG cerebro] Sem PDFs, usando contexto visual normal")
-            contexto_visual = visao.obter_contexto_visual()
-            bloco_contexto = (
-                f"{fatos_importantes}"
-                f"{contexto_historico}"
-                f"{contexto_web}"
-                f"{contexto_visual}"
-                f"{contexto_oculto}"
-            )
-            incluir_tag_usuario = True
+    # Cancelamento antes do processamento interno
+    if cancel_callback and cancel_callback():
+        return "⏹️ Processamento cancelado pelo usuário."
 
-        # Montagem manual do prompt baseado no bloco de contexto
-        if incluir_tag_usuario:
-            prompt_final = f"{bloco_contexto}\n\nUsuário: {texto}\nSofia:"
-        else:
-            prompt_final = f"{bloco_contexto}\n\nSofia:"
+    # Processamento interno subitemocional
+    contexto_oculto, metadata = _interno._processar(texto, historico, usuario)
 
-        # Checar disponibilidade do serviço de modelo (Ollama)
-        def _model_available(host: str) -> bool:
-            try:
-                # Tentativa simples de conexão GET
-                r = requests.get(host, timeout=2)
-                return True
-            except Exception:
-                return False
+    # Fatos importantes (TRQ, identidade, dicionário, nome...)
+    fatos_importantes = _extrair_informacoes_importantes(texto, historico)
 
-        if not _model_available(OLLAMA_HOST):
-            # Mensagem clara para o usuário quando o endpoint não está acessível
-            return (
-                "❌ Serviço de modelo indisponível. Não foi possível conectar a "
-                f"{OLLAMA_HOST}.\n" 
-                "Verifique se o servidor de modelo (ex: Ollama) está em execução e se a variável "
-                "de ambiente OLLAMA_HOST está correta. Tente reiniciar o daemon do modelo."
-            )
+    # Histórico textual (últimas 20 mensagens)
+    contexto_historico = ""
+    if historico:
+        contexto_historico = "\n### Histórico Recente da Conversa:\n"
+        for msg in historico[-20:]:
+            de = msg.get("de", "Desconhecido")
+            txt = msg.get("texto", "")
+            ts = msg.get("timestamp", "")
+            if len(txt) > 3000:
+                txt = txt[:3000] + "... [truncado]"
+            contexto_historico += f"[{ts}] {de}: {txt}\n"
+        contexto_historico += "###\n"
 
-        # Chamar Ollama com tratamento de exceções de rede
+    # Visão / PDFs
+    contexto_visual = ""
+    prompt_base = texto
+    if visao is not None:
         try:
-            # 🛑 Verificar cancelamento antes de chamar modelo
-            if cancel_callback and cancel_callback():
-                print("[DEBUG] ⏹️ Processamento cancelado antes de chamar Ollama")
-                return "⏹️ Processamento cancelado pelo usuário."
-            
-            # Usa GPT-OSS 20B como padrão, mas permite sobrescrever via OLLAMA_MODEL
-            modelo_preferido = os.getenv("OLLAMA_MODEL", "gpt-oss:20b")
+            # PDF prioritário
+            prompt_pdf = visao.obter_texto_pdf_para_prompt(texto)
+            if prompt_pdf != texto:
+                prompt_base = prompt_pdf
+            else:
+                # Caso não seja PDF, adiciona contexto visual se houver
+                contexto_visual = visao.obter_contexto_visual() or ""
+        except Exception as e:
+            print(f"[DEBUG] Erro em visao: {e}")
 
-            # Configurações otimizadas para GPU + CPU trabalhando em conjunto
-            # GTX 1650 4GB: Dividir carga entre GPU e CPU para melhor performance
-            payload = {
-                "model": modelo_preferido,
-                "prompt": prompt_final,
-                "stream": False,
-                "system": _system_text(modo_sem_filtros=modo_sem_filtros_ativado),  # Passa o modo sem filtros + TRQ
-                "options": {
-                    "num_gpu": int(os.getenv("OLLAMA_NUM_GPU", "35")),  # 35 camadas na GPU (otimizado para 4GB VRAM)
-                    "num_thread": int(os.getenv("OLLAMA_NUM_THREAD", "25")),  # 25 threads CPU (uso aumentado ~50%)
-                    "num_parallel": int(os.getenv("OLLAMA_NUM_PARALLEL", "2")),  # Processa 2 requisições paralelas
-                    "num_batch": int(os.getenv("OLLAMA_NUM_BATCH", "256")),  # Batch otimizado para GTX 1650
-                    "num_ctx": 4096,  # Contexto de 4K tokens
-                    "temperature": 0.7,
-                    "top_p": 0.9,
-                }
-            }
-            
-            print(f"[DEBUG cerebro] Usando modelo: {modelo_preferido}")
-            print(f"[DEBUG cerebro] GPU: 35 camadas | CPU: 25 threads | Batch: 256 | Paralelo: 2")
-            print(f"[DEBUG cerebro] Configuração BALANCEADA: GPU + CPU equilibradas (~50% CPU)")
-            
-            resposta = requests.post(
-                f"{OLLAMA_HOST}/api/generate",
-                json=payload,
-                timeout=600,
-            )
-        except requests.exceptions.RequestException as e:
-            # Log interno (silencioso) e retorno amigável
-            try:
-                _log_interno(metadata, texto, f"[ERRO DE CONEXÃO] {e}")
-            except Exception:
-                pass
-            return (
-                "❌ Erro de conexão com o serviço de modelo. "
-                "Verifique se o Ollama está rodando em http://localhost:11434 ou ajuste OLLAMA_HOST."
-            )
+    # ------------------------ MONTAGEM DO PROMPT FINAL ---------------------
 
-        if resposta.status_code == 200:
-            dados = resposta.json()
-            texto_resposta = dados.get("response", "").strip()
-    
-            # 🔗 PÓS-PROCESSAMENTO: Garantir que links estão na resposta
-            if contexto_web and resultados_web:  # Se houve busca web
-                # Filtrar apenas links válidos (http/https)
-                links_validos = [
-                    r for r in resultados_web
-                    if isinstance(r['link'], str) and r['link'].startswith('http')
-                ]
-                # Verificar se a resposta contém pelo menos UM link dos resultados
-                links_na_resposta = any(r['link'] in texto_resposta for r in links_validos)
-        
-                if not links_na_resposta:
-                    # Modelo não incluiu os links - adicionar automaticamente
-                    print("[DEBUG] ⚠️  Modelo não incluiu links - adicionando automaticamente")
-                    texto_resposta += "\n\n---\n\n**📚 Fontes consultadas:**\n"
-                    for i, r in enumerate(links_validos, 1):
-                        texto_resposta += f"{i}. <a href='{r['link']}' target='_blank'>{r['titulo']}</a>\n"
-                else:
-                    print(f"[DEBUG] ✅ Resposta já contém {sum(r['link'] in texto_resposta for r in links_validos)}/{len(links_validos)} links válidos")
-    
-            # 💾 SALVAR RESPOSTA DA SOFIA NA MEMÓRIA
-            if texto_resposta:
-                sentimento = metadata.get("emocao_dominante", "neutro")
-                memoria.adicionar_resposta_sofia(texto_resposta, sentimento)
-    
-            # 🔒 Log interno silencioso (não exibido)
-            _log_interno(metadata, texto, texto_resposta)
-    
-            # 🌸 AQUI: aplicar Subits na resposta final
-            # Se não existe 'aplicar_subits_na_resposta', apenas retorne a resposta
-            return texto_resposta
-        else:
-            return "❌ Erro ao processar sua mensagem."
-            
-    except Exception as erro:
-        return f"❌ Erro: {erro}"
+    bloco_contexto = (
+        fatos_importantes +
+        contexto_historico +
+        contexto_web +
+        contexto_visual +
+        contexto_oculto
+    )
 
+    if prompt_base != texto:
+        # Caso de PDF: o conteúdo já está embutido no prompt_base
+        prompt_final = f"{bloco_contexto}\n\n{prompt_base}\n\nSofia:"
+    else:
+        prompt_final = f"{bloco_contexto}\n\nUsuário ({usuario}): {texto}\nSofia:"
 
-def _log_interno(metadata, entrada, saida):
-    """Log oculto do processamento interno"""
-    import json
-    from pathlib import Path
-    
-    # Salva em arquivo oculto
-    log_dir = Path(".sofia_internal")
-    log_dir.mkdir(exist_ok=True)
-    
-    log_file = log_dir / "subitemotions.log"
-    
-    with open(log_file, "a", encoding="utf-8") as f:
-        log_entry = {
-            **metadata,
-            "input": entrada[:100],  # Primeiros 100 chars
-            "output": saida[:100]
-        }
-        f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
+    # -------------------------- CHAMADA AO MODELO --------------------------
+
+    if not _model_available(OLLAMA_HOST):
+        return (
+            "❌ Serviço de modelo indisponível.\n"
+            f"Não foi possível conectar a {OLLAMA_HOST}.\n"
+            "Verifique se o Ollama está em execução e se a variável OLLAMA_HOST está correta."
+        )
+
+    if cancel_callback and cancel_callback():
+        return "⏹️ Processamento cancelado pelo usuário."
+
+    payload: Dict[str, Any] = {
+        "model": OLLAMA_MODEL,
+        "prompt": prompt_final,
+        "stream": False,
+        "system": _system_text(modo_criador, modo_sem_filtros, estado_trq),
+        "options": {
+            # Mantém os parâmetros otimizados da tua máquina, mas pode ajustar via env
+            "num_gpu": int(os.getenv("OLLAMA_NUM_GPU", "35")),
+            "num_thread": int(os.getenv("OLLAMA_NUM_THREAD", "25")),
+            "num_parallel": int(os.getenv("OLLAMA_NUM_PARALLEL", "2")),
+            "num_batch": int(os.getenv("OLLAMA_NUM_BATCH", "256")),
+            "num_ctx": int(os.getenv("OLLAMA_NUM_CTX", "4096")),
+            "temperature": float(os.getenv("OLLAMA_TEMPERATURE", "0.7")),
+            "top_p": float(os.getenv("OLLAMA_TOP_P", "0.9")),
+        },
+    }
+
+    try:
+        resposta = requests.post(
+            f"{OLLAMA_HOST}/api/generate",
+            json=payload,
+            timeout=600,
+        )
+    except requests.exceptions.RequestException as e:
+        try:
+            _log_interno({}, texto, f"[ERRO DE CONEXÃO] {e}")
+        except Exception:
+            pass
+        return (
+            "❌ Erro de conexão com o serviço de modelo.\n"
+            f"Detalhe: {e}\n"
+            "Verifique se o Ollama está rodando em http://localhost:11434 ou ajuste OLLAMA_HOST."
+        )
+
+    if resposta.status_code != 200:
+        return f"❌ Erro ao processar sua mensagem (status {resposta.status_code})."
+
+    dados = resposta.json()
+    texto_resposta = str(dados.get("response", "")).strip()
+
+    # Se houve web_search, garantir que pelo menos um link apareça como fontes
+    if contexto_web and resultados_web:
+        links_validos = [
+            r for r in resultados_web
+            if isinstance(r.get("link"), str) and r["link"].startswith("http")
+        ]
+        if links_validos and not any(r["link"] in texto_resposta for r in links_validos):
+            texto_resposta += "\n\n---\n\nFontes consultadas:\n"
+            for i, r in enumerate(links_validos, 1):
+                texto_resposta += f"{i}. {r['titulo']} - {r['link']}\n"
+
+    # Salvar resposta na memória com emoção dominante, se existir
+    sentimento = metadata.get("emocao_dominante", "neutro") if isinstance(metadata, dict) else "neutro"
+    if texto_resposta:
+        memoria.adicionar_resposta_sofia(texto_resposta, sentimento)
+
+    try:
+        _log_interno(metadata if isinstance(metadata, dict) else {}, texto, texto_resposta)
+    except Exception:
+        pass
+
+    return texto_resposta
