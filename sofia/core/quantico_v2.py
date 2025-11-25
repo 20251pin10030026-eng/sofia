@@ -120,7 +120,7 @@ def _op_site(op_local, site: int, N: int, qeye_func):
             ops.append(op_local)
         else:
             ops.append(qeye_func(3))
-    return tensor(ops)
+    return tensor(*ops)
 
 
 def _op_couple_sites(op_local_i, op_local_j, i: int, j: int, N: int, qeye_func):
@@ -138,7 +138,8 @@ def _op_couple_sites(op_local_i, op_local_j, i: int, j: int, N: int, qeye_func):
             ops.append(op_local_j)
         else:
             ops.append(qeye_func(3))
-    return tensor(ops)
+    # O QuTiP espera os operadores como argumentos separados, não como uma lista.
+    return tensor(*ops)
 
 
 def _construir_hamiltonianos_v2(param: ParametrosTRQFloquetV2):
@@ -173,19 +174,19 @@ def _construir_hamiltonianos_v2(param: ParametrosTRQFloquetV2):
     ket_C = basis(3, 1)
     ket_R = basis(3, 2)
 
-    proj_E = ket_E * ket_E.dag()
-    proj_C = ket_C * ket_C.dag()
-    proj_R = ket_R * ket_R.dag()
+    proj_E = ket_E @ ket_E.dag()
+    proj_C = ket_C @ ket_C.dag()
+    proj_R = ket_R @ ket_R.dag()
 
     # Operadores de transição locais entre os três níveis
-    op_EC = ket_E * ket_C.dag()   # |E><C|
-    op_CE = ket_C * ket_E.dag()   # |C><E|
+    op_EC = ket_E @ ket_C.dag()   # |E><C|
+    op_CE = ket_C @ ket_E.dag()   # |C><E|
 
-    op_ER = ket_E * ket_R.dag()   # |E><R|
-    op_RE = ket_R * ket_E.dag()   # |R><E|
+    op_ER = ket_E @ ket_R.dag()   # |E><R|
+    op_RE = ket_R @ ket_E.dag()   # |R><E|
 
-    op_CR = ket_C * ket_R.dag()   # |C><R|
-    op_RC = ket_R * ket_C.dag()   # |R><C|
+    op_CR = ket_C @ ket_R.dag()   # |C><R|
+    op_RC = ket_R @ ket_C.dag()   # |R><C|
 
     N = param.N
     gamma_local = param.gamma_loc
@@ -250,7 +251,7 @@ def _construir_hamiltonianos_v2(param: ParametrosTRQFloquetV2):
     # --------------------------------
     # RUÍDO QUÂNTICO H_noise (hermitiano)
     # --------------------------------
-        dim = 3 ** N
+    dim = 3 ** N
     rng = np.random.default_rng(param.seed)
     M = rng.normal(size=(dim, dim)) + 1j * rng.normal(size=(dim, dim))
 

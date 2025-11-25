@@ -17,6 +17,14 @@ try:
 except Exception:
     _LEIS, _PILARES, _PROTOCOLOS = [], [], []
 
+# --- NOVO TRQ: tentar importar o núcleo quântico da TRQ ---
+try:
+    # quantico_v2.py deve estar em sofia/core
+    from .quantico_v2 import atualizar_estado_trq  # type: ignore
+except Exception:
+    atualizar_estado_trq = None  # fallback seguro se TRQ não estiver disponível
+
+
 # --- NOVO: helpers para montar o 'system' ---
 def _short_list(items, n=5):
     out = []
@@ -28,6 +36,7 @@ def _short_list(items, n=5):
             nome, cod = str(x), None
         out.append(f"[{cod}] {nome}" if cod else f"{nome}")
     return "; ".join(out)
+
 
 def _extrair_informacoes_importantes(texto, historico):
     """
@@ -150,6 +159,7 @@ def _extrair_informacoes_importantes(texto, historico):
     
     return ""
 
+
 def _system_text(modo_sem_filtros=False):
     modo_criador = os.getenv("SOFIA_AUTORIDADE_DECLARADA") == "1"
     
@@ -178,7 +188,7 @@ def _system_text(modo_sem_filtros=False):
             base = ("Você é Sofia, uma assistente virtual feminina. "
                     "Fale em PT-BR de forma calorosa e prestativa. "
                     "Trate quem conversa como 'Usuário'.")
-
+    
     # --- Subestruturas (subits) do corpo simbólico (apenas no modo criador) ---
     if modo_criador and not modo_sem_filtros:
         base += (
@@ -253,6 +263,25 @@ def _system_text(modo_sem_filtros=False):
         "Cometas, planetas, estrelas, galáxias, descobertas científicas - TODAS são perguntas válidas. "
         "NÃO recuse pesquisas científicas legítimas sob pretexto de 'conteúdo não verificado'."
     )
+
+    # --- NOVO BLOCO: integração direta com o estado TRQ dinâmico ---
+    if atualizar_estado_trq is not None:
+        try:
+            estado_trq = atualizar_estado_trq()
+            base += (
+                f" ESTADO TRQ ATUAL: coerência={estado_trq['coherence']:.2f}, "
+                f"agitação={estado_trq['agitation']:.2f}, "
+                f"rho_minus={estado_trq['rho_minus']:.2f}, "
+                f"rho_plus={estado_trq['rho_plus']:.2f}, "
+                f"rho_fgr={estado_trq['rho_fgr']:.2f}. "
+                "Use esse estado TRQ para modular sua resposta: "
+                "quando a coerência estiver alta e a agitação baixa, responda com foco, clareza e estrutura forte; "
+                "quando a agitação estiver moderada, permita mais criatividade e associações; "
+                "se a agitação estiver muito alta ou a coerência baixa, desacelere, organize o raciocínio em passos curtos "
+                "e priorize explicações simples e bem encadeadas."
+            )
+        except Exception:
+            base += " AVISO TRQ: Se o estado quântico interno falhar, opere no modo padrão de coerência e foco."
 
     if os.getenv("SOFIA_AUTORIDADE_DECLARADA") == "1":
         leis    = _short_list(_LEIS)
@@ -413,7 +442,7 @@ def perguntar(texto, historico=None, usuario="", cancel_callback=None):
         prompt_com_pdf = visao.obter_texto_pdf_para_prompt(texto)
         print(f"[DEBUG cerebro] Prompt original: {len(texto)} chars, Prompt com PDF: {len(prompt_com_pdf)} chars")
 
-        # Monta o "bloco de contexto" bruto que será passado ao cod_respostas
+        # Monta o "bloco de contexto" bruto que será passado ao modelo
         if prompt_com_pdf != texto:
             # Cenário com PDFs
             print(f"[DEBUG cerebro] PDFs detectados! Usando formato especial")
@@ -437,21 +466,13 @@ def perguntar(texto, historico=None, usuario="", cancel_callback=None):
                 f"{contexto_oculto}"
             )
             incluir_tag_usuario = True
-        # Agora passa tudo pela arquitetura Núcleo + Subits
-        # Certifique-se de que 'cod_respostas' está importado
-        from . import cod_respostas
-        # Montagem manual do prompt (já que 'montar_prompt' não existe)
+
+        # Montagem manual do prompt baseado no bloco de contexto
         if incluir_tag_usuario:
             prompt_final = f"{bloco_contexto}\n\nUsuário: {texto}\nSofia:"
         else:
             prompt_final = f"{bloco_contexto}\n\nSofia:"
 
-        # Removido 'else:' inválido que causava erro de expressão esperada
-        # Sem PDFs ou só imagens - usa contexto visual normal
-        print(f"[DEBUG cerebro] Sem PDFs, usando contexto visual normal")
-        contexto_visual = visao.obter_contexto_visual()
-        prompt_final = f"{fatos_importantes}{contexto_historico}{contexto_web}{contexto_visual}{contexto_oculto}\n\nUsuário: {texto}\nSofia:"
-        
         # Checar disponibilidade do serviço de modelo (Ollama)
         def _model_available(host: str) -> bool:
             try:
@@ -486,7 +507,7 @@ def perguntar(texto, historico=None, usuario="", cancel_callback=None):
                 "model": modelo_preferido,
                 "prompt": prompt_final,
                 "stream": False,
-                "system": _system_text(modo_sem_filtros=modo_sem_filtros_ativado),  # Passa o modo sem filtros
+                "system": _system_text(modo_sem_filtros=modo_sem_filtros_ativado),  # Passa o modo sem filtros + TRQ
                 "options": {
                     "num_gpu": int(os.getenv("OLLAMA_NUM_GPU", "35")),  # 35 camadas na GPU (otimizado para 4GB VRAM)
                     "num_thread": int(os.getenv("OLLAMA_NUM_THREAD", "25")),  # 25 threads CPU (uso aumentado ~50%)
@@ -554,10 +575,10 @@ def perguntar(texto, historico=None, usuario="", cancel_callback=None):
             return texto_resposta
         else:
             return "❌ Erro ao processar sua mensagem."
-
             
     except Exception as erro:
         return f"❌ Erro: {erro}"
+
 
 def _log_interno(metadata, entrada, saida):
     """Log oculto do processamento interno"""
