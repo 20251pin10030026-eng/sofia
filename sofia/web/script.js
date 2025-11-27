@@ -1,7 +1,6 @@
 // API Configuration
-const API_URL = 'https://eb9418ce5e1c.ngrok-free.app';
-const WS_URL = 'wss://eb9418ce5e1c.ngrok-free.app';
-const TRQ_API_BASE = `${API_URL}/api/trq`;
+const API_URL = 'https://deb45de4bf1b.ngrok-free.app';
+const WS_URL = 'wss://deb45de4bf1b.ngrok-free.app';
 
 // WebSocket
 let ws = null;
@@ -30,12 +29,6 @@ const statsModal = document.getElementById('stats-modal');
 const settingsModal = document.getElementById('settings-modal');
 const metaverseModal = document.getElementById('metaverse-modal');
 
-// Elementos do painel TRQ
-const trqLogsBox = document.getElementById('trq-logs');
-const trqSugestaoBox = document.getElementById('trq-qwen-sugestao');
-const trqAtualizarBtn = document.getElementById('btn-atualizar-trq');
-const trqOtimizarBtn = document.getElementById('btn-otimizar-trq');
-
 // Initialize
 let conversationHistory = [];
 let attachedFiles = []; // Array para armazenar arquivos anexados temporariamente
@@ -44,7 +37,6 @@ let webSearchMode = false; // Estado do modo de busca web
 // Inicializar WebSocket ao carregar
 document.addEventListener('DOMContentLoaded', async () => {
     await initializeWebSocket();
-    setupTrqPanel(); // inicializa o painel TRQ + Qwen
 });
 
 // Função para criar sessão
@@ -275,80 +267,6 @@ function hideTypingIndicator() {
     const indicator = document.querySelector('.typing-indicator');
     if (indicator) {
         indicator.remove();
-    }
-}
-
-// ==== Funções do Painel TRQ + Qwen ====
-
-async function carregarTelemetriaTRQ() {
-    if (!trqLogsBox) return;
-
-    trqLogsBox.textContent = 'Carregando telemetria...';
-
-    try {
-        const resp = await fetch(`${TRQ_API_BASE}/telemetria`);
-        const data = await resp.json();
-
-        if (!data.ok) {
-            trqLogsBox.textContent = data.mensagem || 'Não foi possível carregar os logs.';
-            return;
-        }
-
-        const linhas = data.registros.map(r => {
-            return [
-                `função: ${r.funcao}`,
-                `duração: ${r.duracao_seg !== undefined && r.duracao_seg !== null
-                    ? r.duracao_seg.toFixed(3) + ' s'
-                    : '—'}`,
-                `args: ${JSON.stringify(r.args_tipo)}`,
-                `kwargs: ${JSON.stringify(r.kwargs)}`,
-                `resumo: ${JSON.stringify(r.resumo_resultado)}`,
-                `erro: ${r.erro || 'nenhum'}`,
-                '---'
-            ].join('\n');
-        });
-
-        trqLogsBox.textContent = linhas.length > 0
-            ? linhas.join('\n')
-            : 'Nenhuma execução registrada ainda.';
-    } catch (err) {
-        trqLogsBox.textContent = 'Erro ao buscar telemetria: ' + err;
-    }
-}
-
-async function rodarOtimizadorTRQ() {
-    if (!trqSugestaoBox) return;
-
-    trqSugestaoBox.textContent = 'Chamando Qwen para otimizar... (pode demorar um pouco)';
-
-    try {
-        const resp = await fetch(`${TRQ_API_BASE}/otimizar`, {
-            method: 'POST'
-        });
-        const data = await resp.json();
-
-        if (!data.ok) {
-            trqSugestaoBox.textContent = 'Erro: ' + (data.erro || 'falha desconhecida');
-            return;
-        }
-
-        trqSugestaoBox.textContent = data.sugestao || 'Qwen não retornou sugestão.';
-    } catch (err) {
-        trqSugestaoBox.textContent = 'Erro na requisição: ' + err;
-    }
-}
-
-function setupTrqPanel() {
-    if (trqAtualizarBtn) {
-        trqAtualizarBtn.addEventListener('click', carregarTelemetriaTRQ);
-        // carrega uma vez ao abrir
-        carregarTelemetriaTRQ();
-        // atualiza automaticamente a cada 15s
-        setInterval(carregarTelemetriaTRQ, 15000);
-    }
-
-    if (trqOtimizarBtn) {
-        trqOtimizarBtn.addEventListener('click', rodarOtimizadorTRQ);
     }
 }
 
@@ -673,6 +591,8 @@ async function sendMessage() {
             console.log('📥 Resposta /chat_duplo:', data);
 
             if (data && data.ok && data.resposta_2) {
+                // Se quiser marcar, pode prefixar com ícone:
+                // addMessage('sofia', '🌙 Camada 2:\n' + data.resposta_2);
                 addMessage('sofia', data.resposta_2);
 
                 conversationHistory.push({
