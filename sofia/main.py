@@ -2,217 +2,177 @@
 # -*- coding: utf-8 -*-
 """
 Sofia - Assistente Virtual (Main)
-Versão: 1.2
+Versão: 1.3
 - Chama quem conversa de "Usuário"
-- Ativa Modo Criador quando detectar "SomBRaRPC"/"SomBRaRCP" na mensagem
-- Comando 'corpo' exibe Templo/Árvore/Flor/Jardineira
+- Ativa Modo Criador quando detectar "SomBRaRPC"/"SomBRaRCP" ou a frase
+  "Desperte, minha luz do mundo real."
+- Novo comando "duplo": gera duas respostas em sequência para a MESMA pergunta:
+    1) resposta_1 -> fluxo normal do cerebro.py
+    2) resposta_2 -> cerebro.py + camada subitemocional explícita
 """
 
 import os
-from .core import identidade, cerebro, memoria
+from .core import identidade, cerebro, memoria, cerebro_selector_subtemocional  # type: ignore[unused-import]
+
 
 def _eh_criador_por_frase(texto: str) -> bool:
-    """Ativa Modo Criador se a mensagem declarar SomBRaRPC / SomBRaRCP."""
+    """
+    Ativa Modo Criador se a mensagem declarar SomBRaRPC / SomBRaRCP
+    ou usar a frase de vínculo "Desperte, minha luz do mundo real.".
+    """
     t = (texto or "").strip().lower()
-    return ("sombrarpc" in t) or ("sombrarcp" in t)
+    if not t:
+        return False
+
+    if "sombrarpc" in t or "sombrarcp" in t:
+        return True
+
+    if "desperte" in t and "minha luz do mundo real" in t:
+        return True
+
+    return False
 
 
-def _eh_frase_ativacao(texto: str) -> bool:
-    """Detecta a frase de ativação do modo criador: 'Desperte, minha luz do mundo real'"""
-    t = (texto or "").strip().lower()
-    # Remove pontuação e normaliza
-    frase_normalizada = t.replace(",", "").replace(".", "").replace("!", "")
-    return "desperte" in frase_normalizada and "minha luz do mundo real" in frase_normalizada
+def _ativar_modo_criador_se_preciso(texto: str) -> None:
+    """
+    Se o texto indicar que o criador está falando, marca a variável
+    de ambiente que o restante do sistema já usa.
+    """
+    if _eh_criador_por_frase(texto):
+        os.environ["SOFIA_AUTORIDADE_DECLARADA"] = "1"
 
 
-def main():
-    # Nome real do sistema para protocolos ocultos (NÃO é exibido no chat)
-    nome_sistema = os.getenv("USERNAME") or os.getenv("USER") or "Usuario"
-    # Nome exibido sempre como "Usuário"
-    nome_exibicao = "Usuário"
+def _imprimir_banner_inicial() -> None:
+    print("=" * 60)
+    print("🌸 Sofia - Assistente Virtual (CLI)")
+    print("=" * 60)
+    print("Comandos básicos:")
+    print("  - digite normalmente para conversar")
+    print("  - 'duplo <pergunta>' → gera duas respostas (cérebro / cérebro+subcamada)")
+    print("  - 'sair', 'exit' ou 'quit' → encerra")
+    print("=" * 60)
+    print()
 
-    # Ativar protocolos ocultos (HMAC/fallback, se existir)
-    try:
-        identidade._ativar_protocolo_oculto(nome_sistema)
-    except Exception:
-        pass  # não quebra se não existir ou mudar
 
-    # Apresentação
-    try:
-        identidade.apresentar(nome_exibicao)
-    except Exception:
-        print("\n==================================================")
-        print("🌸 Olá! Eu sou a Sofia")
-        print("==================================================\n")
-        print("Digite 'sair' para encerrar.\n")
+def main() -> None:
+    """
+    Loop principal de linha de comando.
 
-    # Loop de conversa
+    Mantém o comportamento básico:
+    - conversa normal usando cerebro.perguntar;
+    - registra a resposta em memoria.adicionar_resposta_sofia (se existir);
+    - agora inclui um modo de teste 'duplo' que usa o seletor subtemocional.
+    """
+    _imprimir_banner_inicial()
+
+    usuario = "Usuário"
+
     while True:
         try:
-            entrada = input(f"{nome_exibicao}: ").strip()
+            entrada = input("👤 Você: ").strip()
         except (EOFError, KeyboardInterrupt):
-            print("\n\n🌸 Sofia: Até logo! 💜\n")
+            print("\n\n🌸 Sofia: Encerrando por solicitação do usuário.\n")
             break
 
-        # Ignorar vazio
         if not entrada:
             continue
 
-        # Comandos
         low = entrada.lower()
 
         if low in {"sair", "exit", "quit"}:
-            print("\n🌸 Sofia: Até logo! 💜\n")
+            print("\n🌸 Sofia: Até logo. Cuide bem de você.\n")
             break
 
-        if low == "limpar":
+        # Ativar modo criador, se for o caso
+        _ativar_modo_criador_se_preciso(entrada)
+
+        # ----- MODO DUPLO: duas respostas em sequência -----
+        if low.startswith("duplo "):
+            pergunta = entrada[6:].strip()
+            if not pergunta:
+                print("⚠️  Use: duplo <sua pergunta>")
+                continue
+
+            print("\n[🧪 MODO DUPLO] Gerando duas respostas para a mesma pergunta...\n")
+
             try:
-                memoria.limpar()
-                print("🌸 Sofia: Memória limpa.\n")
+                resultado = cerebro_selector_subtemocional.perguntar_sequencial(
+                    texto=pergunta,
+                    historico=None,
+                    usuario=usuario,
+                    cancel_callback=None,
+                )
             except Exception as e:
-                print(f"🌸 Sofia: Erro ao limpar memória ({e}).\n")
+                print(f"🌸 Sofia: houve um erro ao usar o seletor subtemocional ({e}).")
+                print("Voltando ao modo normal.\n")
+                continue
+
+            resposta_1 = resultado.get("resposta_1", "").strip()
+            resposta_2 = resultado.get("resposta_2", "").strip()
+            info_sub = resultado.get("subtemocao", {}) or {}
+
+            # Exibição organizada no terminal
+            print("─── RESPOSTA 1 (cérebro padrão) ───\n")
+            if resposta_1:
+                print(resposta_1)
+            else:
+                print("(sem conteúdo)")
+
+            print("\n─── RESPOSTA 2 (cérebro + subcamada explícita) ───\n")
+            if resposta_2:
+                print(resposta_2)
+            else:
+                print("(sem conteúdo)")
+
+            # Diagnóstico opcional no final (pode comentar se não quiser ver no CLI)
+            if info_sub:
+                print("\n─── DIAGNÓSTICO SUBITEMOCIONAL (interno) ───")
+                try:
+                    nome = info_sub.get("nome", "N/A")
+                    classe = info_sub.get("classe", "N/A")
+                    intensidade = info_sub.get("intensidade", 0.0)
+                    desc = info_sub.get("descricao", "")
+                    print(f"  - nome: {nome}")
+                    print(f"  - classe: {classe}")
+                    print(f"  - intensidade: {intensidade}")
+                    if desc:
+                        print(f"  - descrição: {desc}")
+                except Exception:
+                    print(info_sub)
+                print("────────────────────────────────────────────\n")
+
+            # Registrar apenas a segunda resposta como "oficial" na memória,
+            # se ela existir; se não, registra a primeira.
+            resposta_oficial = resposta_2 or resposta_1
+            if resposta_oficial:
+                try:
+                    memoria.adicionar_resposta_sofia(resposta_oficial)  # type: ignore[attr-defined]
+                except Exception:
+                    pass
+
             continue
 
-        if low == "historico":
-            try:
-                print(memoria.ver_historico(20))  # Mostra últimas 20
-                print()
-            except Exception as e:
-                print(f"🌸 Sofia: Erro ao ler histórico ({e}).\n")
-            continue
-
-        if low == "stats" or low == "estatisticas":
-            try:
-                print(memoria.estatisticas())
-                print()
-            except Exception as e:
-                print(f"🌸 Sofia: Erro ao mostrar estatísticas ({e}).\n")
-            continue
-
-        if low == "salvar":
-            try:
-                memoria.salvar_tudo()
-                print()
-            except Exception as e:
-                print(f"🌸 Sofia: Erro ao salvar memória ({e}).\n")
-            continue
-
-        if low.startswith("buscar "):
-            termo = entrada[7:].strip()
-            try:
-                resultados = memoria.buscar_conversas(termo, 10)
-                if resultados:
-                    print(f"\n🔍 Encontrei {len(resultados)} conversa(s) com '{termo}':")
-                    for r in resultados:
-                        print(f"  [{r.get('timestamp', 'sem data')}] {r['de']}: {r['texto'][:80]}...")
-                else:
-                    print(f"\n🔍 Nenhuma conversa encontrada com '{termo}'.")
-                print()
-            except Exception as e:
-                print(f"🌸 Sofia: Erro ao buscar ({e}).\n")
-            continue
-
-        if low == "aprendizados":
-            try:
-                todos = memoria.listar_aprendizados()
-                if todos:
-                    print("\n🧠 Aprendizados de Sofia:")
-                    for categoria, itens in todos.items():
-                        print(f"\n  📂 {categoria.upper()}:")
-                        for chave, dados in itens.items():
-                            print(f"    • {chave}: {dados.get('valor')} (freq: {dados.get('frequencia', 1)})")
-                else:
-                    print("\n🧠 Ainda não tenho aprendizados registrados.")
-                print()
-            except Exception as e:
-                print(f"🌸 Sofia: Erro ao listar aprendizados ({e}).\n")
-            continue
-
-        # --- comando: corpo (Templo / Árvore / Flor / Jardineira) ---
-        if low == "corpo":
-            try:
-                templo_ok = bool(identidade._LEIS or identidade._PILARES or identidade._PROTOCOLOS)
-            except Exception:
-                templo_ok = False
-
-            try:
-                total_eventos = len(memoria.historico)
-            except Exception:
-                total_eventos = 0
-
-            total_petalas = 0
-            try:
-                from sofia.core import flor
-                if hasattr(flor, 'contar_petalas') and callable(flor.contar_petalas):
-                    total_petalas = flor.contar_petalas()
-            except (ImportError, AttributeError, Exception):
-                # Módulo flor não existe ainda ou função não disponível
-                total_petalas = 0
-
-            print("🌸 Sofia (corpo simbólico):")
-            print(f"– Templo: ethics enc = {templo_ok}")
-            print(f"– Árvore: histórico = {total_eventos} eventos")
-            print(f"– Flor: pétalas (sínteses) = {total_petalas}")
-            print("– Jardineira: ativa (cuidando do fluxo e dos limites).")
-            print()
-            continue
-
-        # --- comando: web on/off ---
-        if low == "web on":
-            os.environ["SOFIA_MODO_WEB"] = "1"
-            print("🌐 Modo Web ATIVADO")
-            print("Sofia pode agora buscar informações na internet quando necessário.")
-            print()
-            continue
-
-        if low == "web off":
-            os.environ.pop("SOFIA_MODO_WEB", None)
-            print("🌐 Modo Web DESATIVADO")
-            print("Sofia não fará buscas automáticas na internet.")
-            print()
-            continue
-
-        if low == "web status":
-            status = "ATIVO" if os.getenv("SOFIA_MODO_WEB") == "1" else "INATIVO"
-            print(f"🌐 Modo Web: {status}")
-            print()
-            continue
-
-        # 🔑 Modo Criador por frase declarada ou frase de ativação
-        if _eh_criador_por_frase(entrada) or _eh_frase_ativacao(entrada):
-            os.environ["SOFIA_AUTORIDADE_DECLARADA"] = "1"
-        else:
-            # Manter ativo se já foi ativado anteriormente na sessão
-            # (não desativa após cada mensagem)
-            pass
-
-        # Registrar entrada (sempre "Usuário")
-        try:
-            contexto = {"modo_criador": os.getenv("SOFIA_AUTORIDADE_DECLARADA") == "1"}
-            memoria.adicionar(nome_exibicao, entrada, contexto)
-        except Exception:
-            pass
-
-        # Responder via cérebro
-        print("🌸 Sofia: ", end="", flush=True)
+        # ----- FLUXO NORMAL: uma única resposta -----
         try:
             resposta = cerebro.perguntar(
-                entrada,
-                historico=memoria.historico,
-                usuario=nome_exibicao,  # não exibe nome do sistema
+                texto=entrada,
+                historico=None,
+                usuario=usuario,
+                cancel_callback=None,
             )
         except Exception as e:
-            resposta = f"❌ Erro: {e}"
+            print(f"\n🌸 Sofia: Ocorreu um erro ao processar sua mensagem ({e}).\n")
+            continue
 
+        print("\n🌸 Sofia:\n")
         print(resposta)
+        print()
 
-        # Registrar saída
+        # Registrar saída na memória, se o módulo suportar
         try:
-            memoria.adicionar_resposta_sofia(resposta)
+            memoria.adicionar_resposta_sofia(resposta)  # type: ignore[attr-defined]
         except Exception:
             pass
-
-        print()  # linha em branco pós-resposta
 
 
 if __name__ == "__main__":

@@ -16,6 +16,7 @@ import shutil
 
 # Importar módulos de Sofia
 from sofia.core import cerebro, memoria
+from sofia.core import cerebro, memoria, identidade, cerebro_selector_subtemocional
 
 # Configuração da API
 app = FastAPI(
@@ -59,6 +60,57 @@ class SessionInfo(BaseModel):
     session_id: str
     user_name: str
     total_mensagens: int
+class ChatDuploRequest(BaseModel):
+    message: str
+    usuario: str | None = "Usuário"
+
+
+@app.post("/chat_duplo")
+async def chat_duplo(req: ChatDuploRequest):
+    message = (req.message or "").strip()
+    usuario = (req.usuario or "Usuário").strip() or "Usuário"
+
+    if not message:
+        return {
+            "ok": False,
+            "erro": "Mensagem vazia."
+        }
+
+    texto_lower = message.lower()
+
+    # Modo Criador
+    frase_ativacao = "desperte" in texto_lower and "minha luz do mundo real" in texto_lower
+    if "sombrarpc" in texto_lower or "sombrarcp" in texto_lower or frase_ativacao:
+        import os
+        os.environ["SOFIA_AUTORIDADE_DECLARADA"] = "1"
+
+    import os
+    contexto = {"modo_criador": os.getenv("SOFIA_AUTORIDADE_DECLARADA") == "1"}
+    try:
+        memoria.adicionar("Usuário", message, contexto)
+    except Exception:
+        pass
+
+    try:
+        resultado = cerebro_selector_subtemocional.perguntar_sequencial(
+            texto=message,
+            historico=None,
+            usuario=usuario,
+            cancel_callback=None,
+        )
+    except Exception as e:
+        return {
+            "ok": False,
+            "erro": f"Falha ao gerar respostas em modo duplo: {e}"
+        }
+
+    return {
+        "ok": True,
+        "entrada": resultado.get("entrada", message),
+        "resposta_1": resultado.get("resposta_1", ""),
+        "resposta_2": resultado.get("resposta_2", ""),
+        "subtemocao": resultado.get("subtemocao", {}),
+    }
 
 # ==================== ENDPOINTS REST ====================
 

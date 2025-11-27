@@ -20,10 +20,11 @@ Uso sugerido:
 """
 
 from __future__ import annotations
-
+from .monitor_execucao import monitorar_execucao
 from dataclasses import dataclass
 from typing import Dict, Any
 from trq_core_v2 import TRQCore2, TRQParams
+
 
 trq_params = TRQParams()
 trq_core = TRQCore2(trq_params)
@@ -313,6 +314,7 @@ def _time_evolution_operator(H_t, dt: float):
 # Função principal de simulação v2
 # ======================================================================
 
+@monitorar_execucao("simular_trq_floquet_v2")
 def simular_trq_floquet_v2(param: ParametrosTRQFloquetV2 | None = None) -> Dict[str, Any]:
     """
     Roda o algoritmo TRQ–Floquet v2 de NQCs com QuTiP.
@@ -328,6 +330,10 @@ def simular_trq_floquet_v2(param: ParametrosTRQFloquetV2 | None = None) -> Dict[
     """
     if param is None:
         param = ParametrosTRQFloquetV2()
+
+    # ... aqui permanece exatamente TODO o corpo que você já tem ...
+    # nada dentro da função precisa ser alterado
+
 
     (
         np,
