@@ -1,6 +1,6 @@
 // API Configuration
-const API_URL = 'https://c8ebb370aa54.ngrok-free.app';
-const WS_URL = 'wss://c8ebb370aa54.ngrok-free.app';
+const API_URL = 'https://7c2afc9e2a98.ngrok-free.app';
+const WS_URL = 'wss://7c2afc9e2a98.ngrok-free.app';
 
 // WebSocket
 let ws = null;
@@ -1506,5 +1506,122 @@ if (qwenBtn) {
             console.error("Erro ao chamar Qwen:", err);
             showNotification("❌ Erro na requisição Qwen", "error");
         }
+    });
+}
+// ===================== TRQ + QWEN ===================== //
+
+// Elementos do painel de telemetria
+const trqExecucoesEl = document.getElementById("trq-execucoes");
+const qwenSugestaoEl = document.getElementById("qwen-sugestao");
+
+// Botões
+const btnAtualizarTrq = document.getElementById("btn-atualizar-trq");
+const btnRodarQwen   = document.getElementById("btn-otimizar-trq"); // <= ID IGUAL AO HTML
+
+/**
+ * Atualiza o painel "Telemetria TRQ + Qwen"
+ * Esperado do backend (exemplo):
+ * GET /api/trq-telemetria -> { execucoes: string, sugestao: string }
+ */
+async function atualizarTelemetriaTRQ(showNotify = true) {
+    if (!trqExecucoesEl || !qwenSugestaoEl) {
+        console.warn("Elementos de telemetria TRQ não encontrados no DOM.");
+        return;
+    }
+
+    try {
+        if (showNotify && typeof showNotification === "function") {
+            showNotification("Atualizando telemetria TRQ…", "info");
+        }
+
+        const resp = await fetch(`${API_URL}/trq-telemetria`, {
+            method: "GET",
+        });
+
+        if (!resp.ok) {
+            throw new Error(`Status ${resp.status}`);
+        }
+
+        const data = await resp.json();
+
+        // Se o backend devolver texto cru, apenas joga no <pre>
+        trqExecucoesEl.textContent = data.execucoes || "Nenhum dado ainda.";
+        qwenSugestaoEl.textContent = data.sugestao || "Clique em \"Rodar Qwen (otimizar)\" para gerar sugestão.";
+
+        if (showNotify && typeof showNotification === "function") {
+            showNotification("Telemetria TRQ atualizada.", "success");
+        }
+    } catch (err) {
+        console.error("Erro ao atualizar telemetria TRQ:", err);
+        trqExecucoesEl.textContent = "Erro ao carregar telemetria.";
+        if (showNotify && typeof showNotification === "function") {
+            showNotification("Erro ao atualizar telemetria TRQ.", "error");
+        }
+    }
+}
+
+/**
+ * Roda o Qwen usando os logs TRQ
+ * Esperado do backend (exemplo):
+ * POST /api/rodar-qwen -> { sucesso: true, sugestao: string }
+ */
+async function rodarQwenOtimizar() {
+    if (!qwenSugestaoEl) {
+        console.warn("Elemento de sugestão do Qwen não encontrado.");
+        return;
+    }
+
+    try {
+        if (typeof showNotification === "function") {
+            showNotification("Rodando Qwen (otimizar)…", "info");
+        }
+
+        const resp = await fetch(`${API_URL}/rodar-qwen`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({}) // se precisar mandar algo, acrescenta aqui
+        });
+
+        if (!resp.ok) {
+            throw new Error(`Status ${resp.status}`);
+        }
+
+        const data = await resp.json();
+
+        // Ajuste as chaves abaixo de acordo com o que seu backend retornar
+        const textoSugestao =
+            data.sugestao ||
+            data.resultado ||
+            data.message ||
+            "Qwen executado, mas nenhuma sugestão foi retornada.";
+
+        qwenSugestaoEl.textContent = textoSugestao;
+
+        // Depois de rodar o Qwen, atualiza a lista de execuções
+        atualizarTelemetriaTRQ(false);
+
+        if (typeof showNotification === "function") {
+            showNotification("Qwen rodou com sucesso.", "success");
+        }
+    } catch (err) {
+        console.error("Erro ao rodar Qwen:", err);
+        if (typeof showNotification === "function") {
+            showNotification("Erro ao rodar Qwen (otimizar).", "error");
+        }
+    }
+}
+
+// Liga os botões, se existirem no HTML
+if (btnAtualizarTrq) {
+    btnAtualizarTrq.addEventListener("click", () => {
+        atualizarTelemetriaTRQ(true);
+    });
+}
+
+if (btnRodarQwen) {
+    btnRodarQwen.addEventListener("click", () => {
+        rodarQwenOtimizar();
     });
 }
