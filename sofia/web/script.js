@@ -1,6 +1,6 @@
 // API Configuration
-const API_URL = 'https://d0b1c7edf2a0.ngrok-free.app';
-const WS_URL = 'wss://d0b1c7edf2a0.ngrok-free.app';
+const API_URL = 'https://f6240446740c.ngrok-free.app';
+const WS_URL = 'wss://f6240446740c.ngrok-free.app';
 
 // WebSocket
 let ws = null;
@@ -508,6 +508,9 @@ function toggleWebSearchMode() {
     }
 }
 
+// =====================
+//  SEND MESSAGE (NOVO)
+// =====================
 async function sendMessage() {
     const message = messageInput.value.trim();
 
@@ -532,7 +535,7 @@ async function sendMessage() {
     // Add user message (com indicação de arquivos)
     addMessage('user', displayMessage);
 
-    // Limpa anexos da UI
+    // Copia anexos atuais e limpa UI
     const tempAttachedFiles = [...attachedFiles];
     attachedFiles = [];
     updateAttachedFilesUI();
@@ -541,7 +544,7 @@ async function sendMessage() {
         // Prepara mensagem incluindo contexto dos arquivos
         let fullMessage = message || 'Veja os arquivos que enviei.';
 
-        // Enviar via WebSocket
+        // ---------- ENVIO VIA WEBSOCKET (RESPOSTA 1) ----------
         const wsMessage = {
             type: 'message',
             content: fullMessage,
@@ -566,10 +569,43 @@ async function sendMessage() {
             updateStatus('connecting', 'Pensando...');
         }
 
-        // Update history
+        // Atualiza histórico local com a mensagem do usuário
         conversationHistory.push(
             { de: 'Usuário', texto: message }
         );
+
+        // ---------- NOVO: PEDIR RESPOSTA 2 /chat_duplo ----------
+        try {
+            const response = await fetch(`${API_URL}/chat_duplo`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message: fullMessage,
+                    usuario: 'Usuário'
+                })
+            });
+
+            const data = await response.json();
+            console.log('📥 Resposta /chat_duplo:', data);
+
+            if (data && data.ok && data.resposta_2) {
+                // Se quiser marcar, pode prefixar com ícone:
+                // addMessage('sofia', '🌙 Camada 2:\n' + data.resposta_2);
+                addMessage('sofia', data.resposta_2);
+
+                conversationHistory.push({
+                    de: 'Sofia (camada 2)',
+                    texto: data.resposta_2
+                });
+            } else if (data && !data.ok && data.erro) {
+                console.error('Erro em /chat_duplo:', data.erro);
+            }
+        } catch (err) {
+            console.error('❌ Falha ao chamar /chat_duplo:', err);
+        }
+
     } catch (error) {
         hideTypingIndicator();
         addMessage('sofia', '❌ Não foi possível enviar a mensagem. Tentando reconectar...');
@@ -1267,104 +1303,104 @@ async function loadConversationsList() {
     }
 }
 
-    // Search conversations
-    const searchBtn = document.getElementById('search-btn');
-    if (searchBtn) {
-        searchBtn.addEventListener('click', async () => {
-            const searchInput = document.getElementById('search-conversations');
-            const searchTerm = searchInput ? searchInput.value.trim() : '';
-            if (!searchTerm) {
-                loadConversationsList();
-                return;
-            }
+// Search conversations
+const searchBtn = document.getElementById('search-btn');
+if (searchBtn) {
+    searchBtn.addEventListener('click', async () => {
+        const searchInput = document.getElementById('search-conversations');
+        const searchTerm = searchInput ? searchInput.value.trim() : '';
+        if (!searchTerm) {
+            loadConversationsList();
+            return;
+        }
 
-            const listEl = document.getElementById('conversations-list');
-            if (!listEl) return;
+        const listEl = document.getElementById('conversations-list');
+        if (!listEl) return;
 
-            listEl.innerHTML = '<div class="loading">Buscando...</div>';
+        listEl.innerHTML = '<div class="loading">Buscando...</div>';
 
-            try {
-                const response = await fetch(`${API_URL}/search`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ termo: searchTerm, limite: 50 })
-                });
-
-                const data = await response.json();
-
-                if (data.resultados && data.resultados.length > 0) {
-                    listEl.innerHTML = '';
-                    data.resultados.forEach((conv) => {
-                        const item = document.createElement('div');
-                        item.className = 'conversation-item';
-                        item.innerHTML = `
-                            <div class="conversation-info">
-                                <div class="conversation-text">
-                                    <strong>${conv.de}:</strong> ${conv.texto.substring(0, 80)}${conv.texto.length > 80 ? '...' : ''}
-                                </div>
-                                <div class="conversation-meta">
-                                ${conv.timestamp ? new Date(conv.timestamp).toLocaleString('pt-BR') : 'Sem data'}
-                                </div>
-                            </div>
-                        `;
-                        listEl.appendChild(item);
-                    });
-                } else {
-                    listEl.innerHTML = `<p class="text-muted">Nenhuma conversa encontrada com "${searchTerm}"</p>`;
-                }
-            } catch (error) {
-                listEl.innerHTML = '<p class="text-muted">❌ Erro ao buscar</p>';
-                console.error('Erro:', error);
-            }
-        });
-    }
-
-    
-    // Delete conversation
-    async function deleteConversation(index) {
-        if (!confirm('Tem certeza que deseja deletar esta conversa?')) return;
-    
         try {
-            const response = await fetch(`${API_URL}/delete-conversation`, {
+            const response = await fetch(`${API_URL}/search`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ index })
+                body: JSON.stringify({ termo: searchTerm, limite: 50 })
             });
-    
+
             const data = await response.json();
-            if (data.sucesso) {
-                showNotification('✅ Conversa deletada');
-                loadConversationsList();
+
+            if (data.resultados && data.resultados.length > 0) {
+                listEl.innerHTML = '';
+                data.resultados.forEach((conv) => {
+                    const item = document.createElement('div');
+                    item.className = 'conversation-item';
+                    item.innerHTML = `
+                        <div class="conversation-info">
+                            <div class="conversation-text">
+                                <strong>${conv.de}:</strong> ${conv.texto.substring(0, 80)}${conv.texto.length > 80 ? '...' : ''}
+                            </div>
+                            <div class="conversation-meta">
+                            ${conv.timestamp ? new Date(conv.timestamp).toLocaleString('pt-BR') : 'Sem data'}
+                            </div>
+                        </div>
+                    `;
+                    listEl.appendChild(item);
+                });
             } else {
-                showNotification('❌ Erro ao deletar', 'error');
+                listEl.innerHTML = `<p class="text-muted">Nenhuma conversa encontrada com "${searchTerm}"</p>`;
             }
         } catch (error) {
-            showNotification('❌ Erro ao deletar', 'error');
+            listEl.innerHTML = '<p class="text-muted">❌ Erro ao buscar</p>';
             console.error('Erro:', error);
         }
-    }
-    
-    // Cleanup actions
-    const clearCacheBtn = document.getElementById('clear-cache-btn');
-    if (clearCacheBtn) {
-        clearCacheBtn.addEventListener('click', async () => {
-            if (!confirm('Limpar cache da sessão atual?')) return;
+    });
+}
 
-            try {
-                const response = await fetch(`${API_URL}/action`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'limpar' })
-                });
+// Delete conversation
+async function deleteConversation(index) {
+    if (!confirm('Tem certeza que deseja deletar esta conversa?')) return;
 
-                if (response.ok) {
-                    showNotification('✅ Cache limpo!', 'success');
-                }
-            } catch (error) {
-                showNotification('❌ Erro ao limpar cache', 'error');
-            }
+    try {
+        const response = await fetch(`${API_URL}/delete-conversation`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ index })
         });
+
+        const data = await response.json();
+        if (data.sucesso) {
+            showNotification('✅ Conversa deletada');
+            loadConversationsList();
+        } else {
+            showNotification('❌ Erro ao deletar', 'error');
+        }
+    } catch (error) {
+        showNotification('❌ Erro ao deletar', 'error');
+        console.error('Erro:', error);
     }
+}
+
+// Cleanup actions
+const clearCacheBtn = document.getElementById('clear-cache-btn');
+if (clearCacheBtn) {
+    clearCacheBtn.addEventListener('click', async () => {
+        if (!confirm('Limpar cache da sessão atual?')) return;
+
+        try {
+            const response = await fetch(`${API_URL}/action`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'limpar' })
+            });
+
+            if (response.ok) {
+                showNotification('✅ Cache limpo!', 'success');
+            }
+        } catch (error) {
+            showNotification('❌ Erro ao limpar cache', 'error');
+        }
+    });
+}
+
 const clearConversationsBtn = document.getElementById('clear-conversations-btn');
 if (clearConversationsBtn) {
     clearConversationsBtn.addEventListener('click', async () => {
@@ -1385,9 +1421,8 @@ if (clearConversationsBtn) {
     });
 }
 
-    
-    // Preferences functions
-    function loadPreferences() {
+// Preferences functions
+function loadPreferences() {
     const prefs = localStorage.getItem('sofia-preferences');
     if (!prefs) return;
 
@@ -1406,8 +1441,7 @@ if (clearConversationsBtn) {
     if (showTimestampsCheckbox) showTimestampsCheckbox.checked = preferences.showTimestamps !== false;
 }
 
-    
-    const savePreferencesBtn = document.getElementById('save-preferences-btn');
+const savePreferencesBtn = document.getElementById('save-preferences-btn');
 if (savePreferencesBtn) {
     savePreferencesBtn.addEventListener('click', () => {
         const languageSelect = document.getElementById('language-select');
@@ -1430,19 +1464,19 @@ if (savePreferencesBtn) {
     });
 }
 
-    // Notification function
-    function showNotification(message, type = 'success') {
-        const notification = document.createElement('div');
-        notification.className = `notification ${type}`;
-        notification.textContent = message;
-        document.body.appendChild(notification);
-    
-        setTimeout(() => {
-            notification.classList.add('show');
-        }, 10);
-    
-        setTimeout(() => {
-            notification.classList.remove('show');
-            setTimeout(() => notification.remove(), 300);
-        }, 3000);
-    }
+// Notification function
+function showNotification(message, type = 'success') {
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+        notification.classList.add('show');
+    }, 10);
+
+    setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
