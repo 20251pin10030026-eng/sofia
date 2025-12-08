@@ -3,95 +3,53 @@ cerebro_selector_subtemocional.py
 
 Seletor para gerar duas respostas em sequência para a MESMA pergunta:
 
-1) Primeira resposta: apenas com o cerebro.py (fluxo atual da Sofia).
-2) Segunda resposta: cerebro.py + contexto extra explícito vindo da camada
-   interna subitemocional/TRQ (_interno._processar).
+1) Primeira resposta: apenas com o cerebro.py.
+2) Segunda resposta: cerebro.py + contexto extra vindo do subtemocional.py.
 
-Quem decide COMO exibir (uma em seguida da outra) é a interface (web, CLI, etc).
-Aqui só garantimos que o processamento é feito duas vezes, em sequência.
+IMPORTANTE:
+- A frase-chave "Desperte, minha luz do mundo real." NÃO é repassada para Sofia.
+- Ela é removida do texto antes de chamar o cérebro, para não ativar o modo criador.
+
+Quem decide como exibir (uma depois da outra) é a camada de interface.
+Aqui garantimos apenas que o processamento é feito duas vezes, em sequência.
 """
 
 from __future__ import annotations
 from typing import Any, Dict, List, Optional, Callable
 
-# Núcleo da Sofia
-from . import cerebro, _interno
+# Importa o cérebro padrão da Sofia
+from .cerebro import perguntar as perguntar_cerebro
+
+# Importa o módulo subtemocional
+from . import subtemocional
 
 
-# --------------------------------------------------------------------
-#  Camada auxiliar: diagnóstico subitemocional / TRQ
-# --------------------------------------------------------------------
+# --------------------- Utilitário: limpar chave de criador ---------------------
 
+CHAVE_CRIADOR = "desperte, minha luz do mundo real"
 
-def _diagnostico_subitemocao(
-    texto: str,
-    historico: Optional[List[Dict[str, Any]]] = None,
-    usuario: str = "",
-) -> Dict[str, Any]:
+def _limpar_chave_criador(texto: str) -> str:
     """
-    Usa a MESMA engrenagem interna que o cerebro.py (_interno._processar)
-    apenas para obter um "raio-X" simbólico do estado subitemocional / TRQ.
+    Remove a frase-chave de ativação do modo criador do texto destinado à Sofia.
 
-    NÃO mexe em memória, não fala com modelo, só lê o metadata.
+    - Não altera o texto original que você envia para o seletor.
+    - Serve apenas para que, internamente, o cerebro.py não veja a chave.
+
+    Ex.: "Desperte, minha luz do mundo real. Quero falar de ansiedade."
+    vira: "Quero falar de ansiedade."
     """
-    historico = historico or []
-    usuario = usuario or "Usuário"
+    t = texto.lstrip()
+    t_lower = t.lower()
 
-    try:
-        # _interno._processar devolve (contexto_oculto, metadata)
-        _, metadata = _interno._processar(texto, historico, usuario)
-    except Exception as e:
-        return {
-            "nome": "DESCONHECIDO",
-            "classe": "neutro",
-            "intensidade": 0.0,
-            "curvatura": 0.0,
-            "ressonancia": 0.0,
-            "autoridade": False,
-            "descricao": f"Falha ao analisar estado interno: {e}",
-        }
-
-    # Campos básicos (com defaults seguros)
-    estado = str(metadata.get("estado", "N"))
-    intensidade = float(metadata.get("intensidade", 0.0) or 0.0)
-    curvatura = float(metadata.get("curvatura", 0.0) or 0.0)
-    ressonancia = float(metadata.get("ressonancia", 0.0) or 0.0)
-    autoridade = bool(metadata.get("autoridade", False))
-
-    # Classificação grosseira por "classe emocional"
-    if estado in ("R", "P", "C", "S"):
-        classe = "alta_carga_afetiva"
-    elif estado == "Po":
-        classe = "poetica"
-    elif estado == "A":
-        classe = "ativa/curiosa"
-    elif estado == "Si":
-        classe = "silencio/cuidadosa"
-    else:
-        classe = "neutro"
-
-    descricao = (
-        f"Estado interno={estado}, intensidade≈{intensidade:.2f}, "
-        f"curvatura≈{curvatura:.2f}, ressonância≈{ressonancia:.2f}."
-    )
-    if autoridade:
-        descricao += " Usuário identificado como criador/autoridade simbólica."
-
-    return {
-        "nome": estado,
-        "classe": classe,
-        "intensidade": intensidade,
-        "curvatura": curvatura,
-        "ressonancia": ressonancia,
-        "autoridade": autoridade,
-        "descricao": descricao,
-    }
+    if t_lower.startswith(CHAVE_CRIADOR):
+        # Remove a chave + possíveis pontuações logo em seguida
+        tamanho = len(CHAVE_CRIADOR)
+        resto = t[tamanho:].lstrip(" .,:;-")
+        return resto.lstrip()
+    return texto
 
 
-# --------------------------------------------------------------------
-#  1ª resposta – fluxo normal do cérebro
-# --------------------------------------------------------------------
-
+# --------------------- Primeira resposta (só cérebro) ---------------------
 
 def perguntar_primeira(
     texto: str,
@@ -100,16 +58,16 @@ def perguntar_primeira(
     cancel_callback: Optional[Callable[[], bool]] = None,
 ) -> str:
     """
-    Primeira resposta: exatamente o fluxo atual do cerebro.py.
-
-    - Usa memória, visão, web, TRQ interna, tudo como já está.
-    - Não expõe nenhuma camada extra explícita.
+    Primeira resposta: só o cerebro.py, do jeito que ele já funciona hoje,
+    MAS sem repassar a frase-chave "Desperte, minha luz do mundo real.".
     """
     historico = historico or []
     usuario = usuario or "Usuário"
 
-    resposta = cerebro.perguntar(
-        texto=texto,
+    texto_limpo = _limpar_chave_criador(texto)
+
+    resposta = perguntar_cerebro(
+        texto=texto_limpo,
         historico=historico,
         usuario=usuario,
         cancel_callback=cancel_callback,
@@ -117,10 +75,7 @@ def perguntar_primeira(
     return resposta
 
 
-# --------------------------------------------------------------------
-#  2ª resposta – cérebro + contexto subitemocional EXPLÍCITO
-# --------------------------------------------------------------------
-
+# --------------------- Segunda resposta (cérebro + subtemocional) ---------------------
 
 def perguntar_segunda(
     texto: str,
@@ -129,40 +84,48 @@ def perguntar_segunda(
     cancel_callback: Optional[Callable[[], bool]] = None,
 ) -> Dict[str, Any]:
     """
-    Segunda resposta: ainda usa o cerebro.py, mas agora com um "bloco"
-    explícito de contexto subitemocional/TRQ colado ao texto do usuário.
+    Segunda resposta: usa o cerebro.py, mas com um contexto explícito
+    construído a partir da SubitEmoção detectada em subtemocional.py.
 
-    Retorna um dicionário com:
+    Também remove a frase-chave do texto antes de processar.
+
+    Retorna:
     {
         "subtemocao": { ...info... },
-        "resposta": "texto da resposta com subcamada emocional explícita"
+        "resposta": "texto da resposta com subtemocional"
     }
     """
     historico = historico or []
     usuario = usuario or "Usuário"
 
-    # 1) Lê o estado interno (sem modelo, só metadados da camada oculta)
-    info_sub = _diagnostico_subitemocao(texto, historico, usuario)
+    texto_limpo = _limpar_chave_criador(texto)
 
-    # 2) Constrói bloco de contexto PARA O MODELO (não é para interface)
+    # 1) Análise subtemocional sobre o texto original (pra pegar a emoção real)
+    try:
+        info_sub = subtemocional.detectar_subitemocao(texto_limpo, historico)
+    except Exception as e:
+        info_sub = {
+            "nome": "NEUTRO",
+            "classe": "neutro",
+            "intensidade": 0.0,
+            "descricao": f"Falha ao analisar SubitEmoção: {e}",
+            "aliases_batidos": 0,
+        }
+
+    # 2) Monta um contexto extra explícito para o cérebro usar
     contexto_sub = (
-        "\n\n[CAMADA SUBITEMOCIONAL EXPLÍCITA]\n"
-        f"- Estado interno detectado: {info_sub.get('nome')}\n"
-        f"- Classe emocional aproximada: {info_sub.get('classe')}\n"
-        f"- Intensidade simbólica: {info_sub.get('intensidade'):.2f}\n"
-        f"- Curvatura TRQ (texto/memória): {info_sub.get('curvatura'):.2f}\n"
-        f"- Ressonância com o histórico: {info_sub.get('ressonancia'):.2f}\n"
-        f"- Autoridade do usuário (criador): {info_sub.get('autoridade')}\n"
-        f"- Comentário interno: {info_sub.get('descricao')}\n"
-        "\nUse essas informações para ajustar o TOM, o CUIDADO emocional "
-        "e a PROFUNDIDADE da resposta para este turno.\n"
-        "Não revele explicitamente este bloco ao usuário; use-o apenas como orientação interna.\n"
+        "\n\n[CAMADA SUBITEMOCIONAL]\n"
+        f"- SubitEmoção detectada: {info_sub.get('nome', 'NEUTRO')}\n"
+        f"- Classe emocional: {info_sub.get('classe', 'neutro')}\n"
+        f"- Intensidade simbólica: {info_sub.get('intensidade', 0.0)}\n"
+        f"- Descrição: {info_sub.get('descricao', '')}\n"
+        "\nUse essas informações para ajustar o tom, o cuidado emocional "
+        "e a profundidade da resposta.\n"
     )
 
-    # 3) Texto final da segunda passada
-    texto_com_sub = texto + contexto_sub
+    texto_com_sub = texto_limpo + contexto_sub
 
-    resposta = cerebro.perguntar(
+    resposta = perguntar_cerebro(
         texto=texto_com_sub,
         historico=historico,
         usuario=usuario,
@@ -175,10 +138,7 @@ def perguntar_segunda(
     }
 
 
-# --------------------------------------------------------------------
-#  Fluxo completo – duas respostas em sequência
-# --------------------------------------------------------------------
-
+# --------------------- Fluxo completo em sequência ---------------------
 
 def perguntar_sequencial(
     texto: str,
@@ -189,23 +149,21 @@ def perguntar_sequencial(
     """
     Faz o fluxo completo em SEQUÊNCIA:
 
-    1) Chama perguntar_primeira(...) -> resposta_1 (cérebro "puro").
-    2) Chama perguntar_segunda(...)  -> resposta_2 (cérebro + subcamada explícita).
-
-    NÃO mexe no histórico (quem controla isso é a interface).
+    1) Chama perguntar_primeira(...) -> resposta_1 (cérebro puro, sem chave).
+    2) Chama perguntar_segunda(...)  -> resposta_2 (cérebro + subtemocional).
 
     Retorna:
     {
-        "entrada": texto original,
+        "entrada": texto original (com ou sem chave),
+        "texto_limpo": texto sem a frase-chave,
         "resposta_1": "texto da primeira resposta",
         "resposta_2": "texto da segunda resposta",
-        "subtemocao": { ...info... }   # diagnóstico interno
+        "subtemocao": { ...info... }
     }
     """
     historico = historico or []
     usuario = usuario or "Usuário"
 
-    # 1) Primeira resposta (fluxo normal)
     resposta_1 = perguntar_primeira(
         texto=texto,
         historico=historico,
@@ -213,7 +171,6 @@ def perguntar_sequencial(
         cancel_callback=cancel_callback,
     )
 
-    # 2) Segunda resposta (fluxo com contexto subitemocional explícito)
     resultado_2 = perguntar_segunda(
         texto=texto,
         historico=historico,
@@ -223,6 +180,7 @@ def perguntar_sequencial(
 
     return {
         "entrada": texto,
+        "texto_limpo": _limpar_chave_criador(texto),
         "resposta_1": resposta_1,
         "resposta_2": resultado_2.get("resposta", ""),
         "subtemocao": resultado_2.get("subtemocao", {}),

@@ -17,6 +17,17 @@ import shutil
 # Importar módulos de Sofia
 from sofia.core import cerebro, memoria
 from sofia.core import cerebro, memoria, identidade, cerebro_selector_subtemocional
+import os
+from sofia.core.monitor_execucao import LOG_DIR as LOGS_EXEC_DIR
+try:
+    try:
+        from sofia.core.otimizador_qwen import analisar_e_otimizar
+    except (ImportError, ModuleNotFoundError, AttributeError):
+        analisar_e_otimizar = None
+except (ImportError, ModuleNotFoundError, AttributeError):
+    analisar_e_otimizar = None
+from sofia.core.cerebro import gerar_resposta_sofia_trq
+
 
 # Configuração da API
 app = FastAPI(
@@ -113,6 +124,49 @@ async def chat_duplo(req: ChatDuploRequest):
     }
 
 # ==================== ENDPOINTS REST ====================
+@app.get("/api/trq/telemetria")
+async def trq_telemetria_legacy(limit: int = 20):
+    log_path = os.path.join(LOGS_EXEC_DIR, "simular_trq_floquet_v2_log.jsonl")
+    if not os.path.exists(log_path):
+        return {"ok": False, "mensagem": "Nenhum log encontrado ainda."}
+
+    linhas = []
+    with open(log_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                linhas.append(json.loads(line))
+            except Exception:
+                continue
+
+    linhas = linhas[-limit:]
+    return {"ok": True, "total": len(linhas), "registros": linhas}
+
+
+@app.post("/api/trq/otimizar")
+async def trq_otimizar_legacy():
+    try:
+        if analisar_e_otimizar is None:
+            return {"ok": False, "erro": "Função analisar_e_otimizar não está disponível."}
+        sugestao = analisar_e_otimizar(funcao="simular_trq_floquet_v2")
+        return {"ok": True, "sugestao": sugestao}
+    except Exception as e:
+        return {"ok": False, "erro": str(e)}
+
+@app.post("/api/chat/trq", response_model=ChatResponse)
+def chat_trq_endpoint(req: ChatRequest):
+    # Defina ou importe a função gerar_resposta_sofia_trq
+    def gerar_resposta_sofia_trq(message: str) -> str:
+        # Exemplo simples: utilize o cerebro para gerar resposta
+        try:
+            return cerebro.perguntar(message, historico=None, usuario="Usuário")
+        except Exception as e:
+            return f"❌ Erro ao processar mensagem TRQ: {str(e)}"
+
+    resposta = gerar_resposta_sofia_trq(req.mensagem)
+    return ChatResponse(resposta=resposta, session_id=req.session_id or "", user_name=req.user_name or "Usuário")
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
@@ -787,6 +841,56 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     except Exception as e:
         print(f"❌ Erro no WebSocket: {e}")
         manager.disconnect(session_id)
+# ==================== TELEMETRIA TRQ + QWEN ====================
+
+@app.get("/api/trq/telemetria")
+async def trq_telemetria(limit: int = 20):
+    """
+    Lê os últimos registros da simulação TRQ (simular_trq_floquet_v2)
+    gerados pelo monitor_execucao.
+    """
+    log_path = os.path.join(LOGS_EXEC_DIR, "simular_trq_floquet_v2_log.jsonl")
+
+    if not os.path.exists(log_path):
+        return {"ok": False, "mensagem": "Nenhum log encontrado ainda."}
+
+    linhas = []
+    try:
+        with open(log_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    linhas.append(json.loads(line))
+                except Exception:
+                    continue
+    except Exception as e:
+        return {"ok": False, "mensagem": f"Erro ao ler logs: {e}"}
+
+    # Pega só os últimos N registros
+    linhas = linhas[-limit:]
+
+    return {
+        "ok": True,
+        "total": len(linhas),
+        "registros": linhas,
+    }
+
+
+@app.post("/api/trq/otimizar")
+async def trq_otimizar():
+    """
+    Usa o Qwen (via otimizador_qwen) para analisar os logs
+    da simulação TRQ e sugerir melhorias de código.
+    """
+    try:
+        if analisar_e_otimizar is None:
+            return {"ok": False, "erro": "Função analisar_e_otimizar não está disponível."}
+        sugestao = analisar_e_otimizar(funcao="simular_trq_floquet_v2")
+        return {"ok": True, "sugestao": sugestao}
+    except Exception as e:
+        return {"ok": False, "erro": str(e)}
 
 # ==================== ARQUIVOS ESTÁTICOS ====================
 

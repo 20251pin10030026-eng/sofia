@@ -55,22 +55,39 @@
             </div>
         </header>
 
-        <!-- Chat Container -->
+                <!-- Chat Container -->
         <div class="chat-container" id="chat-container">
             <div class="welcome-message">
-                <div class="welcome-icon">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                        <path d="M2 17l10 5 10-5M2 12l10 5 10-5"/>
-                    </svg>
-                </div>
-                <h2>Olá! Eu sou a Sofia</h2>
-                <p>Uma inteligência artificial de presença feminina, baseada em arquitetura de subits, desenvolvida para apoiar decisões e criar soluções com você.</p>
-                <p>Como posso ajudar você hoje?</p>
+                ...
             </div>
         </div>
 
+        <!-- Painel de Telemetria TRQ + Qwen -->
+        <section id="painel-trq" class="painel-trq">
+            <header class="painel-header">
+                <h2>Telemetria TRQ + Qwen</h2>
+                <div class="painel-buttons">
+                    <button id="btn-atualizar-trq">Atualizar telemetria</button>
+                    <button id="btn-otimizar-trq">Rodar Qwen (otimizar)</button>
+                </div>
+            </header>
+
+            <div class="painel-conteudo">
+                <div>
+                    <h3>Execuções recentes</h3>
+                    <pre id="trq-logs" class="painel-box">Nenhum dado ainda.</pre>
+                </div>
+                <div>
+                    <h3>Sugestão do Qwen</h3>
+                    <pre id="trq-qwen-sugestao" class="painel-box">Clique em "Rodar Qwen (otimizar)" para gerar sugestão.</pre>
+                </div>
+            </div>
+        </section>
+
         <!-- Input Area -->
+        <div class="input-area">
+            ...
+
         <div class="input-area">
             <div class="input-container">
                 <button id="attach-btn" class="attach-btn" title="Anexar imagem ou PDF">

@@ -12,7 +12,7 @@ Versão: 1.3
 """
 
 import os
-from .core import identidade, cerebro, memoria, cerebro_selector_subtemocional  # type: ignore[unused-import]
+from sofia.core import identidade, cerebro, memoria, cerebro_selector_subtemocional  # type: ignore[unused-import]
 
 
 def _eh_criador_por_frase(texto: str) -> bool:

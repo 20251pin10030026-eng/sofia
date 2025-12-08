@@ -14,9 +14,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent  # A.I_GitHUB/
 sys.path.insert(0, str(ROOT))
 
-from sofia.core import identidade, cerebro, memoria
+from sofia.core import (
+    identidade,
+    cerebro,
+    memoria,
+    cerebro_selector_subtemocional,
+    otimizador_qwen,
+)
 from sofia.core.visao import visao
-from sofia.core import cerebro, memoria, identidade, cerebro_selector_subtemocional
 
 app = Flask(__name__)
 CORS(app)  # Permite requisições do frontend
@@ -445,6 +450,53 @@ def serve_web_files(filename):
         return "Not Found", 404
     web_dir = Path(__file__).parent / 'web'
     return send_from_directory(web_dir, filename)
+
+# ===================== TRQ + QWEN ===================== #
+
+@app.route('/trq-telemetria', methods=['GET'])
+def trq_telemetria():
+    """
+    Retorna o resumo das execuções do Qwen sobre o código TRQ.
+    Usado pelo painel 'Telemetria TRQ + Qwen' no front.
+    """
+    try:
+        dados = otimizador_qwen.obter_telemetria()
+        # garantir que sempre volte com chaves esperadas pelo front
+        return jsonify({
+            "execucoes": dados.get("execucoes", "Nenhum dado ainda."),
+            "sugestao": dados.get("sugestao", "")
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/rodar-qwen', methods=['POST'])
+def rodar_qwen():
+    """
+    Executa o modelo Qwen via Ollama em cima do quantico_v2.py
+    e registra a execução em log.
+    """
+    try:
+        resultado = otimizador_qwen.rodar_qwen_otimizador()
+
+        # resultado pode ser só uma string ou um dict – vamos normalizar
+        if isinstance(resultado, str):
+            sugestao = resultado
+            logs = None
+        else:
+            sugestao = resultado.get("sugestao", "")
+            logs = resultado.get("logs")
+
+        return jsonify({
+            "sucesso": True,
+            "sugestao": sugestao,
+            "logs": logs,
+        })
+    except Exception as e:
+        return jsonify({
+            "sucesso": False,
+            "erro": str(e)
+        }), 500
 
 if __name__ == '__main__':
     print("\n" + "="*50)

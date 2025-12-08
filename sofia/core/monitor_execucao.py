@@ -11,17 +11,14 @@ os.makedirs(LOG_DIR, exist_ok=True)
 def monitorar_execucao(nome: str) -> Callable:
     """
     Decorador para medir tempo de execução e registrar parâmetros
-    e tamanho básico dos resultados.
-
-    Gera arquivos JSON em sofia/core/logs_execucao.
+    e um resumo do resultado em um arquivo JSONL.
     """
-
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
             inicio = time.perf_counter()
             erro = None
-            resultado = None
+            resultado: Any = None
 
             try:
                 resultado = func(*args, **kwargs)
@@ -33,7 +30,6 @@ def monitorar_execucao(nome: str) -> Callable:
                 fim = time.perf_counter()
                 duracao = fim - inicio
 
-                # Tentativa suave de extrair um "resumo" do resultado
                 resumo_resultado: Dict[str, Any] = {}
                 try:
                     if hasattr(resultado, "shape"):
@@ -60,5 +56,4 @@ def monitorar_execucao(nome: str) -> Callable:
                     pass
 
         return wrapper
-
     return decorator

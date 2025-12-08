@@ -1,0 +1,33 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Iniciar Sofia (main.py)",
+			"type": "shell",
+			"command": "python main.py",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Iniciar Sofia (sofia/main.py)",
+			"type": "shell",
+			"command": "python sofia/main.py",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Testar Sofia (main.py corrigido)",
+			"type": "shell",
+			"command": "python sofia/main.py",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Testar Sofia (main.py como módulo)",
+			"type": "shell",
+			"command": "python -m sofia.main",
+			"isBackground": false,
+			"group": "build"
+		}
+	]
+}
