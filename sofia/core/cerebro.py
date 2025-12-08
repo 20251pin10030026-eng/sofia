@@ -14,15 +14,7 @@ from __future__ import annotations
 import os
 import json
 import requests
-from core.quantico_v2 import atualizar_estado_trq
 from typing import Any, Dict, List, Optional, Callable
-import time
-from sofia.core import cerebro
-
-t0 = time.perf_counter()
-resp = cerebro.perguntar("Explique a TRQ em 3 parágrafos.")
-t1 = time.perf_counter()
-print("Tempo:", t1 - t0, "s")
 
 # ----------------- Módulos internos da Sofia -----------------
 from . import memoria
@@ -74,64 +66,6 @@ except Exception:
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gpt-oss:20b")
 
-def gerar_resposta_sofia_trq(mensagem_usuario: str) -> str:
-    """
-    Gera resposta da Sofia modulada pelo núcleo TRQ.
-    """
-    # 1) Atualiza o estado TRQ
-    estado_trq = atualizar_estado_trq()
-
-    # 2) Traduz o estado em instruções de comportamento
-    perfil_trq = (
-        f"Estado TRQ interno: coerência={estado_trq['coherence']:.2f}, "
-        f"agitação={estado_trq['agitation']:.2f}, "
-        f"rho_minus={estado_trq['rho_minus']:.2f}, "
-        f"rho_plus={estado_trq['rho_plus']:.2f}, "
-        f"rho_fgr={estado_trq['rho_fgr']:.2f}. "
-        "Use isso para ajustar o equilíbrio entre foco e criatividade na resposta."
-    )
-
-    system_prompt = (
-        "Você é a IA Sofia, baseada na Teoria da Regionalidade Quântica. "
-        + perfil_trq
-    )
-
-    # 3) Aqui você combina system_prompt + mensagem_usuario
-    #    de acordo com o formato que o seu cerebro.py já usa.
-    prompt_completo = f"{system_prompt}\n\nUsuário: {mensagem_usuario}\nSofia:"
-
-    # 4) Chama a função antiga que fala com o Ollama
-    payload: Dict[str, Any] = {
-        "model": OLLAMA_MODEL,
-        "prompt": prompt_completo,
-        "stream": False,
-        "system": "",  # Pode ajustar conforme necessário
-        "options": {
-            "num_gpu": int(os.getenv("OLLAMA_NUM_GPU", "12")),
-            "num_thread": int(os.getenv("OLLAMA_NUM_THREAD", "8")),
-            "num_parallel": int(os.getenv("OLLAMA_NUM_PARALLEL", "1")),
-            "num_batch": int(os.getenv("OLLAMA_NUM_BATCH", "64")),
-            "num_ctx": int(os.getenv("OLLAMA_NUM_CTX", "2048")),
-            "temperature": float(os.getenv("OLLAMA_TEMPERATURE", "0.65")),
-            "top_p": float(os.getenv("OLLAMA_TOP_P", "0.9")),
-        },
-    }
-    try:
-        resp = requests.post(
-            f"{OLLAMA_HOST}/api/generate",
-            json=payload,
-            timeout=600,
-        )
-        if resp.status_code != 200:
-            return f"❌ Erro ao processar a mensagem (status HTTP {resp.status_code})."
-        dados = resp.json()
-        resposta = str(dados.get("response", "")).strip()
-    except requests.exceptions.RequestException as e:
-        return (
-            "❌ Erro ao conectar com o serviço de modelo local.\n"
-            f"Detalhe técnico: {e}"
-        )
-    return resposta
 
 # ---------------------- Funções auxiliares ----------------------
 
