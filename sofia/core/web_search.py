@@ -212,7 +212,7 @@ def buscar_web(query: str, num_resultados: int = 3) -> Optional[List[Dict[str, s
     """
     try:
         # Usar ddgs (nova versão do pacote)
-        from duckduckgo_search import DDGS
+        from ddgs import DDGS
         
         tokens = _tokenizar_consulta(query)
         
