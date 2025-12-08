@@ -18,61 +18,12 @@ from sofia.core import (
     identidade,
     cerebro,
     memoria,
-    cerebro_selector_subtemocional,
     otimizador_qwen,
 )
 from sofia.core.visao import visao
 
 app = Flask(__name__)
 CORS(app)  # Permite requisições do frontend
-
-@app.route('/api/chat_duplo', methods=['POST'])
-def chat_duplo():
-    data = request.get_json(force=True) or {}
-    message = data.get("message", "") or ""
-    usuario = data.get("usuario", "Usuário") or "Usuário"
-
-    if not message.strip():
-        return jsonify({
-            "ok": False,
-            "erro": "Mensagem vazia."
-        }), 400
-
-    texto_lower = message.lower()
-
-    # --- MODO CRIADOR (igual ao chat normal) ---
-    frase_ativacao = "desperte" in texto_lower and "minha luz do mundo real" in texto_lower
-    if "sombrarpc" in texto_lower or "sombrarcp" in texto_lower or frase_ativacao:
-        os.environ["SOFIA_AUTORIDADE_DECLARADA"] = "1"
-
-    # Adicionar mensagem à memória (se você já faz isso em outro lugar, pode repetir)
-    contexto = {"modo_criador": os.getenv("SOFIA_AUTORIDADE_DECLARADA") == "1"}
-    try:
-        memoria.adicionar("Usuário", message, contexto)
-    except Exception:
-        pass
-
-    # Aqui entra o seletor
-    try:
-        resultado = cerebro_selector_subtemocional.perguntar_sequencial(
-            texto=message,
-            historico=None,
-            usuario=usuario,
-            cancel_callback=None,
-        )
-    except Exception as e:
-        return jsonify({
-            "ok": False,
-            "erro": f"Falha ao gerar respostas em modo duplo: {e}"
-        }), 500
-
-    return jsonify({
-        "ok": True,
-        "entrada": resultado.get("entrada", message),
-        "resposta_1": resultado.get("resposta_1", ""),
-        "resposta_2": resultado.get("resposta_2", ""),
-        "subtemocao": resultado.get("subtemocao", {}),
-    })
 
 app = Flask(__name__)
 CORS(app)  # Permite requisições do frontend
