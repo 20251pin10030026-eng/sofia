@@ -13,6 +13,18 @@ E com PAINEL DE ESTADO QUÂNTICO INTERNO no terminal a cada pergunta.
 import os
 import requests
 from typing import List, Dict, Optional
+from pathlib import Path
+
+# Carrega .env local se a variável não estiver definida, evitando falha de token
+if not os.getenv("GITHUB_TOKEN"):
+    try:
+        from dotenv import load_dotenv  # type: ignore
+
+        env_path = Path(__file__).resolve().parents[1] / ".env"
+        if env_path.exists():
+            load_dotenv(env_path)
+    except Exception:
+        pass
 
 from . import _interno, memoria
 from .memoria import buscar_fatos_relevantes, resgatar_contexto_conversa
@@ -90,7 +102,7 @@ def _montar_headers() -> Dict[str, str]:
     """Cabeçalhos para chamada na API de modelos GitHub."""
     if not GITHUB_TOKEN:
         raise RuntimeError(
-            "GITHUB_TOKEN não configurado. Defina a variável de ambiente com seu token do GitHub."
+            "GITHUB_TOKEN não configurado. Defina a variável de ambiente com seu token do GitHub ou preencha em .env."
         )
 
     return {
