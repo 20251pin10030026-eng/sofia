@@ -27,10 +27,10 @@ Write-Host "✅ Variáveis de ambiente configuradas" -ForegroundColor Green
 Write-Host "   - PYTHONPATH: $env:PYTHONPATH" -ForegroundColor Gray
 Write-Host "   - Modo: Cloud (GitHub Models)" -ForegroundColor Gray
 Write-Host "   - Modelo: GPT-4o" -ForegroundColor Gray
+Write-Host "   - Token: $($env:GITHUB_TOKEN.Substring(0,10))..." -ForegroundColor Gray
 Write-Host ""
 
-# Verificar dependências Python
-Write-Host "📚 Verificando e instalando dependências Python..." -ForegroundColor Cyan
+# Python executável
 $pythonExe = "D:\A.I_GitHUB\.venv\Scripts\python.exe"
 
 # Verificar se o Python existe
@@ -41,86 +41,40 @@ if (-not (Test-Path $pythonExe)) {
 }
 
 Write-Host "   ✅ Python encontrado: $pythonExe" -ForegroundColor Green
-
-# FORÇAR instalação do PyPDF2 no Python correto
-Write-Host "   📦 Instalando PyPDF2 no ambiente correto..." -ForegroundColor Cyan
-& $pythonExe -m pip install --upgrade --quiet PyPDF2 2>&1 | Out-Null
-
-# Verificar se instalou com sucesso
-$pypdfCheck = & $pythonExe -c "import PyPDF2; print(f'PyPDF2 {PyPDF2.__version__}')" 2>&1
-
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "   ✅ $pypdfCheck instalado e verificado!" -ForegroundColor Green
-} else {
-    Write-Host "   ❌ ERRO: Não foi possível instalar/importar PyPDF2" -ForegroundColor Red
-    Write-Host "   Saída do erro: $pypdfCheck" -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "   Tente manualmente:" -ForegroundColor Yellow
-    Write-Host "   $pythonExe -m pip install PyPDF2" -ForegroundColor Gray
-    exit 1
-}
-Write-Host ""
-
-# FORÇAR instalação do duckduckgo-search no Python correto
-Write-Host "   🌐 Instalando duckduckgo-search no ambiente correto..." -ForegroundColor Cyan
-& $pythonExe -m pip install --upgrade --quiet duckduckgo-search 2>&1 | Out-Null
-
-# Verificar se instalou com sucesso
-$ddgCheck = & $pythonExe -c "from duckduckgo_search import DDGS; print('duckduckgo-search OK')" 2>&1
-
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "   ✅ $ddgCheck instalado e verificado!" -ForegroundColor Green
-} else {
-    Write-Host "   ❌ ERRO: Não foi possível instalar/importar duckduckgo-search" -ForegroundColor Red
-    Write-Host "   Saída do erro: $ddgCheck" -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "   Tente manualmente:" -ForegroundColor Yellow
-    Write-Host "   $pythonExe -m pip install duckduckgo-search" -ForegroundColor Gray
-    exit 1
-}
 Write-Host ""
 
 # Iniciar servidor Sofia em background
 Write-Host "🚀 Iniciando servidor Sofia..." -ForegroundColor Cyan
-Write-Host "   Python: $pythonExe" -ForegroundColor Gray
-Write-Host "   Token: $($env:GITHUB_TOKEN.Substring(0,10))..." -ForegroundColor Gray
 Set-Location -Path "D:\A.I_GitHUB"
 
-# Criar script temporário para manter variáveis de ambiente
-$tempScript = @"
-`$env:GITHUB_TOKEN = "$env:GITHUB_TOKEN"
-`$env:GITHUB_MODEL = "$env:GITHUB_MODEL"
-`$env:SOFIA_USE_CLOUD = "$env:SOFIA_USE_CLOUD"
-`$env:PYTHONPATH = "$env:PYTHONPATH"
-Set-Location "D:\A.I_GitHUB"
-& "$pythonExe" -m uvicorn sofia.api_web:app --host 0.0.0.0 --port 8000
-"@
+# Iniciar processo em nova janela que mantém as variáveis
+$serverProcess = Start-Process powershell -ArgumentList @(
+    "-NoExit",
+    "-Command",
+    "`$env:GITHUB_TOKEN='$env:GITHUB_TOKEN'; `$env:GITHUB_MODEL='$env:GITHUB_MODEL'; `$env:SOFIA_USE_CLOUD='$env:SOFIA_USE_CLOUD'; `$env:PYTHONPATH='$env:PYTHONPATH'; Set-Location 'D:\A.I_GitHUB'; & '$pythonExe' -m uvicorn sofia.api_web:app --host 0.0.0.0 --port 8000"
+) -PassThru
 
-$tempScriptPath = "D:\A.I_GitHUB\temp_start_sofia.ps1"
-$tempScript | Out-File -FilePath $tempScriptPath -Encoding UTF8
-
-# Iniciar servidor com variáveis de ambiente preservadas
-$sofiaProcess = Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit", "-ExecutionPolicy", "Bypass", "-File", $tempScriptPath -PassThru
+Write-Host "   ✅ Servidor iniciado (PID: $($serverProcess.Id))" -ForegroundColor Green
+Write-Host "   ⏳ Aguardando servidor inicializar..." -ForegroundColor Yellow
 Start-Sleep -Seconds 8
 
 # Verificar se servidor iniciou
 try {
     $response = Invoke-WebRequest -Uri "http://localhost:8000/api/health" -TimeoutSec 5 -UseBasicParsing
-    Write-Host "✅ Servidor Sofia iniciado!" -ForegroundColor Green
+    Write-Host "   ✅ Servidor Sofia respondendo!" -ForegroundColor Green
 } catch {
-    Write-Host "❌ Erro ao iniciar servidor Sofia" -ForegroundColor Red
-    exit 1
+    Write-Host "   ⚠️ Servidor ainda inicializando... (normal)" -ForegroundColor Yellow
 }
 
 Write-Host ""
 Write-Host "🌐 Criando túnel público com ngrok..." -ForegroundColor Cyan
 Write-Host ""
 
-# Iniciar ngrok em background
-Start-Process -FilePath "ngrok" -ArgumentList "http 8000" -NoNewWindow
+# Iniciar ngrok
+Start-Process -FilePath "ngrok" -ArgumentList "http", "8000"
 
 # Aguardar ngrok iniciar
-Start-Sleep -Seconds 3
+Start-Sleep -Seconds 5
 
 # Obter URL pública
 try {
@@ -141,45 +95,28 @@ try {
     Write-Host ""
     Write-Host "💡 Dicas:" -ForegroundColor Cyan
     Write-Host "   - A URL pública funciona em qualquer lugar do mundo"
-    Write-Host "   - Válida enquanto este script estiver rodando"
-    Write-Host "   - Pressione Ctrl+C para parar"
+    Write-Host "   - Válida enquanto os servidores estiverem rodando"
+    Write-Host "   - Para parar: feche as janelas do servidor e ngrok"
     Write-Host ""
     Write-Host "📊 Dashboard ngrok: http://localhost:4040" -ForegroundColor Cyan
     Write-Host ""
+    
+    # Abrir dashboard ngrok
+    Start-Process "http://localhost:4040"
     
 } catch {
     Write-Host "⚠️ Não foi possível obter URL do ngrok automaticamente" -ForegroundColor Yellow
     Write-Host "   Acesse: http://localhost:4040 para ver a URL pública" -ForegroundColor Yellow
 }
 
-Write-Host "⏳ Mantendo servidores ativos... (Ctrl+C para parar)" -ForegroundColor Gray
+Write-Host "⏳ Servidores rodando... Feche esta janela quando quiser parar." -ForegroundColor Gray
 Write-Host ""
+Write-Host "Pressione qualquer tecla para encerrar..."
+$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
 
-# Manter script rodando
-try {
-    while ($true) {
-        Start-Sleep -Seconds 10
-        
-        # Verificar se servidor ainda está ativo
-        try {
-            Invoke-WebRequest -Uri "http://localhost:8000/api/health" -TimeoutSec 2 -UseBasicParsing | Out-Null
-        } catch {
-            Write-Host "❌ Servidor Sofia parou inesperadamente" -ForegroundColor Red
-            break
-        }
-    }
-} finally {
-    Write-Host ""
-    Write-Host "🛑 Encerrando servidores..." -ForegroundColor Yellow
-    
-    # Parar processos
-    Stop-Process -Id $sofiaProcess.Id -Force -ErrorAction SilentlyContinue
-    Stop-Process -Name "ngrok" -Force -ErrorAction SilentlyContinue
-    
-    # Limpar script temporário
-    if (Test-Path "D:\A.I_GitHUB\temp_start_sofia.ps1") {
-        Remove-Item "D:\A.I_GitHUB\temp_start_sofia.ps1" -Force
-    }
-    
-    Write-Host "✅ Servidores encerrados" -ForegroundColor Green
-}
+# Parar processos
+Write-Host ""
+Write-Host "🛑 Encerrando servidores..." -ForegroundColor Yellow
+Stop-Process -Id $serverProcess.Id -Force -ErrorAction SilentlyContinue
+Stop-Process -Name "ngrok" -Force -ErrorAction SilentlyContinue
+Write-Host "✅ Servidores encerrados" -ForegroundColor Green
