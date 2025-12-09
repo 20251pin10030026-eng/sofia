@@ -83,14 +83,25 @@ Write-Host ""
 # Iniciar servidor Sofia em background
 Write-Host "🚀 Iniciando servidor Sofia..." -ForegroundColor Cyan
 Write-Host "   Python: $pythonExe" -ForegroundColor Gray
-Set-Location -Path "D:\A.I_GitHUB\sofia"
-
-# Usar o mesmo Python que verificamos e instalamos PyPDF2
-$sofiaProcess = Start-Process -FilePath $pythonExe -ArgumentList "api_web.py" -NoNewWindow -PassThru
-Start-Sleep -Seconds 8
-
-# Voltar para a raiz
+Write-Host "   Token: $($env:GITHUB_TOKEN.Substring(0,10))..." -ForegroundColor Gray
 Set-Location -Path "D:\A.I_GitHUB"
+
+# Criar script temporário para manter variáveis de ambiente
+$tempScript = @"
+`$env:GITHUB_TOKEN = "$env:GITHUB_TOKEN"
+`$env:GITHUB_MODEL = "$env:GITHUB_MODEL"
+`$env:SOFIA_USE_CLOUD = "$env:SOFIA_USE_CLOUD"
+`$env:PYTHONPATH = "$env:PYTHONPATH"
+Set-Location "D:\A.I_GitHUB"
+& "$pythonExe" -m uvicorn sofia.api_web:app --host 0.0.0.0 --port 8000
+"@
+
+$tempScriptPath = "D:\A.I_GitHUB\temp_start_sofia.ps1"
+$tempScript | Out-File -FilePath $tempScriptPath -Encoding UTF8
+
+# Iniciar servidor com variáveis de ambiente preservadas
+$sofiaProcess = Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit", "-ExecutionPolicy", "Bypass", "-File", $tempScriptPath -PassThru
+Start-Sleep -Seconds 8
 
 # Verificar se servidor iniciou
 try {
@@ -164,6 +175,11 @@ try {
     # Parar processos
     Stop-Process -Id $sofiaProcess.Id -Force -ErrorAction SilentlyContinue
     Stop-Process -Name "ngrok" -Force -ErrorAction SilentlyContinue
+    
+    # Limpar script temporário
+    if (Test-Path "D:\A.I_GitHUB\temp_start_sofia.ps1") {
+        Remove-Item "D:\A.I_GitHUB\temp_start_sofia.ps1" -Force
+    }
     
     Write-Host "✅ Servidores encerrados" -ForegroundColor Green
 }
