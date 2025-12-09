@@ -15,7 +15,7 @@ import asyncio
 import shutil
 
 # Importar módulos de Sofia
-from sofia.core import cerebro_cloud as cerebro, memoria, identidade
+from sofia.core import cerebro, memoria, identidade
 import os
 from sofia.core.monitor_execucao import LOG_DIR as LOGS_EXEC_DIR
 

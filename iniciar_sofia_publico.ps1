@@ -14,15 +14,14 @@ if (-not $ngrokCommand) {
 # Configurar variaveis de ambiente
 $env:PYTHONPATH = "D:\A.I_GitHUB"
 $env:SOFIA_AUTORIDADE_DECLARADA = "1"
-$env:SOFIA_USE_CLOUD = "true"
-$env:GITHUB_TOKEN = "ghp_REDACTED"
-$env:GITHUB_MODEL = "gpt-4o"
+$env:SOFIA_USE_CLOUD = "false"  # usar Ollama local
+$env:GITHUB_TOKEN = ""          # não usado no modo local
+$env:GITHUB_MODEL = ""          # não usado no modo local
 
 Write-Host "Variaveis configuradas:" -ForegroundColor Green
 Write-Host " PYTHONPATH = $env:PYTHONPATH"
 Write-Host " SOFIA_USE_CLOUD = $env:SOFIA_USE_CLOUD"
-Write-Host " GITHUB_MODEL = $env:GITHUB_MODEL"
-Write-Host " GITHUB_TOKEN (inicio) = $($env:GITHUB_TOKEN.Substring(0,10))..."
+Write-Host " OLLAMA_MODEL (definido no cerebro.py/.env)"
 Write-Host ""
 
 # Python executavel
