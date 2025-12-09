@@ -64,7 +64,7 @@ except Exception:
 # ---------------------- Configuração do modelo ----------------------
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gpt-oss:120b")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gpt-oss:20b")
 
 
 # ---------------------- Funções auxiliares ----------------------
@@ -240,7 +240,7 @@ def perguntar(
         return (
             "❌ Não consegui conectar ao serviço de modelo local.\n"
             f"Tente verificar se o Ollama está rodando em {OLLAMA_HOST} "
-            "e se o modelo gpt-oss:120b está disponível."
+            "e se o modelo gpt-oss:20b está disponível."
         )
 
     if cancel_callback and cancel_callback():

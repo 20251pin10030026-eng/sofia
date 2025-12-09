@@ -29,7 +29,7 @@ set GITHUB_TOKEN=
 set GITHUB_MODEL=
 
 REM Escolher modelo do Ollama para ser o cérebro da Sofia
-set OLLAMA_MODEL=gpt-oss:120b
+set OLLAMA_MODEL=gpt-oss:20b
 
 REM (Opcional) ajustes de performance para o 20B – pode ir testando:
 REM set OLLAMA_NUM_GPU=10
