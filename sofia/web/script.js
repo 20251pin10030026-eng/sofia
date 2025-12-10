@@ -1,6 +1,12 @@
 // API Configuration
-const API_URL = 'https://a60837388171.ngrok-free.app';
-const WS_URL = 'wss://a60837388171.ngrok-free.app';
+const CLOUD_API_URL = 'https://a60837388171.ngrok-free.app';
+const CLOUD_WS_URL = 'wss://a60837388171.ngrok-free.app';
+const LOCAL_API_URL = 'http://localhost:8000';
+const LOCAL_WS_URL = 'ws://localhost:8000';
+
+let API_URL = CLOUD_API_URL;
+let WS_URL = CLOUD_WS_URL;
+let endpointMode = localStorage.getItem('sofia_endpoint_mode') || 'cloud';
 
 // WebSocket
 let ws = null;
@@ -21,6 +27,8 @@ const fileInputChat = document.getElementById('file-input-chat');
 const attachedFilesPreview = document.getElementById('attached-files-preview');
 const attachedFilesList = document.getElementById('attached-files-list');
 const statusText = document.getElementById('status-text');
+const modeBadge = document.getElementById('mode-badge');
+const endpointToggleBtn = document.getElementById('endpoint-toggle');
 const quickBtns = document.querySelectorAll('.quick-btn');
 const statsBtn = document.getElementById('stats-btn');
 const settingsBtn = document.getElementById('settings-btn');
@@ -36,8 +44,45 @@ let webSearchMode = false; // Estado do modo de busca web
 
 // Inicializar WebSocket ao carregar
 document.addEventListener('DOMContentLoaded', async () => {
+    applyEndpointMode(endpointMode);
     await initializeWebSocket();
 });
+
+// Alternar entre Cloud e Local
+if (endpointToggleBtn) {
+    endpointToggleBtn.addEventListener('click', async () => {
+        endpointMode = endpointMode === 'cloud' ? 'local' : 'cloud';
+        localStorage.setItem('sofia_endpoint_mode', endpointMode);
+        applyEndpointMode(endpointMode);
+
+        // Reiniciar conexão e sessão
+        try {
+            if (ws) {
+                ws.onclose = null;
+                ws.close();
+            }
+        } catch (e) {
+            console.warn('Erro ao fechar WS', e);
+        }
+        sessionId = null;
+        await initializeWebSocket();
+    });
+}
+
+function applyEndpointMode(mode) {
+    if (mode === 'local') {
+        API_URL = LOCAL_API_URL;
+        WS_URL = LOCAL_WS_URL;
+        if (modeBadge) modeBadge.textContent = 'Local';
+        updateStatus('online', 'Local');
+    } else {
+        API_URL = CLOUD_API_URL;
+        WS_URL = CLOUD_WS_URL;
+        if (modeBadge) modeBadge.textContent = 'Cloud';
+        updateStatus('online', 'Online');
+    }
+    console.log('Endpoint atualizado:', mode, API_URL, WS_URL);
+}
 
 // Função para criar sessão
 async function createSession() {

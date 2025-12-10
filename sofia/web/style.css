@@ -95,6 +95,15 @@ body {
     font-size: 0.875rem;
 }
 
+.mode-badge {
+    padding: 0.2rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+    background: var(--surface-color);
+    color: var(--text-color);
+    font-size: 0.75rem;
+}
+
 .status-dot {
     width: 8px;
     height: 8px;
