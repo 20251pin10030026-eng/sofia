@@ -307,16 +307,36 @@ def perguntar(
         "stream": False,
         "system": system_text,
         "options": {
-            # Perfil otimizado para PC doméstico com modelo 20B:
-            # mais rápido, mais estável, sem perda perceptível de qualidade.
-
-            "num_gpu": int(os.getenv("OLLAMA_NUM_GPU", "12")),
-            "num_thread": int(os.getenv("OLLAMA_NUM_THREAD", "8")),
-            "num_parallel": int(os.getenv("OLLAMA_NUM_PARALLEL", "1")),
-            "num_batch": int(os.getenv("OLLAMA_NUM_BATCH", "64")),
+            # ========== CONFIGURAÇÕES DE MÁXIMO DESEMPENHO ==========
+            # Hardware: Intel Xeon E5-2630 v2 (6 cores/12 threads) + GTX 1650 (4GB)
+            
+            # GPU: Usar TODAS as camadas possíveis na GPU (máximo desempenho)
+            # -1 = usar todas as camadas que couberem na VRAM
+            # Para GTX 1650 4GB com modelo 20B: ~20-25 camadas cabem
+            "num_gpu": int(os.getenv("OLLAMA_NUM_GPU", "99")),
+            
+            # CPU: Usar TODOS os 12 threads disponíveis
+            "num_thread": int(os.getenv("OLLAMA_NUM_THREAD", "12")),
+            
+            # Processamento paralelo: aumentar para usar mais recursos
+            "num_parallel": int(os.getenv("OLLAMA_NUM_PARALLEL", "2")),
+            
+            # Batch size: maior = mais rápido (usa mais VRAM)
+            # Para 4GB VRAM, 512 é um bom equilíbrio
+            "num_batch": int(os.getenv("OLLAMA_NUM_BATCH", "512")),
+            
+            # Contexto: reduzir para aumentar velocidade (menos memória)
             "num_ctx": int(os.getenv("OLLAMA_NUM_CTX", "2048")),
+            
+            # Parâmetros de geração
             "temperature": float(os.getenv("OLLAMA_TEMPERATURE", "0.65")),
             "top_p": float(os.getenv("OLLAMA_TOP_P", "0.9")),
+            
+            # Otimizações adicionais
+            "use_mmap": True,        # Mapear modelo na memória (mais rápido)
+            "use_mlock": False,      # Não travar na RAM (economiza memória)
+            "main_gpu": 0,           # Usar GPU principal
+            "low_vram": False,       # Modo VRAM baixa desativado (usar tudo)
         },
     }
 
