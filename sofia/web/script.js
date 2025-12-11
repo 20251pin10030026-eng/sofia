@@ -1,6 +1,6 @@
 // API Configuration
-const CLOUD_API_URL = 'https://45f8d13713e0.ngrok-free.app';
-const CLOUD_WS_URL = 'wss://45f8d13713e0.ngrok-free.app';
+const CLOUD_API_URL = 'https://07d3c790e43e.ngrok-free.app';
+const CLOUD_WS_URL = 'wss://07d3c790e43e.ngrok-free.app';
 const LOCAL_API_URL = 'http://localhost:8000';
 const LOCAL_WS_URL = 'ws://localhost:8000';
 
