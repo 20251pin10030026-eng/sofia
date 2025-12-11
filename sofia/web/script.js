@@ -1,8 +1,23 @@
 // API Configuration
-const CLOUD_API_URL = 'https://ea21120cedcf.ngrok-free.app';
-const CLOUD_WS_URL = 'wss://ea21120cedcf.ngrok-free.app';
+const CLOUD_API_URL = 'https://45f8d13713e0.ngrok-free.app';
+const CLOUD_WS_URL = 'wss://45f8d13713e0.ngrok-free.app';
 const LOCAL_API_URL = 'http://localhost:8000';
 const LOCAL_WS_URL = 'ws://localhost:8000';
+
+// Injeta header para bypass do aviso do ngrok quando em Cloud
+const _nativeFetch = window.fetch.bind(window);
+window.fetch = (url, options = {}) => {
+    const opts = { ...options };
+    const headers = { ...(options.headers || {}) };
+
+    const urlStr = typeof url === 'string' ? url : (url?.url || '');
+    if (urlStr.includes('ngrok-free.app')) {
+        headers['ngrok-skip-browser-warning'] = 'true';
+    }
+
+    opts.headers = headers;
+    return _nativeFetch(url, opts);
+};
 
 let API_URL = CLOUD_API_URL;
 let WS_URL = CLOUD_WS_URL;
