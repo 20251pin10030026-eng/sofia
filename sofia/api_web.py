@@ -16,6 +16,7 @@ import shutil
 
 # Importar módulos de Sofia
 from sofia.core import cerebro, memoria, identidade
+from sofia.core.cerebro_selector import get_mode, set_mode
 import os
 from sofia.core.monitor_execucao import LOG_DIR as LOGS_EXEC_DIR
 
@@ -200,6 +201,30 @@ async def delete_session(session_id: str):
     
     del sessions[session_id]
     return {"message": "Sessão encerrada com sucesso"}
+
+# ==================== ENDPOINT DE MODO (CLOUD/LOCAL) ====================
+
+@app.get("/api/mode")
+async def get_current_mode():
+    """Retorna o modo atual (cloud ou local)"""
+    mode = get_mode()
+    return {
+        "mode": mode,
+        "description": "GitHub Models API" if mode == "cloud" else "Ollama Local"
+    }
+
+@app.post("/api/mode")
+async def change_mode(mode: str):
+    """Altera o modo entre cloud e local"""
+    try:
+        new_mode = set_mode(mode)
+        return {
+            "success": True,
+            "mode": new_mode,
+            "description": "GitHub Models API" if new_mode == "cloud" else "Ollama Local"
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/upload-file")
 async def upload_file(file: UploadFile = File(...)):

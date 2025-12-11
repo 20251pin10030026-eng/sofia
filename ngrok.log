@@ -1,0 +1,10 @@
+{"lvl":"info","msg":"no configuration paths supplied","t":"2025-12-10T22:59:44.3909439-03:00"}
+{"lvl":"info","msg":"using configuration at default config path","path":"C:\\Users\\regin\\AppData\\Local/ngrok/ngrok.yml","t":"2025-12-10T22:59:44.4910846-03:00"}
+{"err":"\u003cnil\u003e","lvl":"info","msg":"open config file","path":"C:\\Users\\regin\\AppData\\Local\\ngrok\\ngrok.yml","t":"2025-12-10T22:59:44.5350886-03:00"}
+{"addr":"127.0.0.1:4040","allow_hosts":null,"lvl":"info","msg":"starting web service","obj":"web","t":"2025-12-10T22:59:44.6673918-03:00"}
+{"lvl":"info","msg":"update available","obj":"updater","t":"2025-12-10T22:59:45.405934-03:00"}
+{"lvl":"info","msg":"client session established","obj":"tunnels.session","t":"2025-12-10T22:59:45.5143374-03:00"}
+{"lvl":"info","msg":"tunnel session started","obj":"tunnels.session","t":"2025-12-10T22:59:45.5572897-03:00"}
+{"addr":"http://localhost:8000","lvl":"info","msg":"started tunnel","name":"command_line","obj":"tunnels","t":"2025-12-10T22:59:45.6284636-03:00","url":"https://c69f26e53196.ngrok-free.app"}
+{"id":"e3c3f6385fba","l":"127.0.0.1:8000","lvl":"info","msg":"join connections","obj":"join","r":"179.101.147.195:57231","t":"2025-12-10T23:02:43.7635406-03:00"}
+{"id":"6c6af09a5c4b","l":"127.0.0.1:8000","lvl":"info","msg":"join connections","obj":"join","r":"179.101.147.195:57231","t":"2025-12-10T23:04:06.195801-03:00"}

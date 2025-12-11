@@ -216,8 +216,8 @@ def buscar_web(query: str, num_resultados: int = 3) -> Optional[List[Dict[str, s
         
         tokens = _tokenizar_consulta(query)
         
-        with DDGS() as ddgs:
-            resultados_raw = list(ddgs.text(query, max_results=num_resultados * 3))
+        ddgs = DDGS()
+        resultados_raw = list(ddgs.text(query, max_results=num_resultados * 3))
         
         if not resultados_raw:
             return None
