@@ -289,4 +289,35 @@ Não use nomes próprios. Use "Usuário" ou "você".
         "web_info": web_info,
     }
 
+    # 7. Salvar estado para o monitor visual
+    _salvar_estado_monitor(metadata)
+
     return contexto_oculto, metadata
+
+
+def _salvar_estado_monitor(metadata):
+    """Salva estado atual para o monitor visual ler."""
+    import json
+    from pathlib import Path
+    from datetime import datetime
+    
+    estado_path = Path(__file__).parent / "estado_monitor.json"
+    try:
+        # Adiciona timestamp e modo atual
+        from . import cerebro_selector
+        modo = cerebro_selector.get_mode() if hasattr(cerebro_selector, 'get_mode') else "Local"
+        
+        estado = {
+            **metadata,
+            "modo": modo,
+            "timestamp": datetime.now().isoformat(),
+        }
+        
+        # Remove campos não serializáveis
+        if "web_info" in estado and estado["web_info"] is not None:
+            estado["web_info"] = str(estado["web_info"])
+        
+        with open(estado_path, "w", encoding="utf-8") as f:
+            json.dump(estado, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass  # Não quebrar o fluxo principal

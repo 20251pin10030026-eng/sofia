@@ -36,6 +36,15 @@ def monitorar_execucao(nome: str) -> Callable:
                         resumo_resultado["shape"] = str(getattr(resultado, "shape", None))
                     elif isinstance(resultado, (list, tuple)):
                         resumo_resultado["len"] = len(resultado)
+                    elif isinstance(resultado, dict):
+                        # Para dicionários (como o retorno do simulador TRQ)
+                        resumo_resultado["keys"] = list(resultado.keys())
+                        # Extrair métricas numéricas relevantes
+                        for k, v in resultado.items():
+                            if hasattr(v, "shape"):
+                                resumo_resultado[f"{k}_shape"] = str(v.shape)
+                            elif hasattr(v, "__len__") and not isinstance(v, str):
+                                resumo_resultado[f"{k}_len"] = len(v)
                 except Exception:
                     pass
 

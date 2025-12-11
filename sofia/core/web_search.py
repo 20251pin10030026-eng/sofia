@@ -211,13 +211,13 @@ def buscar_web(query: str, num_resultados: int = 3) -> Optional[List[Dict[str, s
     - Se nada passar no filtro → retorna None (sem inventar link lixo).
     """
     try:
-        # Usar ddgs (nova versão do pacote)
-        from ddgs import DDGS
+        # Usar duckduckgo_search (nova versão do pacote)
+        from duckduckgo_search import DDGS
         
         tokens = _tokenizar_consulta(query)
         
-        ddgs = DDGS()
-        resultados_raw = list(ddgs.text(query, max_results=num_resultados * 3))
+        with DDGS() as ddgs:
+            resultados_raw = list(ddgs.text(query, max_results=num_resultados * 3))
         
         if not resultados_raw:
             return None
