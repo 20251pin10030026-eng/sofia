@@ -1,18 +1,42 @@
 // API Configuration
-// Cloud = Azure Functions (GitHub), Local = Ollama local
-const CLOUD_API_URL = 'https://sofia-functions.azurewebsites.net';
+// Cloud = Acesso via ngrok (internet), Local = localhost direto
+// Detecta automaticamente a URL do ngrok baseado em como está acessando
+function getCloudUrl() {
+    const host = window.location.host;
+    // Se está acessando via ngrok, usa essa mesma URL
+    if (host.includes('ngrok-free.app') || host.includes('ngrok.io')) {
+        return {
+            api: `${window.location.protocol}//${host}`,
+            ws: `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${host}`
+        };
+    }
+    // Fallback: tenta ler do localStorage (salvo pelo script de atualização)
+    const savedUrl = localStorage.getItem('sofia_ngrok_url');
+    if (savedUrl) {
+        return {
+            api: savedUrl,
+            ws: savedUrl.replace('https://', 'wss://').replace('http://', 'ws://')
+        };
+    }
+    // Se não tem ngrok, usa localhost mesmo
+    return { api: 'http://localhost:8000', ws: 'ws://localhost:8000' };
+}
+
+const cloudEndpoints = getCloudUrl();
+const CLOUD_API_URL = cloudEndpoints.api;
+const CLOUD_WS_URL = cloudEndpoints.ws;
 const LOCAL_API_URL = 'http://localhost:8000';
 const LOCAL_WS_URL = 'ws://localhost:8000';
 
 // Detecta modo baseado em como está acessando
 function detectInitialMode() {
     const host = window.location.host;
-    // Se acessa via ngrok ou localhost, começa em local
-    if (host.includes('localhost') || host.includes('127.0.0.1') || host.includes('ngrok')) {
-        return 'local';
+    // Se acessa via ngrok, começa em cloud
+    if (host.includes('ngrok-free.app') || host.includes('ngrok.io')) {
+        return 'cloud';
     }
-    // Se acessa via domínio externo, começa em cloud
-    return 'cloud';
+    // Se acessa via localhost, começa em local
+    return 'local';
 }
 
 // Injeta header para bypass do aviso do ngrok quando necessário
@@ -33,8 +57,8 @@ window.fetch = (url, options = {}) => {
 // Configuração inicial - usa localStorage ou detecta automaticamente
 let endpointMode = localStorage.getItem('sofia_endpoint_mode') || detectInitialMode();
 let API_URL = endpointMode === 'cloud' ? CLOUD_API_URL : LOCAL_API_URL;
-let WS_URL = LOCAL_WS_URL; // WebSocket sempre local (Azure Functions não suporta WS)
-console.log('🔗 Modo inicial:', endpointMode, '| API:', API_URL);
+let WS_URL = endpointMode === 'cloud' ? CLOUD_WS_URL : LOCAL_WS_URL;
+console.log('🔗 Modo inicial:', endpointMode, '| API:', API_URL, '| WS:', WS_URL);
 
 // WebSocket
 let ws = null;
@@ -73,15 +97,10 @@ let webSearchMode = false; // Estado do modo de busca web
 // Inicializar ao carregar
 document.addEventListener('DOMContentLoaded', async () => {
     applyEndpointMode(endpointMode);
-    // WebSocket só no modo local
-    if (endpointMode === 'local') {
-        await initializeWebSocket();
-    } else {
-        updateStatus('online', 'Cloud (Azure)');
-    }
+    await initializeWebSocket();
 });
 
-// Toggle entre Cloud (Azure) e Local (Ollama)
+// Toggle entre Cloud (ngrok) e Local (localhost)
 if (endpointToggleBtn) {
     endpointToggleBtn.addEventListener('click', async () => {
         // Alterna entre cloud e local
@@ -90,20 +109,23 @@ if (endpointToggleBtn) {
         
         if (endpointMode === 'cloud') {
             API_URL = CLOUD_API_URL;
-            // Fechar WebSocket quando mudar para cloud
-            if (ws) {
-                ws.onclose = null;
-                ws.close();
-                ws = null;
-            }
-            isConnected = false;
-            updateStatus('online', 'Cloud (Azure)');
+            WS_URL = CLOUD_WS_URL;
         } else {
             API_URL = LOCAL_API_URL;
             WS_URL = LOCAL_WS_URL;
-            sessionId = null;
-            await initializeWebSocket();
         }
+        
+        // Fechar WebSocket atual e reconectar
+        if (ws) {
+            ws.onclose = null;
+            ws.close();
+            ws = null;
+        }
+        isConnected = false;
+        sessionId = null;
+        
+        applyEndpointMode(endpointMode);
+        await initializeWebSocket();
         
         applyEndpointMode(endpointMode);
         console.log('🔄 Modo alterado para:', endpointMode, '| API:', API_URL);
@@ -622,42 +644,7 @@ async function sendMessage() {
         // Prepara mensagem incluindo contexto dos arquivos
         let fullMessage = message || 'Veja os arquivos que enviei.';
 
-        // ---------- MODO CLOUD: USA HTTP (Azure Functions) ----------
-        if (endpointMode === 'cloud') {
-            console.log('☁️ Enviando via HTTP para Azure Functions...');
-            showTypingIndicator();
-            
-            try {
-                const response = await fetch(`${API_URL}/api/chat`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        message: fullMessage,
-                        session_id: 'web-' + Date.now()
-                    })
-                });
-
-                const data = await response.json();
-                hideTypingIndicator();
-                
-                if (data && data.response) {
-                    addMessage('sofia', data.response);
-                    conversationHistory.push({ de: 'Sofia', texto: data.response });
-                } else if (data && data.error) {
-                    addMessage('sofia', '❌ Erro: ' + data.error);
-                }
-            } catch (err) {
-                hideTypingIndicator();
-                console.error('❌ Erro ao chamar Azure:', err);
-                addMessage('sofia', '❌ Erro ao conectar com o servidor Cloud. Verifique sua conexão.');
-            }
-            
-            return; // Sai da função, não usa WebSocket
-        }
-
-        // ---------- MODO LOCAL: USA WEBSOCKET ----------
+        // ---------- ENVIO VIA WEBSOCKET ----------
         const wsMessage = {
             type: 'message',
             content: fullMessage,
@@ -666,7 +653,7 @@ async function sendMessage() {
         };
 
         console.log('📤 Tentando enviar:', wsMessage);
-        console.log('🌐 Modo Web:', webSearchMode);
+        console.log('🌐 Modo:', endpointMode, '| Web Search:', webSearchMode);
         console.log('🔌 WebSocket state:', ws ? ws.readyState : 'NULL');
         console.log('✅ isConnected:', isConnected);
 
