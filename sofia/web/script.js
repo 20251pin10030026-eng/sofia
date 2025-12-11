@@ -1,31 +1,21 @@
-// API Configuration - DETECÇÃO AUTOMÁTICA
-// Se acessar via ngrok, usa ngrok. Se acessar via localhost, usa localhost.
-function detectEndpoints() {
-    const host = window.location.host;
-    const protocol = window.location.protocol;
-    
-    // Se está acessando via ngrok
-    if (host.includes('ngrok-free.app') || host.includes('ngrok.io')) {
-        return {
-            api: `${protocol}//${host}`,
-            ws: `${protocol === 'https:' ? 'wss:' : 'ws:'}//${host}`,
-            mode: 'cloud'
-        };
-    }
-    
-    // Se está acessando via localhost ou IP local
-    return {
-        api: `${protocol}//${host}`,
-        ws: `${protocol === 'https:' ? 'wss:' : 'ws:'}//${host}`,
-        mode: 'local'
-    };
-}
-
-const endpoints = detectEndpoints();
+// API Configuration
+// Cloud = Azure Functions (GitHub), Local = Ollama local
+const CLOUD_API_URL = 'https://sofia-functions.azurewebsites.net';
 const LOCAL_API_URL = 'http://localhost:8000';
 const LOCAL_WS_URL = 'ws://localhost:8000';
 
-// Injeta header para bypass do aviso do ngrok quando em Cloud
+// Detecta modo baseado em como está acessando
+function detectInitialMode() {
+    const host = window.location.host;
+    // Se acessa via ngrok ou localhost, começa em local
+    if (host.includes('localhost') || host.includes('127.0.0.1') || host.includes('ngrok')) {
+        return 'local';
+    }
+    // Se acessa via domínio externo, começa em cloud
+    return 'cloud';
+}
+
+// Injeta header para bypass do aviso do ngrok quando necessário
 const _nativeFetch = window.fetch.bind(window);
 window.fetch = (url, options = {}) => {
     const opts = { ...options };
@@ -40,11 +30,11 @@ window.fetch = (url, options = {}) => {
     return _nativeFetch(url, opts);
 };
 
-// Usa a URL detectada automaticamente
-let API_URL = endpoints.api;
-let WS_URL = endpoints.ws;
-let endpointMode = endpoints.mode;
-console.log('🔗 Endpoints detectados automaticamente:', endpoints);
+// Configuração inicial - usa localStorage ou detecta automaticamente
+let endpointMode = localStorage.getItem('sofia_endpoint_mode') || detectInitialMode();
+let API_URL = endpointMode === 'cloud' ? CLOUD_API_URL : LOCAL_API_URL;
+let WS_URL = LOCAL_WS_URL; // WebSocket sempre local (Azure Functions não suporta WS)
+console.log('🔗 Modo inicial:', endpointMode, '| API:', API_URL);
 
 // WebSocket
 let ws = null;
@@ -80,40 +70,43 @@ let conversationHistory = [];
 let attachedFiles = []; // Array para armazenar arquivos anexados temporariamente
 let webSearchMode = false; // Estado do modo de busca web
 
-// Inicializar WebSocket ao carregar
+// Inicializar ao carregar
 document.addEventListener('DOMContentLoaded', async () => {
     applyEndpointMode(endpointMode);
-    await initializeWebSocket();
+    // WebSocket só no modo local
+    if (endpointMode === 'local') {
+        await initializeWebSocket();
+    } else {
+        updateStatus('online', 'Cloud (Azure)');
+    }
 });
 
-// O toggle agora só faz sentido para forçar localhost quando acessando via ngrok
+// Toggle entre Cloud (Azure) e Local (Ollama)
 if (endpointToggleBtn) {
     endpointToggleBtn.addEventListener('click', async () => {
-        // Alterna entre usar URL atual (auto) ou forçar localhost
-        if (API_URL === LOCAL_API_URL) {
-            // Volta para detecção automática
-            API_URL = endpoints.api;
-            WS_URL = endpoints.ws;
-            endpointMode = endpoints.mode;
-        } else {
-            // Força localhost
-            API_URL = LOCAL_API_URL;
-            WS_URL = LOCAL_WS_URL;
-            endpointMode = 'local';
-        }
-        applyEndpointMode(endpointMode);
-
-        // Reiniciar conexão e sessão
-        try {
+        // Alterna entre cloud e local
+        endpointMode = endpointMode === 'cloud' ? 'local' : 'cloud';
+        localStorage.setItem('sofia_endpoint_mode', endpointMode);
+        
+        if (endpointMode === 'cloud') {
+            API_URL = CLOUD_API_URL;
+            // Fechar WebSocket quando mudar para cloud
             if (ws) {
                 ws.onclose = null;
                 ws.close();
+                ws = null;
             }
-        } catch (e) {
-            console.warn('Erro ao fechar WS', e);
+            isConnected = false;
+            updateStatus('online', 'Cloud (Azure)');
+        } else {
+            API_URL = LOCAL_API_URL;
+            WS_URL = LOCAL_WS_URL;
+            sessionId = null;
+            await initializeWebSocket();
         }
-        sessionId = null;
-        await initializeWebSocket();
+        
+        applyEndpointMode(endpointMode);
+        console.log('🔄 Modo alterado para:', endpointMode, '| API:', API_URL);
     });
 }
 
@@ -121,8 +114,7 @@ function applyEndpointMode(mode) {
     if (modeBadge) {
         modeBadge.textContent = mode === 'local' ? 'Local' : 'Cloud';
     }
-    updateStatus('online', mode === 'local' ? 'Local' : 'Online');
-    console.log('Endpoint atualizado:', mode, API_URL, WS_URL);
+    console.log('Endpoint atualizado:', mode, API_URL);
 }
 
 // Função para criar sessão
@@ -630,7 +622,42 @@ async function sendMessage() {
         // Prepara mensagem incluindo contexto dos arquivos
         let fullMessage = message || 'Veja os arquivos que enviei.';
 
-        // ---------- ENVIO VIA WEBSOCKET (RESPOSTA 1) ----------
+        // ---------- MODO CLOUD: USA HTTP (Azure Functions) ----------
+        if (endpointMode === 'cloud') {
+            console.log('☁️ Enviando via HTTP para Azure Functions...');
+            showTypingIndicator();
+            
+            try {
+                const response = await fetch(`${API_URL}/api/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: fullMessage,
+                        session_id: 'web-' + Date.now()
+                    })
+                });
+
+                const data = await response.json();
+                hideTypingIndicator();
+                
+                if (data && data.response) {
+                    addMessage('sofia', data.response);
+                    conversationHistory.push({ de: 'Sofia', texto: data.response });
+                } else if (data && data.error) {
+                    addMessage('sofia', '❌ Erro: ' + data.error);
+                }
+            } catch (err) {
+                hideTypingIndicator();
+                console.error('❌ Erro ao chamar Azure:', err);
+                addMessage('sofia', '❌ Erro ao conectar com o servidor Cloud. Verifique sua conexão.');
+            }
+            
+            return; // Sai da função, não usa WebSocket
+        }
+
+        // ---------- MODO LOCAL: USA WEBSOCKET ----------
         const wsMessage = {
             type: 'message',
             content: fullMessage,
@@ -643,7 +670,7 @@ async function sendMessage() {
         console.log('🔌 WebSocket state:', ws ? ws.readyState : 'NULL');
         console.log('✅ isConnected:', isConnected);
 
-        if (isConnected && ws.readyState === WebSocket.OPEN) {
+        if (isConnected && ws && ws.readyState === WebSocket.OPEN) {
             console.log('📨 Enviando via WebSocket...');
             ws.send(JSON.stringify(wsMessage));
             console.log('✅ Mensagem enviada!');
@@ -660,7 +687,7 @@ async function sendMessage() {
             { de: 'Usuário', texto: message }
         );
 
-        // ---------- NOVO: PEDIR RESPOSTA 2 /chat_duplo ----------
+        // ---------- NOVO: PEDIR RESPOSTA 2 /chat_duplo (só no modo local) ----------
         try {
             const response = await fetch(`${API_URL}/chat_duplo`, {
                 method: 'POST',
