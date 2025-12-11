@@ -168,6 +168,44 @@ def perguntar(
     except Exception as e:
         print(f"[ERRO] Falha ao registrar mensagem do usuário na memória: {e}")
 
+    # 0.5) Processar PDFs (antes do TRQ, pois pode modificar o texto base)
+    prompt_base = texto
+    contexto_pdf = ""
+    MAX_PDF_CHARS = 20000  # ~5000 tokens, deixa espaço para resposta e contexto
+    
+    try:
+        from .visao import visao
+        if visao is not None:
+            # Se for PDF, a função interna pode substituir o prompt
+            prompt_pdf = visao.obter_texto_pdf_para_prompt(texto)
+            if prompt_pdf != texto:
+                # Truncar se muito grande para evitar erro 413
+                if len(prompt_pdf) > MAX_PDF_CHARS:
+                    # Encontrar onde termina o conteúdo do PDF e começa o prompt do usuário
+                    marcador = "PROMPT DO USUÁRIO:"
+                    idx_prompt = prompt_pdf.find(marcador)
+                    if idx_prompt > 0:
+                        # Manter início do PDF + final com prompt do usuário
+                        texto_pdf = prompt_pdf[:idx_prompt]
+                        texto_usuario = prompt_pdf[idx_prompt:]
+                        # Truncar apenas a parte do PDF
+                        max_pdf = MAX_PDF_CHARS - len(texto_usuario) - 200
+                        if len(texto_pdf) > max_pdf:
+                            texto_pdf = texto_pdf[:max_pdf] + "\n\n[... CONTEÚDO TRUNCADO POR LIMITE DE TOKENS ...]\n\n"
+                        prompt_base = texto_pdf + texto_usuario
+                    else:
+                        # Fallback: truncar do final
+                        prompt_base = prompt_pdf[:MAX_PDF_CHARS] + "\n\n[... TRUNCADO ...]\n\n" + texto
+                    print(f"[DEBUG] PDF truncado de {len(prompt_pdf)} para {len(prompt_base)} chars")
+                else:
+                    prompt_base = prompt_pdf
+                print(f"[DEBUG] PDF detectado e processado, tamanho final do prompt: {len(prompt_base)} chars")
+            else:
+                # Pode haver contexto visual de outras fontes
+                contexto_pdf = visao.obter_contexto_visual() or ""
+    except Exception as e:
+        print(f"[DEBUG] Erro ao processar PDF/visão: {e}")
+
     # 1) Extrair contexto emocional / interno (TRQ + Subitemocional)
     try:
         resultado = _interno._processar(
@@ -308,7 +346,7 @@ def perguntar(
     ]
 
     # Adicionar blocos de contexto se houver
-    if fatos_importantes or contexto_historico or contexto_web or contexto_visual or contexto_oculto:
+    if fatos_importantes or contexto_historico or contexto_web or contexto_visual or contexto_oculto or contexto_pdf:
         context_parts = []
         if fatos_importantes:
             context_parts.append(fatos_importantes)
@@ -318,6 +356,8 @@ def perguntar(
             context_parts.append(contexto_web)
         if contexto_visual:
             context_parts.append(contexto_visual)
+        if contexto_pdf:
+            context_parts.append(contexto_pdf)
         if contexto_oculto:
             context_parts.append(contexto_oculto)
 
@@ -328,11 +368,11 @@ def perguntar(
             }
         )
 
-    # Mensagem principal do usuário
+    # Mensagem principal do usuário (usa prompt_base que pode incluir conteúdo de PDF)
     messages.append(
         {
             "role": "user",
-            "content": texto,
+            "content": prompt_base,
         }
     )
 

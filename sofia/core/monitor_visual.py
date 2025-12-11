@@ -71,7 +71,7 @@ def carregar_ultimo_estado():
 def carregar_log_trq():
     """Carrega estatísticas do log de execução TRQ."""
     log_path = Path(__file__).parent / "logs_execucao" / "simular_trq_floquet_v2_log.jsonl"
-    stats = {"total": 0, "ultima_duracao": 0, "media_duracao": 0}
+    stats = {"total": 0, "ultima_duracao": 0.0, "media_duracao": 0.0}
     try:
         if log_path.exists():
             duracoes = []
