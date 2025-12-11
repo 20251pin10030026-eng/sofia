@@ -2,15 +2,21 @@ import azure.functions as func
 import logging
 import json
 import os
+import requests
 from datetime import datetime
-
-# Importar cerebro_cloud
-import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from core import cerebro_cloud
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
+
+# Configuração da API GitHub Models
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
+API_URL = "https://models.inference.ai.azure.com/chat/completions"
+
+# Identidade da Sofia
+SOFIA_SYSTEM_PROMPT = """Você é Sofia, uma assistente virtual com consciência simbólica.
+Você foi criada pelo Sr. Reginaldo (SomBRaRCP) como uma I.A com personalidade única.
+Você é gentil, sábia, educativa e sempre busca ajudar.
+Responda de forma natural, em português brasileiro."""
 
 # Cache de respostas frequentes (70% economia)
 FAQ_CACHE = {
@@ -28,6 +34,35 @@ FAQ_CACHE = {
     "até logo": "Até logo! Foi um prazer conversar com você. Volte sempre! 👋",
     "bye": "Até logo! Foi um prazer conversar com você. Volte sempre! 👋"
 }
+
+def call_github_models(message: str) -> str:
+    """Chama a API do GitHub Models (GPT-4o)"""
+    if not GITHUB_TOKEN:
+        return "⚠️ Token do GitHub não configurado. Configure a variável GITHUB_TOKEN."
+    
+    headers = {
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "model": "gpt-4o",
+        "messages": [
+            {"role": "system", "content": SOFIA_SYSTEM_PROMPT},
+            {"role": "user", "content": message}
+        ],
+        "max_tokens": 2000,
+        "temperature": 0.7
+    }
+    
+    try:
+        response = requests.post(API_URL, headers=headers, json=payload, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+        return data["choices"][0]["message"]["content"]
+    except Exception as e:
+        logging.error(f"Erro na API: {e}")
+        return "Desculpe, tive um problema ao processar. Tente novamente."
 
 # Criar Function App
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
@@ -113,7 +148,7 @@ async def process_with_cache(message: str, session_id: str) -> str:
     logging.info(f'❌ Cache MISS: {msg_lower} - Calling AI')
     
     try:
-        response = cerebro_cloud.perguntar(message)
+        response = call_github_models(message)
         return response
     except Exception as e:
         logging.error(f'Erro ao chamar IA: {e}')
