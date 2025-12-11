@@ -211,13 +211,17 @@ def buscar_web(query: str, num_resultados: int = 3) -> Optional[List[Dict[str, s
     - Se nada passar no filtro → retorna None (sem inventar link lixo).
     """
     try:
-        # Usar duckduckgo_search (nova versão do pacote)
-        from duckduckgo_search import DDGS
+        # Tentar usar o novo pacote 'ddgs' primeiro
+        try:
+            from ddgs import DDGS
+        except ImportError:
+            # Fallback para o pacote antigo
+            from duckduckgo_search import DDGS
         
         tokens = _tokenizar_consulta(query)
         
-        with DDGS() as ddgs:
-            resultados_raw = list(ddgs.text(query, max_results=num_resultados * 3))
+        ddgs = DDGS()
+        resultados_raw = list(ddgs.text(query, max_results=num_resultados * 3))
         
         if not resultados_raw:
             return None
@@ -325,11 +329,30 @@ def deve_buscar_web(texto: str) -> bool:
     """
     # Palavras-chave que indicam necessidade de busca
     keywords_busca = [
-        'busque', 'pesquise', 'procure na internet', 'procure na web',
-        'o que aconteceu', 'notícias sobre', 'última novidade',
-        'pesquisa sobre', 'informações sobre', 'buscar sobre',
+        # Comandos diretos de busca
+        'busque', 'pesquise', 'procure', 'encontre',
+        'procure na internet', 'procure na web',
         'busca online', 'buscas online', 'modo web', 'buscador',
-        'atualizações sobre', 'atualizacoes sobre'
+        'buscar sobre', 'pesquisa sobre',
+        
+        # Pedidos de links/fontes
+        'me dê links', 'me dê link', 'me passe links', 'me mande links',
+        'compartilhe links', 'envie links', 'manda links', 'links sobre',
+        'sites sobre', 'páginas sobre', 'fontes sobre',
+        
+        # Notícias e atualidades
+        'o que aconteceu', 'notícias sobre', 'última novidade',
+        'atualizações sobre', 'atualizacoes sobre', 'novidades sobre',
+        'últimas notícias', 'notícias recentes', 'acontecimentos',
+        
+        # Informações atuais
+        'informações sobre', 'informacoes sobre',
+        'mais recentes', 'mais atuais', 'atual sobre',
+        'preço atual', 'cotação', 'valor atual',
+        
+        # Eventos específicos
+        'hoje', 'ontem', 'esta semana', 'este mês', 'este ano',
+        '2025', '2024',  # Anos recentes
     ]
     
     texto_lower = texto.lower()

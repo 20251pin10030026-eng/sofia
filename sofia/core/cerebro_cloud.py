@@ -311,6 +311,19 @@ def perguntar(
     try:
         from . import web_search
 
+        # 4.1) Processar URLs diretas enviadas pelo usuário
+        if web_search._is_url(texto):
+            print("[DEBUG] URL detectada no texto, acessando link...")
+            conteudo_urls = web_search.processar_urls_no_texto(texto)
+            if conteudo_urls:
+                contexto_web += "\n" + "=" * 80 + "\n"
+                contexto_web += "🔗 CONTEÚDO DO LINK FORNECIDO PELO USUÁRIO:\n"
+                contexto_web += "=" * 80 + "\n\n"
+                contexto_web += conteudo_urls
+                contexto_web += "\n" + "=" * 80 + "\n\n"
+                print(f"[DEBUG] Link processado: {len(conteudo_urls)} chars")
+
+        # 4.2) Busca na web se modo ativo e texto indica necessidade
         if web_search.modo_web_ativo() and web_search.deve_buscar_web(texto):
             print("[DEBUG] Modo web ativo, buscando na internet...")
             resultados = web_search.buscar_web(texto, num_resultados=5)
