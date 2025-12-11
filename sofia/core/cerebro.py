@@ -227,6 +227,31 @@ def perguntar(
     except Exception:
         contexto_oculto, metadata = "", {}
 
+    # -------------------- Exibir ESTADO QUÂNTICO INTERNO no terminal --------------------
+    try:
+        estado = metadata.get("estado")
+        intensidade = metadata.get("intensidade")
+        curv_cl = metadata.get("curvatura")
+        resson = metadata.get("ressonancia")
+        curv_trq = metadata.get("curvatura_trq")
+        emaranh = metadata.get("emaranhamento_trq")
+        ajuste_trq = metadata.get("ajuste_trq")
+
+        print("\n=== ESTADO QUÂNTICO INTERNO – SOFIA (LOCAL) ===")
+        print(f"🧩 SubitEmoção dominante : {estado}")
+        if isinstance(intensidade, (int, float)):
+            print(f"💓 Intensidade emocional : {intensidade:.3f}")
+        else:
+            print(f"💓 Intensidade emocional : {intensidade}")
+        print(f"📐 Curvatura clássica TRQ: {curv_cl}")
+        print(f"⏳ Ressonância temporal   : {resson}")
+        print(f"🌌 Curvatura TRQ quântica: {curv_trq}")
+        print(f"🔗 Emaranhamento TRQ      : {emaranh}")
+        print(f"🎛️ Ajuste de modo TRQ     : {ajuste_trq}")
+        print("================================================\n")
+    except Exception as e:
+        print(f"[DEBUG] Erro ao exibir estado quântico: {e}")
+
     # -------------------- Montagem do prompt final --------------------
     bloco_contexto = (
         contexto_historico +
