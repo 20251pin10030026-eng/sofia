@@ -27,7 +27,12 @@ if not os.getenv("GITHUB_TOKEN"):
         pass
 
 from . import _interno, memoria
-from .memoria import buscar_fatos_relevantes, resgatar_contexto_conversa
+from .memoria import (
+    buscar_fatos_relevantes, 
+    resgatar_contexto_conversa,
+    obter_contexto_aprendizados,
+    obter_resumo_conversas_recentes,
+)
 
 # Configuração GitHub Models API
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
@@ -267,6 +272,16 @@ def perguntar(
         print(f"[ERRO] Falha ao resgatar contexto de conversa: {e}")
         contexto_historico = ""
 
+    # 2.5) Carregar aprendizados de longo prazo (identidade, teorias, usuário)
+    contexto_aprendizados = ""
+    try:
+        contexto_aprendizados = obter_contexto_aprendizados(max_chars=6000)
+        if contexto_aprendizados:
+            print(f"[DEBUG] Aprendizados carregados: {len(contexto_aprendizados)} chars")
+    except Exception as e:
+        print(f"[ERRO] Falha ao carregar aprendizados: {e}")
+        contexto_aprendizados = ""
+
     # 3) Contexto de visão / análise visual (se houver imagens ou PDF)
     contexto_visual = ""
     if imagens:
@@ -346,8 +361,11 @@ def perguntar(
     ]
 
     # Adicionar blocos de contexto se houver
-    if fatos_importantes or contexto_historico or contexto_web or contexto_visual or contexto_oculto or contexto_pdf:
+    if fatos_importantes or contexto_historico or contexto_web or contexto_visual or contexto_oculto or contexto_pdf or contexto_aprendizados:
         context_parts = []
+        # PRIMEIRO: Aprendizados de longo prazo (identidade, teorias) - mais importante
+        if contexto_aprendizados:
+            context_parts.append(contexto_aprendizados)
         if fatos_importantes:
             context_parts.append(fatos_importantes)
         if contexto_historico:

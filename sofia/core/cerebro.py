@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional, Callable
 # ----------------- Módulos internos da Sofia -----------------
 from . import memoria
 from . import _interno
+from .memoria import obter_contexto_aprendizados, obter_resumo_conversas_recentes
 
 # Visão (opcional)
 try:
@@ -252,8 +253,18 @@ def perguntar(
     except Exception as e:
         print(f"[DEBUG] Erro ao exibir estado quântico: {e}")
 
+    # -------------------- Carregar aprendizados de longo prazo --------------------
+    contexto_aprendizados = ""
+    try:
+        contexto_aprendizados = obter_contexto_aprendizados(max_chars=6000)
+        if contexto_aprendizados:
+            print(f"[DEBUG] Aprendizados carregados: {len(contexto_aprendizados)} chars")
+    except Exception as e:
+        print(f"[DEBUG] Erro ao carregar aprendizados: {e}")
+
     # -------------------- Montagem do prompt final --------------------
     bloco_contexto = (
+        contexto_aprendizados + "\n\n" +  # Aprendizados primeiro (mais importante)
         contexto_historico +
         contexto_web +
         contexto_visual +

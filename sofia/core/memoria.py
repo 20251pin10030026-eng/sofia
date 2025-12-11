@@ -490,5 +490,118 @@ def salvar_tudo():
     print("💾 Memória salva com sucesso!")
 
 
+def obter_contexto_aprendizados(max_chars: int = 8000) -> str:
+    """
+    Retorna os aprendizados formatados como contexto para o modelo.
+    Inclui identidade, teorias e informações importantes sobre o usuário.
+    
+    Args:
+        max_chars: Limite máximo de caracteres para o contexto
+    
+    Returns:
+        String formatada com os aprendizados mais importantes
+    """
+    if not aprendizados:
+        _carregar_aprendizados()
+    
+    if not aprendizados:
+        return ""
+    
+    partes = ["📚 MEMÓRIA DE LONGO PRAZO - APRENDIZADOS IMPORTANTES:\n"]
+    chars_usados = len(partes[0])
+    
+    # Prioridade 1: Documentos da Sofia (identidade)
+    if "documentos_sofia" in aprendizados:
+        partes.append("\n🌸 IDENTIDADE E PROTOCOLOS DE SOFIA:")
+        for chave, dados in aprendizados["documentos_sofia"].items():
+            valor = dados.get("valor", {})
+            if isinstance(valor, dict):
+                conteudo = valor.get("conteudo", "")
+                descricao = valor.get("descricao", chave)
+                if conteudo:
+                    # Truncar se necessário
+                    if chars_usados + len(conteudo) > max_chars - 1000:
+                        conteudo = conteudo[:max_chars - chars_usados - 1000] + "\n[... truncado ...]"
+                    partes.append(f"\n📄 {descricao}:\n{conteudo}")
+                    chars_usados += len(conteudo)
+    
+    # Prioridade 2: Teorias científicas (TRQ)
+    if "teorias_cientificas" in aprendizados and chars_usados < max_chars - 500:
+        partes.append("\n\n🔬 TEORIAS E CONHECIMENTOS ESPECIAIS:")
+        for chave, dados in aprendizados["teorias_cientificas"].items():
+            valor = dados.get("valor", {})
+            if isinstance(valor, dict):
+                descricao = valor.get("descricao", chave)
+                arquivo = valor.get("arquivo", "")
+                partes.append(f"\n- {descricao}")
+                if arquivo:
+                    partes.append(f"  (Fonte: {arquivo})")
+                chars_usados += len(descricao) + 50
+    
+    # Prioridade 3: Informações do usuário
+    if "usuario" in aprendizados and chars_usados < max_chars - 200:
+        partes.append("\n\n👤 INFORMAÇÕES DO CRIADOR/USUÁRIO:")
+        for chave, dados in aprendizados["usuario"].items():
+            valor = dados.get("valor", "")
+            freq = dados.get("frequencia", 1)
+            if valor:
+                partes.append(f"\n- {chave}: {valor} (mencionado {freq}x)")
+                chars_usados += len(str(valor)) + 50
+    
+    # Prioridade 4: Sistema
+    if "sistema" in aprendizados and chars_usados < max_chars - 100:
+        for chave, dados in aprendizados["sistema"].items():
+            valor = dados.get("valor")
+            if valor is not None:
+                partes.append(f"\n⚙️ {chave}: {valor}")
+    
+    resultado = "\n".join(partes)
+    
+    # Garantir que não exceda o limite
+    if len(resultado) > max_chars:
+        resultado = resultado[:max_chars - 50] + "\n[... aprendizados truncados ...]"
+    
+    return resultado
+
+
+def obter_resumo_conversas_recentes(
+    max_mensagens: int = 10,
+    escopo_memoria: Optional[str] = None
+) -> str:
+    """
+    Retorna um resumo das conversas mais recentes.
+    
+    Args:
+        max_mensagens: Número máximo de mensagens a incluir
+        escopo_memoria: Filtro de escopo (se None, retorna global)
+    
+    Returns:
+        String com resumo das conversas recentes
+    """
+    if not historico:
+        _carregar_memoria()
+    
+    if not historico:
+        return ""
+    
+    # Filtrar por escopo se necessário
+    msgs = [m for m in historico if _mesmo_escopo(m, escopo_memoria)]
+    
+    if not msgs:
+        return ""
+    
+    ultimas = msgs[-max_mensagens:]
+    
+    partes = ["💬 CONVERSAS RECENTES:"]
+    for msg in ultimas:
+        de = msg.get("de", "?")
+        texto = msg.get("texto", "")[:300]
+        if len(msg.get("texto", "")) > 300:
+            texto += "..."
+        partes.append(f"\n{de}: {texto}")
+    
+    return "\n".join(partes)
+
+
 # Inicializa ao importar
 inicializar()
