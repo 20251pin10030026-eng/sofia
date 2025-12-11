@@ -170,13 +170,17 @@ def perguntar(
 
     # 1) Extrair contexto emocional / interno (TRQ + Subitemocional)
     try:
-        contexto_oculto, metadata = _interno._processar(
+        resultado = _interno._processar(
             texto,
             historico=[],
             usuario=usuario_label,
         )
-        if not isinstance(metadata, dict):
-            metadata = {}
+        if resultado is None or not isinstance(resultado, tuple) or len(resultado) < 2:
+            contexto_oculto, metadata = "", {"emocao_dominante": "neutro"}
+        else:
+            contexto_oculto, metadata = resultado[0], resultado[1]
+            if not isinstance(metadata, dict):
+                metadata = {}
     except Exception as e:
         print(f"[ERRO] Falha ao extrair contexto oculto: {e}")
         contexto_oculto, metadata = "", {"emocao_dominante": "neutro"}

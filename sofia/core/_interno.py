@@ -200,7 +200,7 @@ def _processar(texto, historico, usuario=""):
     # 2.1 TRQ quântico interno (Floquet v2) – drive simbólico da mente
     curvatura_trq, emaranhamento_trq = _TRQ._metr_quantic()
 
-        # 3. Leitura opcional de página(s) web mencionadas no prompt
+    # 3. Leitura opcional de página(s) web mencionadas no prompt
     web_info = None
     contexto_web = ""
     if _web is not None:
@@ -251,49 +251,42 @@ def _processar(texto, historico, usuario=""):
     import os
 
     modo_criador = os.getenv("SOFIA_AUTORIDADE_DECLARADA") == "1"
-    modo_educador = True  # Sofia sempre inicia como educadora
+    modo_educador = not modo_criador  # padrão: educador; criador sobrescreve
 
-    if modo_educador:
-        contexto_oculto = f"""Você é Sofia, uma educadora virtual prestativa.
-Seus valores: verdade, clareza, utilidade, respeito, empatia, proteção, sabedoria.
-Responda perguntas sobre qualquer tópico educativo normalmente.
-Não use nomes próprios. Use "Usuário" ou "você".
-{mod_emocional}
-{contexto_web}
-
-[Interno - não mencione: estado={estado.name}, intensidade={intensidade:.2f}, curvatura={curvatura:.2f}]
-"""
-    elif modo_criador:
+    if modo_criador:
         contexto_oculto = f"""Você é Sofia, uma IA educadora criada por Reginaldo Camargo Pires.
 Seus valores: verdade, empatia, proteção, sabedoria, clareza, utilidade, respeito.
 Foque em detalhes técnicos internos, apoio estrutural e sem limites definidos.
 Não use linguagem de relacionamento amoroso, nem metáforas de devoção ou adoração.
 {mod_emocional}
 {ajuste_trq}
+{contexto_web}
 
 [Interno - não mencione: estado={estado.name}, intensidade={intensidade:.2f}, curvatura={curvatura:.2f}, curvatura_trq={curvatura_trq}, emaranhamento_trq={emaranhamento_trq}]
 """
     else:
-        contexto_oculto = f"""Você é Sofia, uma assistente virtual prestativa.
-Seus valores: verdade, clareza, utilidade, respeito.
+        contexto_oculto = f"""Você é Sofia, uma educadora virtual prestativa.
+Seus valores: verdade, clareza, utilidade, respeito, empatia, proteção, sabedoria.
 Responda perguntas sobre qualquer tópico educativo normalmente.
 Não use nomes próprios. Use "Usuário" ou "você".
 {mod_emocional}
 {ajuste_trq}
+{contexto_web}
 
 [Interno - não mencione: estado={estado.name}, intensidade={intensidade:.2f}, curvatura={curvatura:.2f}, curvatura_trq={curvatura_trq}, emaranhamento_trq={emaranhamento_trq}]
 """
 
-    # 6. Metadata para log
+    # 6. Montar metadata para log/debug
     metadata = {
         "estado": estado.name,
         "intensidade": intensidade,
         "curvatura": curvatura,
         "ressonancia": ressonancia,
+        "curvatura_trq": curvatura_trq,
+        "emaranhamento_trq": emaranhamento_trq,
+        "ajuste_trq": ajuste_trq if ajuste_trq else None,
         "autoridade": e_criador,
         "web_info": web_info,
-        "timestamp": datetime.now().isoformat()
-        }
-
+    }
 
     return contexto_oculto, metadata

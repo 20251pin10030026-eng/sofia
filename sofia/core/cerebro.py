@@ -1,12 +1,12 @@
 """
-cerebro.py — Sofia v2 simples (sem TRQ integrado)
+cerebro.py — Sofia v2 com TRQ interno em `_interno`
 -------------------------------------------------
 Núcleo leve da Sofia:
 - Identidade estável
 - Memória
 - Visão/PDF (se disponível)
 - Web search (se disponível)
-- Sem TRQ nem metacognição pesada
+- Integração com TRQ/subitemoções via módulo `_interno`
 -------------------------------------------------
 """
 
@@ -218,7 +218,14 @@ def perguntar(
         contexto_historico += "###\n"
 
     # -------------------- Processamento interno subitemocional --------------------
-    contexto_oculto, metadata = _interno._processar(texto, historico, usuario)
+    contexto_oculto: str = ""
+    metadata: Dict[str, Any] = {}
+    try:
+        resultado = _interno._processar(texto, historico, usuario)
+        if resultado is not None and isinstance(resultado, tuple) and len(resultado) == 2:
+            contexto_oculto, metadata = resultado
+    except Exception:
+        contexto_oculto, metadata = "", {}
 
     # -------------------- Montagem do prompt final --------------------
     bloco_contexto = (
@@ -288,7 +295,13 @@ def perguntar(
     # Salvar resposta na memória, se aplicável
     sentimento = "neutro"
     if isinstance(metadata, dict):
-        sentimento = metadata.get("emocao_dominante", "neutro")
+        # Usa a emoção dominante se existir; senão cai para o estado; senão "neutro"
+        sentimento = (
+            metadata.get("emocao_dominante")
+            or metadata.get("estado")
+            or "neutro"
+        )
+
     if resposta:
         try:
             memoria.adicionar_resposta_sofia(resposta, sentimento)
