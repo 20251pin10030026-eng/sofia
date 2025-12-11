@@ -177,7 +177,7 @@ def perguntar(
     # 0.5) Processar PDFs (antes do TRQ, pois pode modificar o texto base)
     prompt_base = texto
     contexto_pdf = ""
-    MAX_PDF_CHARS = 20000  # ~5000 tokens, deixa espaço para resposta e contexto
+    MAX_PDF_CHARS = 8000  # ~2000 tokens - reduzido para evitar erro 413
     
     try:
         from .visao import visao
@@ -276,7 +276,7 @@ def perguntar(
     # 2.5) Carregar aprendizados de longo prazo (identidade, teorias, usuário)
     contexto_aprendizados = ""
     try:
-        contexto_aprendizados = obter_contexto_aprendizados(max_chars=6000)
+        contexto_aprendizados = obter_contexto_aprendizados(max_chars=3000)
         if contexto_aprendizados:
             print(f"[DEBUG] Aprendizados carregados: {len(contexto_aprendizados)} chars")
     except Exception as e:
@@ -286,7 +286,7 @@ def perguntar(
     # 2.6) Carregar histórico de subitemotions (estados emocionais/TRQ)
     contexto_subitemotions = ""
     try:
-        contexto_subitemotions = obter_contexto_subitemotions(max_registros=10, max_chars=2000)
+        contexto_subitemotions = obter_contexto_subitemotions(max_registros=5, max_chars=1000)
         if contexto_subitemotions:
             print(f"[DEBUG] Subitemotions carregados: {len(contexto_subitemotions)} chars")
     except Exception as e:

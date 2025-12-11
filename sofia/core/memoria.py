@@ -386,7 +386,7 @@ def buscar_fatos_relevantes(
 
 def resgatar_contexto_conversa(
     texto: str = "",
-    max_mensagens: int = 30,
+    max_mensagens: int = 10,
     escopo_memoria: Optional[str] = None,
 ) -> str:
     """
@@ -412,7 +412,7 @@ def resgatar_contexto_conversa(
     partes = ["🧵 Contexto recente da conversa (escopo atual):"]
     for msg in ultimas:
         de = msg.get("de", "desconhecido")
-        trecho = msg.get("texto", "")[:400]
+        trecho = msg.get("texto", "")[:200]  # Reduzido de 400 para 200
         partes.append(f"{de}: {trecho}")
 
     return "\n".join(partes)
