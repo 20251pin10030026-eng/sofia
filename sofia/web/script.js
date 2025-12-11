@@ -1,43 +1,8 @@
 // API Configuration
-// Cloud = Acesso via ngrok (internet), Local = localhost direto
-// Detecta automaticamente a URL do ngrok baseado em como está acessando
-function getCloudUrl() {
-    const host = window.location.host;
-    // Se está acessando via ngrok, usa essa mesma URL
-    if (host.includes('ngrok-free.app') || host.includes('ngrok.io')) {
-        return {
-            api: `${window.location.protocol}//${host}`,
-            ws: `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${host}`
-        };
-    }
-    // Fallback: tenta ler do localStorage (salvo pelo script de atualização)
-    const savedUrl = localStorage.getItem('sofia_ngrok_url');
-    if (savedUrl) {
-        return {
-            api: savedUrl,
-            ws: savedUrl.replace('https://', 'wss://').replace('http://', 'ws://')
-        };
-    }
-    // Se não tem ngrok, usa localhost mesmo
-    return { api: 'http://localhost:8000', ws: 'ws://localhost:8000' };
-}
-
-const cloudEndpoints = getCloudUrl();
-const CLOUD_API_URL = cloudEndpoints.api;
-const CLOUD_WS_URL = cloudEndpoints.ws;
-const LOCAL_API_URL = 'http://localhost:8000';
-const LOCAL_WS_URL = 'ws://localhost:8000';
-
-// Detecta modo baseado em como está acessando
-function detectInitialMode() {
-    const host = window.location.host;
-    // Se acessa via ngrok, começa em cloud
-    if (host.includes('ngrok-free.app') || host.includes('ngrok.io')) {
-        return 'cloud';
-    }
-    // Se acessa via localhost, começa em local
-    return 'local';
-}
+// Cloud = GitHub Models API (servidor), Local = Ollama (local)
+// Ambos usam o mesmo servidor backend, mas o backend alterna entre as IAs
+const API_URL = 'https://d3fcbb6b51b6.ngrok-free.app';
+const WS_URL = 'wss://d3fcbb6b51b6.ngrok-free.app';
 
 // Injeta header para bypass do aviso do ngrok quando necessário
 const _nativeFetch = window.fetch.bind(window);
@@ -54,11 +19,8 @@ window.fetch = (url, options = {}) => {
     return _nativeFetch(url, opts);
 };
 
-// Configuração inicial - usa localStorage ou detecta automaticamente
-let endpointMode = localStorage.getItem('sofia_endpoint_mode') || detectInitialMode();
-let API_URL = endpointMode === 'cloud' ? CLOUD_API_URL : LOCAL_API_URL;
-let WS_URL = endpointMode === 'cloud' ? CLOUD_WS_URL : LOCAL_WS_URL;
-console.log('🔗 Modo inicial:', endpointMode, '| API:', API_URL, '| WS:', WS_URL);
+// Modo atual - será carregado do servidor
+let endpointMode = 'local';
 
 // WebSocket
 let ws = null;
@@ -94,49 +56,63 @@ let conversationHistory = [];
 let attachedFiles = []; // Array para armazenar arquivos anexados temporariamente
 let webSearchMode = false; // Estado do modo de busca web
 
+// Função para buscar modo atual do servidor
+async function fetchCurrentMode() {
+    try {
+        const response = await fetch(`${API_URL}/api/mode`);
+        if (response.ok) {
+            const data = await response.json();
+            endpointMode = data.mode;
+            applyEndpointMode(endpointMode);
+            console.log('🔗 Modo carregado do servidor:', endpointMode);
+        }
+    } catch (error) {
+        console.error('Erro ao buscar modo:', error);
+    }
+}
+
 // Inicializar ao carregar
 document.addEventListener('DOMContentLoaded', async () => {
-    applyEndpointMode(endpointMode);
+    await fetchCurrentMode();
     await initializeWebSocket();
 });
 
-// Toggle entre Cloud (ngrok) e Local (localhost)
+// Toggle entre Cloud (GitHub Models) e Local (Ollama)
 if (endpointToggleBtn) {
     endpointToggleBtn.addEventListener('click', async () => {
         // Alterna entre cloud e local
-        endpointMode = endpointMode === 'cloud' ? 'local' : 'cloud';
-        localStorage.setItem('sofia_endpoint_mode', endpointMode);
+        const newMode = endpointMode === 'cloud' ? 'local' : 'cloud';
         
-        if (endpointMode === 'cloud') {
-            API_URL = CLOUD_API_URL;
-            WS_URL = CLOUD_WS_URL;
-        } else {
-            API_URL = LOCAL_API_URL;
-            WS_URL = LOCAL_WS_URL;
+        try {
+            // Envia para o servidor
+            const response = await fetch(`${API_URL}/api/mode?mode=${newMode}`, {
+                method: 'POST'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                endpointMode = data.mode;
+                applyEndpointMode(endpointMode);
+                showNotification(`Modo alterado para ${data.description}`, 'success');
+                console.log('🔄 Modo alterado para:', endpointMode);
+            } else {
+                throw new Error('Falha ao alterar modo');
+            }
+        } catch (error) {
+            console.error('Erro ao alterar modo:', error);
+            showNotification('Erro ao alterar modo. Servidor offline?', 'error');
         }
-        
-        // Fechar WebSocket atual e reconectar
-        if (ws) {
-            ws.onclose = null;
-            ws.close();
-            ws = null;
-        }
-        isConnected = false;
-        sessionId = null;
-        
-        applyEndpointMode(endpointMode);
-        await initializeWebSocket();
-        
-        applyEndpointMode(endpointMode);
-        console.log('🔄 Modo alterado para:', endpointMode, '| API:', API_URL);
     });
 }
 
 function applyEndpointMode(mode) {
     if (modeBadge) {
         modeBadge.textContent = mode === 'local' ? 'Local' : 'Cloud';
+        modeBadge.style.background = mode === 'local' 
+            ? 'linear-gradient(135deg, #28a745, #20c997)' 
+            : 'linear-gradient(135deg, #007bff, #6f42c1)';
     }
-    console.log('Endpoint atualizado:', mode, API_URL);
+    console.log('🎯 Modo atual:', mode === 'cloud' ? 'GitHub Models API' : 'Ollama Local');
 }
 
 // Função para criar sessão
@@ -673,38 +649,6 @@ async function sendMessage() {
         conversationHistory.push(
             { de: 'Usuário', texto: message }
         );
-
-        // ---------- NOVO: PEDIR RESPOSTA 2 /chat_duplo (só no modo local) ----------
-        try {
-            const response = await fetch(`${API_URL}/chat_duplo`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    message: fullMessage,
-                    usuario: 'Usuário'
-                })
-            });
-
-            const data = await response.json();
-            console.log('📥 Resposta /chat_duplo:', data);
-
-            if (data && data.ok && data.resposta_2) {
-                // Se quiser marcar, pode prefixar com ícone:
-                // addMessage('sofia', '🌙 Camada 2:\n' + data.resposta_2);
-                addMessage('sofia', data.resposta_2);
-
-                conversationHistory.push({
-                    de: 'Sofia (camada 2)',
-                    texto: data.resposta_2
-                });
-            } else if (data && !data.ok && data.erro) {
-                console.error('Erro em /chat_duplo:', data.erro);
-            }
-        } catch (err) {
-            console.error('❌ Falha ao chamar /chat_duplo:', err);
-        }
 
     } catch (error) {
         hideTypingIndicator();
