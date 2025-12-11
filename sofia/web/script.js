@@ -1,6 +1,27 @@
-// API Configuration
-const CLOUD_API_URL = 'https://c69f26e53196.ngrok-free.app';
-const CLOUD_WS_URL = 'wss://c69f26e53196.ngrok-free.app';
+// API Configuration - DETECÇÃO AUTOMÁTICA
+// Se acessar via ngrok, usa ngrok. Se acessar via localhost, usa localhost.
+function detectEndpoints() {
+    const host = window.location.host;
+    const protocol = window.location.protocol;
+    
+    // Se está acessando via ngrok
+    if (host.includes('ngrok-free.app') || host.includes('ngrok.io')) {
+        return {
+            api: `${protocol}//${host}`,
+            ws: `${protocol === 'https:' ? 'wss:' : 'ws:'}//${host}`,
+            mode: 'cloud'
+        };
+    }
+    
+    // Se está acessando via localhost ou IP local
+    return {
+        api: `${protocol}//${host}`,
+        ws: `${protocol === 'https:' ? 'wss:' : 'ws:'}//${host}`,
+        mode: 'local'
+    };
+}
+
+const endpoints = detectEndpoints();
 const LOCAL_API_URL = 'http://localhost:8000';
 const LOCAL_WS_URL = 'ws://localhost:8000';
 
@@ -11,7 +32,7 @@ window.fetch = (url, options = {}) => {
     const headers = { ...(options.headers || {}) };
 
     const urlStr = typeof url === 'string' ? url : (url?.url || '');
-    if (urlStr.includes('ngrok-free.app')) {
+    if (urlStr.includes('ngrok-free.app') || urlStr.includes('ngrok.io')) {
         headers['ngrok-skip-browser-warning'] = 'true';
     }
 
@@ -19,9 +40,11 @@ window.fetch = (url, options = {}) => {
     return _nativeFetch(url, opts);
 };
 
-let API_URL = CLOUD_API_URL;
-let WS_URL = CLOUD_WS_URL;
-let endpointMode = localStorage.getItem('sofia_endpoint_mode') || 'cloud';
+// Usa a URL detectada automaticamente
+let API_URL = endpoints.api;
+let WS_URL = endpoints.ws;
+let endpointMode = endpoints.mode;
+console.log('🔗 Endpoints detectados automaticamente:', endpoints);
 
 // WebSocket
 let ws = null;
@@ -63,11 +86,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     await initializeWebSocket();
 });
 
-// Alternar entre Cloud e Local
+// O toggle agora só faz sentido para forçar localhost quando acessando via ngrok
 if (endpointToggleBtn) {
     endpointToggleBtn.addEventListener('click', async () => {
-        endpointMode = endpointMode === 'cloud' ? 'local' : 'cloud';
-        localStorage.setItem('sofia_endpoint_mode', endpointMode);
+        // Alterna entre usar URL atual (auto) ou forçar localhost
+        if (API_URL === LOCAL_API_URL) {
+            // Volta para detecção automática
+            API_URL = endpoints.api;
+            WS_URL = endpoints.ws;
+            endpointMode = endpoints.mode;
+        } else {
+            // Força localhost
+            API_URL = LOCAL_API_URL;
+            WS_URL = LOCAL_WS_URL;
+            endpointMode = 'local';
+        }
         applyEndpointMode(endpointMode);
 
         // Reiniciar conexão e sessão
@@ -85,17 +118,10 @@ if (endpointToggleBtn) {
 }
 
 function applyEndpointMode(mode) {
-    if (mode === 'local') {
-        API_URL = LOCAL_API_URL;
-        WS_URL = LOCAL_WS_URL;
-        if (modeBadge) modeBadge.textContent = 'Local';
-        updateStatus('online', 'Local');
-    } else {
-        API_URL = CLOUD_API_URL;
-        WS_URL = CLOUD_WS_URL;
-        if (modeBadge) modeBadge.textContent = 'Cloud';
-        updateStatus('online', 'Online');
+    if (modeBadge) {
+        modeBadge.textContent = mode === 'local' ? 'Local' : 'Cloud';
     }
+    updateStatus('online', mode === 'local' ? 'Local' : 'Online');
     console.log('Endpoint atualizado:', mode, API_URL, WS_URL);
 }
 
