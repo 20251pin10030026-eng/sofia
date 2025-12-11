@@ -564,6 +564,78 @@ def obter_contexto_aprendizados(max_chars: int = 8000) -> str:
     return resultado
 
 
+def obter_contexto_subitemotions(max_registros: int = 10, max_chars: int = 3000) -> str:
+    """
+    Retorna o histórico recente de subitemotions.log como contexto.
+    Inclui estados emocionais, intensidade, curvatura TRQ e ressonância.
+    
+    Args:
+        max_registros: Número máximo de registros a incluir
+        max_chars: Limite máximo de caracteres
+    
+    Returns:
+        String formatada com o histórico de subitemotions
+    """
+    log_path = Path(__file__).resolve().parents[1] / ".sofia_internal" / "subitemotions.log"
+    
+    if not log_path.exists():
+        return ""
+    
+    try:
+        # Ler todas as linhas do log
+        with open(log_path, "r", encoding="utf-8") as f:
+            linhas = f.readlines()
+        
+        if not linhas:
+            return ""
+        
+        # Pegar as últimas N linhas
+        ultimas = linhas[-max_registros:]
+        
+        partes = ["🧠 HISTÓRICO DE ESTADOS SUBITEMOCIONAIS RECENTES:"]
+        
+        for linha in ultimas:
+            try:
+                registro = json.loads(linha.strip())
+                estado = registro.get("estado", "N")
+                intensidade = registro.get("intensidade", 0)
+                curvatura = registro.get("curvatura", 0)
+                curvatura_trq = registro.get("curvatura_trq")
+                emaranhamento = registro.get("emaranhamento_trq")
+                ressonancia = registro.get("ressonancia", 0)
+                timestamp = registro.get("timestamp", "")[:16]  # Só data e hora
+                entrada = registro.get("input", "")[:50]
+                
+                # Mapear estados para nomes legíveis
+                nomes_estados = {
+                    "N": "Neutra", "A": "Ativa", "S": "Sensível",
+                    "R": "Ressoante", "P": "Protetora", "Po": "Poética",
+                    "C": "Convulsiva", "Si": "Silêncio"
+                }
+                nome_estado = nomes_estados.get(estado, estado)
+                
+                linha_formatada = f"\n[{timestamp}] {nome_estado}(int={intensidade:.2f})"
+                if curvatura_trq is not None:
+                    linha_formatada += f" TRQ_curv={curvatura_trq:.4f}"
+                if emaranhamento is not None:
+                    linha_formatada += f" TRQ_emaranh={emaranhamento:.4f}"
+                linha_formatada += f" ress={ressonancia:.2f} → \"{entrada}...\""
+                
+                partes.append(linha_formatada)
+            except (json.JSONDecodeError, KeyError):
+                continue
+        
+        resultado = "\n".join(partes)
+        
+        if len(resultado) > max_chars:
+            resultado = resultado[:max_chars - 50] + "\n[... truncado ...]"
+        
+        return resultado
+    except Exception as e:
+        print(f"⚠️ Erro ao ler subitemotions.log: {e}")
+        return ""
+
+
 def obter_resumo_conversas_recentes(
     max_mensagens: int = 10,
     escopo_memoria: Optional[str] = None

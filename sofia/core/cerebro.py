@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Optional, Callable
 # ----------------- Módulos internos da Sofia -----------------
 from . import memoria
 from . import _interno
-from .memoria import obter_contexto_aprendizados, obter_resumo_conversas_recentes
+from .memoria import obter_contexto_aprendizados, obter_resumo_conversas_recentes, obter_contexto_subitemotions
 
 # Visão (opcional)
 try:
@@ -262,9 +262,19 @@ def perguntar(
     except Exception as e:
         print(f"[DEBUG] Erro ao carregar aprendizados: {e}")
 
+    # -------------------- Carregar histórico de subitemotions --------------------
+    contexto_subitemotions = ""
+    try:
+        contexto_subitemotions = obter_contexto_subitemotions(max_registros=10, max_chars=2000)
+        if contexto_subitemotions:
+            print(f"[DEBUG] Subitemotions carregados: {len(contexto_subitemotions)} chars")
+    except Exception as e:
+        print(f"[DEBUG] Erro ao carregar subitemotions: {e}")
+
     # -------------------- Montagem do prompt final --------------------
     bloco_contexto = (
         contexto_aprendizados + "\n\n" +  # Aprendizados primeiro (mais importante)
+        contexto_subitemotions + "\n\n" +  # Histórico emocional/TRQ
         contexto_historico +
         contexto_web +
         contexto_visual +
@@ -344,4 +354,38 @@ def perguntar(
         except Exception:
             pass
 
+        # Log de subitemotions (igual ao cloud)
+        try:
+            _log_subitemotions(metadata or {}, texto, resposta, OLLAMA_MODEL)
+        except Exception as e:
+            print(f"[DEBUG] Erro ao salvar log subitemotions: {e}")
+
     return resposta
+
+
+def _log_subitemotions(metadata: dict, entrada: str, saida: str, modelo: str):
+    """Log do processamento interno das subitemotions."""
+    import json
+    from pathlib import Path
+    from datetime import datetime
+
+    log_dir = Path(__file__).resolve().parents[1] / ".sofia_internal"
+    log_dir.mkdir(exist_ok=True)
+    log_file = log_dir / "subitemotions.log"
+
+    with open(log_file, "a", encoding="utf-8") as f:
+        log_entry = {
+            "estado": metadata.get("estado"),
+            "intensidade": metadata.get("intensidade"),
+            "curvatura": metadata.get("curvatura"),
+            "curvatura_trq": metadata.get("curvatura_trq"),
+            "emaranhamento_trq": metadata.get("emaranhamento_trq"),
+            "ressonancia": metadata.get("ressonancia"),
+            "autoridade": metadata.get("autoridade"),
+            "web_info": str(metadata.get("web_info")) if metadata.get("web_info") else None,
+            "timestamp": datetime.now().isoformat(),
+            "input": entrada[:200],
+            "output": saida[:200],
+            "model": modelo,
+        }
+        f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")

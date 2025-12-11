@@ -32,6 +32,7 @@ from .memoria import (
     resgatar_contexto_conversa,
     obter_contexto_aprendizados,
     obter_resumo_conversas_recentes,
+    obter_contexto_subitemotions,
 )
 
 # Configuração GitHub Models API
@@ -282,6 +283,16 @@ def perguntar(
         print(f"[ERRO] Falha ao carregar aprendizados: {e}")
         contexto_aprendizados = ""
 
+    # 2.6) Carregar histórico de subitemotions (estados emocionais/TRQ)
+    contexto_subitemotions = ""
+    try:
+        contexto_subitemotions = obter_contexto_subitemotions(max_registros=10, max_chars=2000)
+        if contexto_subitemotions:
+            print(f"[DEBUG] Subitemotions carregados: {len(contexto_subitemotions)} chars")
+    except Exception as e:
+        print(f"[ERRO] Falha ao carregar subitemotions: {e}")
+        contexto_subitemotions = ""
+
     # 3) Contexto de visão / análise visual (se houver imagens ou PDF)
     contexto_visual = ""
     if imagens:
@@ -361,11 +372,14 @@ def perguntar(
     ]
 
     # Adicionar blocos de contexto se houver
-    if fatos_importantes or contexto_historico or contexto_web or contexto_visual or contexto_oculto or contexto_pdf or contexto_aprendizados:
+    if fatos_importantes or contexto_historico or contexto_web or contexto_visual or contexto_oculto or contexto_pdf or contexto_aprendizados or contexto_subitemotions:
         context_parts = []
         # PRIMEIRO: Aprendizados de longo prazo (identidade, teorias) - mais importante
         if contexto_aprendizados:
             context_parts.append(contexto_aprendizados)
+        # SEGUNDO: Histórico de subitemotions (estados emocionais/TRQ)
+        if contexto_subitemotions:
+            context_parts.append(contexto_subitemotions)
         if fatos_importantes:
             context_parts.append(fatos_importantes)
         if contexto_historico:
