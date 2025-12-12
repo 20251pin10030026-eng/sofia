@@ -68,6 +68,60 @@ OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gpt-oss:20b")
 
 
+def _perfil_local() -> str:
+    """Retorna o perfil local atual: FAST ou QUALITY."""
+    return os.getenv("SOFIA_LOCAL_PROFILE", "QUALITY").strip().upper() or "QUALITY"
+
+
+def _resolver_modelo_local() -> str:
+    """Seleciona o modelo local com base no profile (FAST/QUALITY)."""
+    perfil = _perfil_local()
+    if perfil == "FAST":
+        return os.getenv("SOFIA_MODEL_FAST", "llama3.1:8b")
+    if perfil == "QUALITY":
+        return os.getenv("SOFIA_MODEL_QUALITY", "gpt-oss:20b")
+    # fallback: respeita OLLAMA_MODEL
+    return OLLAMA_MODEL
+
+
+def _resolver_opcoes_ollama(modelo: str) -> Dict[str, Any]:
+    """Retorna options do Ollama ajustadas ao modelo/hardware."""
+    perfil = _perfil_local()
+
+    # Defaults estáveis para GTX 1650 4GB + 12 threads
+    # (perfil FAST usa mais GPU; QUALITY tende a precisar de mais CPU offload)
+    if perfil == "FAST":
+        defaults: Dict[str, Any] = {
+            "num_gpu": int(os.getenv("OLLAMA_NUM_GPU", "-1")),
+            "num_thread": int(os.getenv("OLLAMA_NUM_THREAD", "12")),
+            "num_parallel": int(os.getenv("OLLAMA_NUM_PARALLEL", "1")),
+            "num_batch": int(os.getenv("OLLAMA_NUM_BATCH", "256")),
+            "num_ctx": int(os.getenv("OLLAMA_NUM_CTX", "2048")),
+        }
+    else:
+        defaults = {
+            "num_gpu": int(os.getenv("OLLAMA_NUM_GPU", "25")),
+            "num_thread": int(os.getenv("OLLAMA_NUM_THREAD", "12")),
+            "num_parallel": int(os.getenv("OLLAMA_NUM_PARALLEL", "1")),
+            "num_batch": int(os.getenv("OLLAMA_NUM_BATCH", "128")),
+            "num_ctx": int(os.getenv("OLLAMA_NUM_CTX", "2048")),
+        }
+
+    defaults.update(
+        {
+            "temperature": float(os.getenv("OLLAMA_TEMPERATURE", "0.65")),
+            "top_p": float(os.getenv("OLLAMA_TOP_P", "0.9")),
+            "use_mmap": True,
+            "use_mlock": False,
+            "main_gpu": 0,
+        }
+    )
+
+    # Permite override por modelo específico, se quiser:
+    # SOFIA_OLLAMA_NUM_BATCH_LLAMA3_1_8B=... etc (opcional)
+    return defaults
+
+
 # ---------------------- Funções auxiliares ----------------------
 
 def _model_available(host: str) -> bool:
@@ -136,6 +190,18 @@ def perguntar(
     historico = historico or []
     if not usuario:
         usuario = "Usuário"
+
+    # -------------------- Toggle FAST/QUALITY (comando rápido) --------------------
+    # Permite alternar sem mexer em .env
+    comando = (texto or "").strip().lower()
+    if comando in ("fast", "modo fast", "perfil fast", "performance", "rápido", "rapido"):
+        os.environ["SOFIA_LOCAL_PROFILE"] = "FAST"
+        return "✅ Perfil local definido para FAST (modelo: llama3.1:8b)."
+    if comando in ("quality", "modo quality", "perfil quality", "qualidade"):
+        os.environ["SOFIA_LOCAL_PROFILE"] = "QUALITY"
+        return "✅ Perfil local definido para QUALITY (modelo: gpt-oss:20b)."
+    if comando in ("perfil", "modo", "profile"):
+        return f"ℹ️ Perfil local atual: {_perfil_local()} (modelo: {_resolver_modelo_local()})."
 
     # Cancelamento inicial
     if cancel_callback and cancel_callback():
@@ -301,43 +367,15 @@ def perguntar(
 
     system_text = _montar_system(modo_criador, modo_sem_filtros)
 
+    modelo_local = _resolver_modelo_local()
+    opcoes_ollama = _resolver_opcoes_ollama(modelo_local)
+
     payload: Dict[str, Any] = {
-        "model": OLLAMA_MODEL,
+        "model": modelo_local,
         "prompt": prompt_final,
         "stream": False,
         "system": system_text,
-        "options": {
-            # ========== CONFIGURAÇÕES DE MÁXIMO DESEMPENHO ==========
-            # Hardware: Intel Xeon E5-2630 v2 (6 cores/12 threads) + GTX 1650 (4GB)
-            
-            # GPU: Usar TODAS as camadas possíveis na GPU (máximo desempenho)
-            # -1 = usar todas as camadas que couberem na VRAM
-            # Para GTX 1650 4GB com modelo 20B: ~20-25 camadas cabem
-            "num_gpu": int(os.getenv("OLLAMA_NUM_GPU", "99")),
-            
-            # CPU: Usar TODOS os 12 threads disponíveis
-            "num_thread": int(os.getenv("OLLAMA_NUM_THREAD", "12")),
-            
-            # Processamento paralelo: aumentar para usar mais recursos
-            "num_parallel": int(os.getenv("OLLAMA_NUM_PARALLEL", "2")),
-            
-            # Batch size: maior = mais rápido (usa mais VRAM)
-            # Para 4GB VRAM, 512 é um bom equilíbrio
-            "num_batch": int(os.getenv("OLLAMA_NUM_BATCH", "512")),
-            
-            # Contexto: reduzir para aumentar velocidade (menos memória)
-            "num_ctx": int(os.getenv("OLLAMA_NUM_CTX", "2048")),
-            
-            # Parâmetros de geração
-            "temperature": float(os.getenv("OLLAMA_TEMPERATURE", "0.65")),
-            "top_p": float(os.getenv("OLLAMA_TOP_P", "0.9")),
-            
-            # Otimizações adicionais
-            "use_mmap": True,        # Mapear modelo na memória (mais rápido)
-            "use_mlock": False,      # Não travar na RAM (economiza memória)
-            "main_gpu": 0,           # Usar GPU principal
-            "low_vram": False,       # Modo VRAM baixa desativado (usar tudo)
-        },
+        "options": opcoes_ollama,
     }
 
     try:
@@ -376,7 +414,7 @@ def perguntar(
 
         # Log de subitemotions (igual ao cloud)
         try:
-            _log_subitemotions(metadata or {}, texto, resposta, OLLAMA_MODEL)
+            _log_subitemotions(metadata or {}, texto, resposta, modelo_local)
         except Exception as e:
             print(f"[DEBUG] Erro ao salvar log subitemotions: {e}")
 

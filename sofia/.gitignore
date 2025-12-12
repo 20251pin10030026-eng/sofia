@@ -15,6 +15,15 @@ build/
 .sofia_internal/
 *.log
 
+# Segredos / configs locais
+.env
+sofia/.env
+
+# Runtime (não versionar)
+sofia/.sofia_internal/
+sofia/core/estado_monitor.json
+sofia/core/logs_execucao/
+
 # IDEs
 .vscode/
 .idea/

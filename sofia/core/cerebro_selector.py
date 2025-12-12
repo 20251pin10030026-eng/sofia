@@ -33,7 +33,7 @@ def set_mode(mode: str):
     if mode not in ("cloud", "local"):
         raise ValueError("Modo deve ser 'cloud' ou 'local'")
     _current_mode = mode
-    print(f"🔄 Sofia alterou para modo {'CLOUD (GitHub Models)' if mode == 'cloud' else 'LOCAL (Ollama)'}")
+    print(f"Sofia alterou para modo {'CLOUD (GitHub Models)' if mode == 'cloud' else 'LOCAL (Ollama)'}")
     return _current_mode
 
 def perguntar(
@@ -71,7 +71,7 @@ def perguntar(
 
 # Inicializar e mostrar modo
 _current_mode = _detect_initial_mode()
-print(f"{'🌐' if _current_mode == 'cloud' else '🏠'} Sofia iniciou em modo {'CLOUD (GitHub Models)' if _current_mode == 'cloud' else 'LOCAL (Ollama)'}")
+print(f"Sofia iniciou em modo {'CLOUD (GitHub Models)' if _current_mode == 'cloud' else 'LOCAL (Ollama)'}")
 
 # Exportar
 __all__ = ['perguntar', 'get_mode', 'set_mode']
