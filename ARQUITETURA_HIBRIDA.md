@@ -276,7 +276,7 @@ cat sofia/.env
 Deve conter:
 ```
 SOFIA_USE_CLOUD=true
-GITHUB_TOKEN=ghp_REDACTED
+GITHUB_TOKEN=ghp_seu_token_aqui
 GITHUB_MODEL=gpt-4o
 ```
 

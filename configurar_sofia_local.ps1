@@ -51,7 +51,7 @@ if (-not (Test-Path $envPath)) {
     @"
 # GitHub Models (GPT-4o) - Gratis com Copilot Pro
 SOFIA_USE_CLOUD=true
-GITHUB_TOKEN=ghp_REDACTED
+GITHUB_TOKEN=ghp_seu_token_aqui
 GITHUB_MODEL=gpt-4o
 
 # Servidor local
@@ -68,7 +68,7 @@ PORT=5000
 
 # GitHub Models (GPT-4o) - Gratis com Copilot Pro
 SOFIA_USE_CLOUD=true
-GITHUB_TOKEN=ghp_REDACTED
+GITHUB_TOKEN=ghp_seu_token_aqui
 GITHUB_MODEL=gpt-4o
 "@ | Add-Content -Path $envPath
         Write-Host "OK - Arquivo .env atualizado" -ForegroundColor Green

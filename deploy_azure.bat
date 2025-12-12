@@ -51,7 +51,13 @@ echo OK - Function App criado
 echo.
 
 echo [5/6] Configurando variaveis de ambiente...
-az functionapp config appsettings set --name sofia-functions --resource-group sofia-rg --settings "GITHUB_TOKEN=ghp_REDACTED" "SOFIA_USE_CLOUD=true" "GITHUB_MODEL=gpt-4o" --output none
+if "%GITHUB_TOKEN%"=="" (
+    echo Erro: GITHUB_TOKEN nao definido no ambiente.
+    echo Defina antes de executar: set GITHUB_TOKEN=seu_token_aqui
+    pause
+    exit /b 1
+)
+az functionapp config appsettings set --name sofia-functions --resource-group sofia-rg --settings "GITHUB_TOKEN=%GITHUB_TOKEN%" "SOFIA_USE_CLOUD=true" "GITHUB_MODEL=gpt-4o" --output none
 echo OK - Variaveis configuradas
 echo.
 

@@ -99,7 +99,7 @@ az functionapp config appsettings set `
   --name $functionApp `
   --resource-group $resourceGroup `
   --settings `
-  "GITHUB_TOKEN=ghp_REDACTED" `
+    "GITHUB_TOKEN=$env:GITHUB_TOKEN" `
   "SOFIA_USE_CLOUD=true" `
   "GITHUB_MODEL=gpt-4o" `
   --output none

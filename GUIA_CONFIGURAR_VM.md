@@ -11,7 +11,7 @@ ssh sofiaadmin@52.226.167.30
 cd /home/sofiaadmin/sofia/sofia
 cat > .env << 'EOF'
 SOFIA_USE_CLOUD=true
-GITHUB_TOKEN=ghp_REDACTED
+GITHUB_TOKEN=ghp_seu_token_aqui
 GITHUB_MODEL=gpt-4o
 EOF
 ```
@@ -22,7 +22,7 @@ cd /home/sofiaadmin/sofia
 cat > start-sofia.sh << 'EOF'
 #!/bin/bash
 export SOFIA_USE_CLOUD=true
-export GITHUB_TOKEN=ghp_REDACTED
+export GITHUB_TOKEN=ghp_seu_token_aqui
 export GITHUB_MODEL=gpt-4o
 cd /home/sofiaadmin/sofia/sofia
 exec /home/sofiaadmin/sofia/venv/bin/python api.py --host 0.0.0.0 --port 5000

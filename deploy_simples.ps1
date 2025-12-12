@@ -29,7 +29,13 @@ Write-Host "Criando Function App: $func" -ForegroundColor Yellow
 az functionapp create --name $func --resource-group $rg --storage-account $storage --consumption-plan-location $loc --runtime python --runtime-version 3.11 --functions-version 4 --os-type Linux
 
 Write-Host "Configurando variaveis..." -ForegroundColor Yellow
-az functionapp config appsettings set --name $func --resource-group $rg --settings "GITHUB_TOKEN=ghp_REDACTED" "SOFIA_USE_CLOUD=true" "GITHUB_MODEL=gpt-4o"
+if (-not $env:GITHUB_TOKEN) {
+    Write-Host "ERRO: GITHUB_TOKEN não configurado no ambiente." -ForegroundColor Red
+    Write-Host "Defina antes de executar (exemplo):" -ForegroundColor Yellow
+    Write-Host "  `$env:GITHUB_TOKEN = 'seu_token_aqui'" -ForegroundColor Yellow
+    exit 1
+}
+az functionapp config appsettings set --name $func --resource-group $rg --settings "GITHUB_TOKEN=$env:GITHUB_TOKEN" "SOFIA_USE_CLOUD=true" "GITHUB_MODEL=gpt-4o"
 
 Write-Host "Criando Static Web App: $web" -ForegroundColor Yellow
 az staticwebapp create --name $web --resource-group $rg --location $loc --source https://github.com/SomBRaRCP/sofia --branch master --app-location "/sofia/web" --login-with-github

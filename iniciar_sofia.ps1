@@ -30,9 +30,15 @@ Write-Host ""
 
 $env:PYTHONPATH = "D:\A.I_GitHUB"    Write-Host "🔧 Ativando ambiente virtual..."
 
-$env:SOFIA_USE_CLOUD = "true"    & .venv\Scripts\Activate.ps1
+    $env:SOFIA_USE_CLOUD = "true"    & .venv\Scripts\Activate.ps1
+}
 
-$env:GITHUB_TOKEN = "ghp_REDACTED"}
+if (-not $env:GITHUB_TOKEN) {
+    Write-Host "ERRO: GITHUB_TOKEN não configurado no ambiente." -ForegroundColor Red
+    Write-Host "Defina antes de executar (exemplo):" -ForegroundColor Yellow
+    Write-Host "  `$env:GITHUB_TOKEN = 'seu_token_aqui'" -ForegroundColor Yellow
+    exit 1
+}
 
 $env:GITHUB_MODEL = "gpt-4o"
 

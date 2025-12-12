@@ -1,9 +1,13 @@
 # Script para iniciar servidor Sofia com Azure (GitHub Models)
 
-# Configurar token GitHub
-$env:GITHUB_TOKEN = "ghp_REDACTED"
+if (-not $env:GITHUB_TOKEN) {
+	Write-Host "ERRO: GITHUB_TOKEN não configurado no ambiente." -ForegroundColor Red
+	Write-Host "Defina antes de executar (exemplo):" -ForegroundColor Yellow
+	Write-Host "  `$env:GITHUB_TOKEN = 'seu_token_aqui'" -ForegroundColor Yellow
+	exit 1
+}
 
-Write-Host "Servidor iniciando com GITHUB_TOKEN configurado..." -ForegroundColor Green
+Write-Host "Servidor iniciando com GITHUB_TOKEN no ambiente..." -ForegroundColor Green
 
 # Navegar para diretório correto
 Set-Location "D:\A.I_GitHUB"

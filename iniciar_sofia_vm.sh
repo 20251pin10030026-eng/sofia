@@ -4,7 +4,7 @@ cd /home/sofiaadmin/sofia
 # Criar arquivo .env
 cat > sofia/.env << 'EOF'
 SOFIA_USE_CLOUD=true
-GITHUB_TOKEN=ghp_REDACTED
+GITHUB_TOKEN=ghp_seu_token_aqui
 GITHUB_MODEL=gpt-4o
 EOF
 
@@ -19,7 +19,7 @@ Type=simple
 User=sofiaadmin
 WorkingDirectory=/home/sofiaadmin/sofia/sofia
 Environment="SOFIA_USE_CLOUD=true"
-Environment="GITHUB_TOKEN=ghp_REDACTED"
+Environment="GITHUB_TOKEN=ghp_seu_token_aqui"
 Environment="GITHUB_MODEL=gpt-4o"
 ExecStart=/home/sofiaadmin/sofia/venv/bin/python api.py --host 0.0.0.0 --port 5000
 Restart=always

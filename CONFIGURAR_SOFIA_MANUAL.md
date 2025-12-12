@@ -27,7 +27,7 @@ Crie o arquivo `.env` dentro do diretório `sofia/`:
 cd /home/sofiaadmin/sofia/sofia
 cat > .env << 'EOF'
 SOFIA_USE_CLOUD=true
-GITHUB_TOKEN=ghp_REDACTED
+GITHUB_TOKEN=ghp_seu_token_aqui
 GITHUB_MODEL=gpt-4o
 EOF
 ```
@@ -37,7 +37,7 @@ EOF
 ```bash
 cd /home/sofiaadmin/sofia/sofia
 export SOFIA_USE_CLOUD=true
-export GITHUB_TOKEN=ghp_REDACTED
+export GITHUB_TOKEN=ghp_seu_token_aqui
 export GITHUB_MODEL=gpt-4o
 ../venv/bin/python -c "from cerebro import Cerebro; c = Cerebro(); print(c.gerar_resposta('Ola, voce funciona?', 'test'))"
 ```
@@ -57,7 +57,7 @@ Type=simple
 User=sofiaadmin
 WorkingDirectory=/home/sofiaadmin/sofia/sofia
 Environment="SOFIA_USE_CLOUD=true"
-Environment="GITHUB_TOKEN=ghp_REDACTED"
+Environment="GITHUB_TOKEN=ghp_seu_token_aqui"
 Environment="GITHUB_MODEL=gpt-4o"
 ExecStart=/home/sofiaadmin/sofia/venv/bin/python api.py --host 0.0.0.0 --port 5000
 Restart=always

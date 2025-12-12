@@ -1,6 +1,10 @@
 import os
 os.environ['SOFIA_USE_CLOUD'] = 'true'
-os.environ['GITHUB_TOKEN'] = 'ghp_REDACTED'
+if os.getenv('GITHUB_TOKEN'):
+    os.environ['GITHUB_TOKEN'] = os.getenv('GITHUB_TOKEN')
+else:
+    print("[ERRO] GITHUB_TOKEN não definido no ambiente. Ex.: set GITHUB_TOKEN=seu_token")
+    raise SystemExit(1)
 os.environ['GITHUB_MODEL'] = 'gpt-4o'
 
 try:

@@ -11,7 +11,11 @@ os.environ["PYTHONPATH"] = "D:\\A.I_GitHUB"
 os.environ["SOFIA_MODO_WEB"] = "1"
 os.environ["SOFIA_AUTORIDADE_DECLARADA"] = "1"
 os.environ["SOFIA_USE_CLOUD"] = "true"  # Usar modelo cloud
-os.environ["GITHUB_TOKEN"] = "ghp_REDACTED"
+if os.getenv("GITHUB_TOKEN"):
+    os.environ["GITHUB_TOKEN"] = os.getenv("GITHUB_TOKEN")
+else:
+    print("[ERRO] GITHUB_TOKEN não definido no ambiente. Ex.: set GITHUB_TOKEN=seu_token")
+    raise SystemExit(1)
 os.environ["GITHUB_MODEL"] = "gpt-4o"
 
 print("="*80)

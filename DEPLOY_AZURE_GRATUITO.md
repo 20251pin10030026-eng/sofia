@@ -42,7 +42,7 @@ Deploy da Sofia no Azure usando **100% recursos gratuitos**:
 5. **COPIE O TOKEN** (só aparece uma vez!)
 
 ```
-Exemplo: ghp_REDACTED
+Exemplo: ghp_seu_token_aqui
 ```
 
 ---
