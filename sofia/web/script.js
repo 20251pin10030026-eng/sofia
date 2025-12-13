@@ -283,18 +283,15 @@ function handleWebSocketMessage(data) {
             break;
 
         case 'thinking':
-            // Etapas de processamento (seguras) enviadas pelo servidor
+            // Telemetria segura (sem chain-of-thought): Contexto / TSMP / Modelo / Estado
             if (!document.querySelector('.typing-indicator')) {
                 showTypingIndicator();
             }
-            // Quando o servidor envia etapas, desliga o trace simulado
-            stopThinkingTrace();
-            if (data && data.content) {
-                appendThinkingTraceLine(String(data.content));
-            } else if (data && (data.stage || data.detail)) {
-                const stage = data.stage ? String(data.stage) : 'Processando';
-                const detail = data.detail ? String(data.detail) : '';
-                appendThinkingTraceLine(detail ? `${stage}: ${detail}` : stage);
+
+            const tab = resolveThinkingTab(data);
+            const line = formatThinkingLine(data);
+            if (line) {
+                appendThinkingToTab(tab, line);
             }
             break;
 
@@ -374,16 +371,26 @@ function updateStatus(status, text) {
     }
 }
 
-// Indicador de digitação
-let thinkingTimer = null;
-let thinkingStepIndex = 0;
-const THINKING_STEPS = [
-    'Analisando sua pergunta…',
-    'Lendo contexto disponível…',
-    'Aplicando TSMP (memória seletiva)…',
-    'Montando resposta…',
-    'Finalizando formatação…',
+// Indicador de processamento (4 modos)
+const THINKING_TABS = [
+    { id: 'context', label: 'Contexto' },
+    { id: 'tsmp', label: 'TSMP' },
+    { id: 'model', label: 'Modelo' },
+    { id: 'state', label: 'Estado' },
 ];
+
+const thinkingBuffers = {
+    context: [],
+    tsmp: [],
+    model: [],
+    state: [],
+};
+
+function clearThinkingBuffers() {
+    for (const k of Object.keys(thinkingBuffers)) {
+        thinkingBuffers[k] = [];
+    }
+}
 
 function showTypingIndicator() {
     const existingIndicator = document.querySelector('.typing-indicator');
@@ -394,14 +401,25 @@ function showTypingIndicator() {
             <div class="typing-dot"></div>
             <div class="typing-dot"></div>
             <div class="typing-dot"></div>
-            <span class="thinking-title" style="margin-left: 10px;">Sofia Pensando...</span>
-            <div class="thinking-trace" aria-live="polite"></div>
+                        <span class="thinking-title" style="margin-left: 10px;">Sofia Pensando...</span>
+                        <div class="thinking-tabs" role="tablist" aria-label="Modos de processamento">
+                            ${THINKING_TABS.map((t, i) => `<button type="button" class="thinking-tab${i === 0 ? ' active' : ''}" data-tab="${t.id}" role="tab" aria-selected="${i === 0 ? 'true' : 'false'}">${t.label}</button>`).join('')}
+                        </div>
+                        <div class="thinking-panels" aria-live="polite">
+                            ${THINKING_TABS.map((t, i) => `
+                                <div class="thinking-panel${i === 0 ? ' active' : ''}" data-tab="${t.id}" role="tabpanel">
+                                    <pre class="thinking-pre"></pre>
+                                </div>
+                            `).join('')}
+                        </div>
         `;
         chatContainer.appendChild(indicator);
         chatContainer.scrollTop = chatContainer.scrollHeight;
 
-        resetThinkingTrace();
-        startThinkingTrace();
+                clearThinkingBuffers();
+                initThinkingTabs();
+                // Placeholder inicial
+                appendThinkingToTab('context', 'Aguardando telemetria…');
     }
 }
 
@@ -410,46 +428,84 @@ function hideTypingIndicator() {
     if (indicator) {
         indicator.remove();
     }
-
-    stopThinkingTrace();
 }
 
-function resetThinkingTrace() {
-    thinkingStepIndex = 0;
-    const trace = document.querySelector('.typing-indicator .thinking-trace');
-    if (trace) trace.innerHTML = '';
+function initThinkingTabs() {
+    const indicator = document.querySelector('.typing-indicator');
+    if (!indicator) return;
+
+    indicator.querySelectorAll('.thinking-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tab = btn.dataset.tab;
+            setActiveThinkingTab(tab);
+        });
+    });
 }
 
-function appendThinkingTraceLine(text) {
-    const trace = document.querySelector('.typing-indicator .thinking-trace');
-    if (!trace) return;
+function setActiveThinkingTab(tabId) {
+    const indicator = document.querySelector('.typing-indicator');
+    if (!indicator) return;
 
-    const line = document.createElement('div');
-    line.className = 'thinking-line';
-    line.textContent = text;
-    trace.appendChild(line);
+    indicator.querySelectorAll('.thinking-tab').forEach(btn => {
+        const active = btn.dataset.tab === tabId;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    indicator.querySelectorAll('.thinking-panel').forEach(panel => {
+        panel.classList.toggle('active', panel.dataset.tab === tabId);
+    });
+}
+
+function appendThinkingToTab(tabId, text) {
+    const safeTab = (tabId && thinkingBuffers[tabId]) ? tabId : 'model';
+    const indicator = document.querySelector('.typing-indicator');
+    if (!indicator) return;
+
+    // Remove placeholder inicial se for a primeira telemetria real
+    if (thinkingBuffers[safeTab].length === 1 && thinkingBuffers[safeTab][0] === 'Aguardando telemetria…') {
+        thinkingBuffers[safeTab] = [];
+    }
+
+    thinkingBuffers[safeTab].push(String(text));
+    if (thinkingBuffers[safeTab].length > 200) {
+        thinkingBuffers[safeTab] = thinkingBuffers[safeTab].slice(-200);
+    }
+
+    const panel = indicator.querySelector(`.thinking-panel[data-tab="${safeTab}"]`);
+    if (!panel) return;
+    const pre = panel.querySelector('.thinking-pre');
+    if (!pre) return;
+    pre.textContent = thinkingBuffers[safeTab].join('\n');
 
     chatContainer.scrollTop = chatContainer.scrollHeight;
 }
 
-function startThinkingTrace() {
-    stopThinkingTrace();
-    // Primeira linha imediata
-    appendThinkingTraceLine(THINKING_STEPS[0]);
-    thinkingStepIndex = 1;
+function resolveThinkingTab(data) {
+    const modeRaw = (data && data.mode) ? String(data.mode).toLowerCase() : '';
+    if (modeRaw && (modeRaw in thinkingBuffers)) return modeRaw;
 
-    thinkingTimer = setInterval(() => {
-        if (thinkingStepIndex >= THINKING_STEPS.length) return;
-        appendThinkingTraceLine(THINKING_STEPS[thinkingStepIndex]);
-        thinkingStepIndex++;
-    }, 1800);
+    const stageRaw = (data && data.stage) ? String(data.stage).toLowerCase() : '';
+    if (stageRaw.includes('tsmp')) return 'tsmp';
+    if (stageRaw.includes('intern')) return 'state';
+    if (stageRaw.includes('mem')) return 'context';
+    if (stageRaw.includes('vis')) return 'context';
+    if (stageRaw.includes('web')) return 'context';
+    if (stageRaw.includes('model') || stageRaw.includes('fallback')) return 'model';
+    if (stageRaw.includes('início') || stageRaw.includes('inicio')) return 'model';
+
+    return 'model';
 }
 
-function stopThinkingTrace() {
-    if (thinkingTimer) {
-        clearInterval(thinkingTimer);
-        thinkingTimer = null;
-    }
+function formatThinkingLine(data) {
+    if (!data) return '';
+    if (data.content) return String(data.content);
+
+    const stage = data.stage ? String(data.stage) : '';
+    const detail = data.detail ? String(data.detail) : '';
+    if (stage && detail) return `${stage}: ${detail}`;
+    if (stage) return stage;
+    if (detail) return detail;
+    return '';
 }
 
 // Event Listeners

@@ -220,8 +220,17 @@ def _preparar_prompt_local(
     historico: Optional[List[Dict[str, Any]]] = None,
     escopo_memoria: Optional[str] = None,
     profile_id: Optional[str] = None,
+    *,
+    progress_callback: Optional[Callable[[str, str], None]] = None,
 ) -> str:
     """Orquestra o prompt do modo LOCAL seguindo TSMP → prompt → modelo."""
+    def _p(stage: str, detail: str = ""):
+        try:
+            if progress_callback:
+                progress_callback(stage, detail)
+        except Exception:
+            pass
+
     # Resolver/aplicar profile (control plane)
     resolved_profile_id = profiles.resolver_profile_id(profile_id)
     profile, md_profile = profiles.aplicar_profile(resolved_profile_id)
@@ -243,6 +252,13 @@ def _preparar_prompt_local(
         pesos = profiles.pesos_tsmp(profile)
         debug_tsmp = profiles.debug_tsmp(profile)
 
+        fontes_txt = "*" if (isinstance(fontes, set) and "*" in fontes) else ",".join(sorted(fontes or []))
+        pesos_txt = ",".join([f"{k}={v:.2f}" for k, v in sorted((pesos or {}).items())])
+        _p(
+            "tsmp",
+            f"profile={resolved_profile_id} top_k={top_k_mem} max_chars={max_chars_mem} fontes=[{fontes_txt}] pesos=[{pesos_txt}] debug={bool(debug_tsmp)}",
+        )
+
         # Compatibilidade: variável antiga força o regime TRQ Duro
         if os.getenv("SOFIA_TRQ_DURO", "0").strip() == "1":
             md["modo_trq_duro"] = True
@@ -259,8 +275,16 @@ def _preparar_prompt_local(
         )
         if contexto_memoria:
             print(f"[DEBUG] Memória seletiva carregada: {len(contexto_memoria)} chars")
+            try:
+                itens = sum(1 for ln in contexto_memoria.splitlines() if ln.lstrip().startswith("- "))
+            except Exception:
+                itens = 0
+            _p("tsmp", f"memória_seletiva chars={len(contexto_memoria)} itens={itens}")
+        else:
+            _p("tsmp", "memória_seletiva vazia")
     except Exception as e:
         print(f"[DEBUG] Erro ao montar memória seletiva: {e}")
+        _p("tsmp", f"erro_memória_seletiva: {e}")
 
     # Histórico automático: opcional (default OFF)
     contexto_historico = ""
@@ -290,6 +314,20 @@ def _preparar_prompt_local(
         blocos.append(contexto_oculto)
 
     contexto = "\n\n".join([b for b in blocos if b.strip()])
+
+    _p(
+        "contexto",
+        " | ".join(
+            [
+                f"web_chars={len(contexto_web or '')}",
+                f"visual_chars={len(contexto_visual or '')}",
+                f"oculto_chars={len(contexto_oculto or '')}",
+                f"mem_chars={len(contexto_memoria or '')}",
+                f"hist_chars={len(contexto_historico or '')}",
+                f"total_context_chars={len(contexto or '')}",
+            ]
+        ),
+    )
 
     prompt = (
         "Você é Sofia.\n"
@@ -398,8 +436,13 @@ def perguntar(
             prompt_pdf = visao.obter_texto_pdf_para_prompt(texto)
             if prompt_pdf != texto:
                 prompt_base = prompt_pdf
+                _progress("visão", f"PDF aplicado no prompt (chars={len(prompt_base)})")
             else:
                 contexto_visual = visao.obter_contexto_visual() or ""
+                if contexto_visual:
+                    _progress("visão", f"Contexto visual extraído (chars={len(contexto_visual)})")
+                else:
+                    _progress("visão", "Sem contexto visual")
         except Exception as e:
             print(f"[DEBUG] Erro em visao: {e}")
 
@@ -409,12 +452,19 @@ def perguntar(
     resultados_web: List[Dict[str, Any]] = []
     if _tem_web and web_search is not None:
         try:
+            modo_web_ativo = False
+            try:
+                modo_web_ativo = bool(web_search.modo_web_ativo())
+            except Exception:
+                modo_web_ativo = False
+
             # URLs diretas no texto
             if web_search._is_url(texto):
                 conteudo_urls = web_search.processar_urls_no_texto(texto)
                 if conteudo_urls:
                     contexto_web += "\n### CONTEÚDO DE LINKS FORNECIDOS:\n"
                     contexto_web += conteudo_urls + "\n###\n"
+                    _progress("web", f"Links processados (chars={len(conteudo_urls)})")
 
             # Busca web, se modo estiver ativo e fizer sentido
             if web_search.modo_web_ativo() and web_search.deve_buscar_web(texto):
@@ -427,8 +477,14 @@ def perguntar(
                         contexto_web += f"LINK: {r['link']}\n"
                         contexto_web += f"Trecho: {r['snippet']}\n\n"
                     contexto_web += "###\n"
+                    _progress("web", f"Busca web: {len(res)} resultados (modo_web={'on' if modo_web_ativo else 'off'})")
+                else:
+                    _progress("web", f"Busca web sem resultados (modo_web={'on' if modo_web_ativo else 'off'})")
+            else:
+                _progress("web", f"Busca web não acionada (modo_web={'on' if modo_web_ativo else 'off'})")
         except Exception as e:
             print(f"[DEBUG] Erro em web_search: {e}")
+            _progress("web", f"erro_web: {e}")
 
     # -------------------- Processamento interno subitemocional --------------------
     _progress("interno", "Processando estado interno")
@@ -440,6 +496,18 @@ def perguntar(
             contexto_oculto, metadata = resultado
     except Exception:
         contexto_oculto, metadata = "", {}
+
+    try:
+        estado_dbg = str((metadata or {}).get("estado") or "")
+        intensidade_dbg = (metadata or {}).get("intensidade")
+        resson_dbg = (metadata or {}).get("ressonancia")
+        curv_dbg = (metadata or {}).get("curvatura_trq")
+        _progress(
+            "interno",
+            f"estado={estado_dbg} intensidade={intensidade_dbg} resson={resson_dbg} curv_trq={curv_dbg}",
+        )
+    except Exception:
+        pass
 
     # -------------------- Exibir ESTADO QUÂNTICO INTERNO no terminal --------------------
     try:
@@ -482,6 +550,7 @@ def perguntar(
         historico=historico,
         escopo_memoria=escopo_memoria,
         profile_id=resolved_profile_id,
+        progress_callback=_progress,
     )
 
     # -------------------- Chamada ao modelo --------------------

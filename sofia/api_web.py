@@ -22,6 +22,11 @@ import os
 from sofia.core.monitor_execucao import LOG_DIR as LOGS_EXEC_DIR
 from sofia.core import profiles
 
+try:
+    from sofia.core import otimizador_qwen
+except Exception:
+    otimizador_qwen = None
+
 
 # Configuração da API
 app = FastAPI(
@@ -787,11 +792,31 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         # Executar em thread separada para não bloquear
                         loop = asyncio.get_event_loop()
 
+                        def _thinking_mode_from_stage(stage: str) -> str:
+                            s = (stage or "").strip().lower()
+                            if not s:
+                                return "model"
+                            # Contexto: visão/web/contexto
+                            if any(k in s for k in ("vis", "web", "context")):
+                                return "context"
+                            # TSMP: memória seletiva e gravações de memória
+                            if any(k in s for k in ("tsmp", "memória", "memoria")):
+                                return "tsmp"
+                            if "tsmp" in s:
+                                return "tsmp"
+                            if any(k in s for k in ("intern", "estado")):
+                                return "state"
+                            if any(k in s for k in ("model", "fallback", "iní", "ini")):
+                                return "model"
+                            return "model"
+
                         # Callback de progresso (thread-safe): emite etapas para o cliente.
                         def progress(stage: str, detail: str = ""):
                             try:
+                                mode = _thinking_mode_from_stage(stage)
                                 msg = {
                                     "type": "thinking",
+                                    "mode": mode,
                                     "stage": stage,
                                     "detail": detail,
                                     "session_id": session_id,
@@ -811,6 +836,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         await manager.send_message(
                             {
                                 "type": "thinking",
+                                "mode": "model",
                                 "stage": "início",
                                 "detail": "Iniciando processamento…",
                                 "session_id": session_id,
@@ -932,10 +958,10 @@ async def trq_otimizar():
     da simulação TRQ e sugerir melhorias de código.
     """
     try:
-        if analisar_e_otimizar is None:
-            return {"ok": False, "erro": "Função analisar_e_otimizar não está disponível."}
-        sugestao = analisar_e_otimizar(funcao="simular_trq_floquet_v2")
-        return {"ok": True, "sugestao": sugestao}
+        if otimizador_qwen is None:
+            return {"ok": False, "erro": "Módulo otimizador_qwen não está disponível."}
+        out = otimizador_qwen.rodar_qwen_otimizador()
+        return {"ok": True, **(out or {})}
     except Exception as e:
         return {"ok": False, "erro": str(e)}
 
