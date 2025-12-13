@@ -200,6 +200,11 @@ def _montar_system(modo_criador: bool, modo_sem_filtros: bool) -> str:
 [ESTILO]
 - Responda de forma organizada, com parágrafos curtos ou listas quando ajudar.
 - Não faça textos exageradamente longos sem necessidade.
+
+[MATEMÁTICA]
+- Quando escrever fórmulas, use LaTeX renderizável em bloco, preferindo `$$ ... $$`.
+- Para múltiplas equações, prefira `$$\\begin{aligned} ... \\end{aligned}$$`.
+- Evite `\\( ... \\)` e evite tabelas apenas para exibir equações; use texto + blocos.
 """
     return base
 

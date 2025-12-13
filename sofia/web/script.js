@@ -818,8 +818,23 @@ function addMessage(sender, text) {
     messageDiv.appendChild(content);
     chatContainer.appendChild(messageDiv);
 
+    // Renderizar fórmulas (LaTeX) quando disponível
+    typesetMath(messageDiv);
+
     // Scroll to bottom
     chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
+function typesetMath(rootEl) {
+    try {
+        if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
+            window.MathJax.typesetPromise([rootEl]).catch((err) => {
+                console.warn('MathJax typeset falhou:', err);
+            });
+        }
+    } catch (e) {
+        // silencioso
+    }
 }
 
 function formatMessage(text) {
@@ -827,7 +842,7 @@ function formatMessage(text) {
     return text
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        .replace(/\n/g, '<br>');
+    ;
 }
 
 // Função para parar a resposta da Sofia
@@ -985,6 +1000,9 @@ function cancelEdit(messageDiv, originalText) {
     timeContainer.appendChild(iconsDiv);
 
     contentDiv.appendChild(timeContainer);
+
+    // Re-renderiza fórmulas (LaTeX) se houver
+    typesetMath(messageDiv);
 }
 
 async function handleQuickAction(action) {

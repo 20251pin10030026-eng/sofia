@@ -8,6 +8,18 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Sofia - Assistente Virtual</title>
     <link rel="stylesheet" href="style.css">
+
+    <!-- MathJax (LaTeX) para renderizar fórmulas no chat -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['\\(', '\\)'], ['$', '$']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
 </head>
 <body>
     <div class="container">
