@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 import asyncio
 import shutil
+import functools
 
 # Importar módulos de Sofia
 from sofia.core import cerebro, memoria, identidade
@@ -785,20 +786,49 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         print(f"📊 Histórico sendo passado: {len(session.historico)} mensagens")  # DEBUG
                         # Executar em thread separada para não bloquear
                         loop = asyncio.get_event_loop()
+
+                        # Callback de progresso (thread-safe): emite etapas para o cliente.
+                        def progress(stage: str, detail: str = ""):
+                            try:
+                                msg = {
+                                    "type": "thinking",
+                                    "stage": stage,
+                                    "detail": detail,
+                                    "session_id": session_id,
+                                }
+                                asyncio.run_coroutine_threadsafe(
+                                    manager.send_message(msg, session_id),
+                                    loop,
+                                )
+                            except Exception:
+                                pass
                         
                         # 🛑 Callback para verificar cancelamento
                         def check_cancelled():
                             return session.cancel_flag
-                        
-                        resposta = await loop.run_in_executor(
-                            None,
+
+                        # Primeira etapa visível no cliente
+                        await manager.send_message(
+                            {
+                                "type": "thinking",
+                                "stage": "início",
+                                "detail": "Iniciando processamento…",
+                                "session_id": session_id,
+                            },
+                            session_id,
+                        )
+
+                        call_cerebro = functools.partial(
                             cerebro.perguntar,
                             user_message,
                             session.historico,
                             user_name,
-                            check_cancelled,  # ← Passa callback de cancelamento
+                            check_cancelled,
                             session.profile_id,
+                            progress_callback=progress,
                         )
+                        
+                        resposta = await loop.run_in_executor(None, call_cerebro)
                         print(f"✅ Resposta gerada: {len(resposta)} chars")  # DEBUG
                         
                         # 🛑 Verificar se foi cancelado após processar

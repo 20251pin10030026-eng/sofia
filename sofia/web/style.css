@@ -431,6 +431,25 @@ body {
     display: flex;
     gap: 0.25rem;
     padding: 1rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.typing-indicator .thinking-title {
+    font-size: 0.95rem;
+    color: var(--text-color);
+}
+
+.typing-indicator .thinking-trace {
+    width: 100%;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    line-height: 1.35;
+}
+
+.typing-indicator .thinking-line {
+    padding: 0.1rem 0;
 }
 
 .typing-dot {

@@ -66,6 +66,8 @@ def perguntar(
     usuario: str = "",
     cancel_callback: Optional[Callable[[], bool]] = None,
     profile_id: Optional[str] = None,
+    *,
+    progress_callback: Optional[Callable[[str, str], None]] = None,
 ) -> str:
     """
     Função principal - roteia para o cérebro apropriado
@@ -93,7 +95,14 @@ def perguntar(
         return cerebro_cloud.perguntar(texto, contexto=contexto, metadata_extra=metadata_extra)
     else:
         # Local usa a assinatura completa
-        return cerebro_local.perguntar(texto, historico, usuario, cancel_callback, profile_id)
+        return cerebro_local.perguntar(
+            texto,
+            historico,
+            usuario,
+            cancel_callback,
+            profile_id,
+            progress_callback=progress_callback,
+        )
 
 # Inicializar e mostrar modo
 _current_mode = _detect_initial_mode()

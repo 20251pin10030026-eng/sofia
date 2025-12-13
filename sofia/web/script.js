@@ -282,6 +282,22 @@ function handleWebSocketMessage(data) {
             showTypingIndicator();
             break;
 
+        case 'thinking':
+            // Etapas de processamento (seguras) enviadas pelo servidor
+            if (!document.querySelector('.typing-indicator')) {
+                showTypingIndicator();
+            }
+            // Quando o servidor envia etapas, desliga o trace simulado
+            stopThinkingTrace();
+            if (data && data.content) {
+                appendThinkingTraceLine(String(data.content));
+            } else if (data && (data.stage || data.detail)) {
+                const stage = data.stage ? String(data.stage) : 'Processando';
+                const detail = data.detail ? String(data.detail) : '';
+                appendThinkingTraceLine(detail ? `${stage}: ${detail}` : stage);
+            }
+            break;
+
         case 'response':
             hideTypingIndicator();
             addMessage('sofia', data.content);
@@ -359,6 +375,16 @@ function updateStatus(status, text) {
 }
 
 // Indicador de digitação
+let thinkingTimer = null;
+let thinkingStepIndex = 0;
+const THINKING_STEPS = [
+    'Analisando sua pergunta…',
+    'Lendo contexto disponível…',
+    'Aplicando TSMP (memória seletiva)…',
+    'Montando resposta…',
+    'Finalizando formatação…',
+];
+
 function showTypingIndicator() {
     const existingIndicator = document.querySelector('.typing-indicator');
     if (!existingIndicator) {
@@ -368,10 +394,14 @@ function showTypingIndicator() {
             <div class="typing-dot"></div>
             <div class="typing-dot"></div>
             <div class="typing-dot"></div>
-            <span style="margin-left: 10px;">Sofia está digitando...</span>
+            <span class="thinking-title" style="margin-left: 10px;">Sofia Pensando...</span>
+            <div class="thinking-trace" aria-live="polite"></div>
         `;
         chatContainer.appendChild(indicator);
         chatContainer.scrollTop = chatContainer.scrollHeight;
+
+        resetThinkingTrace();
+        startThinkingTrace();
     }
 }
 
@@ -379,6 +409,46 @@ function hideTypingIndicator() {
     const indicator = document.querySelector('.typing-indicator');
     if (indicator) {
         indicator.remove();
+    }
+
+    stopThinkingTrace();
+}
+
+function resetThinkingTrace() {
+    thinkingStepIndex = 0;
+    const trace = document.querySelector('.typing-indicator .thinking-trace');
+    if (trace) trace.innerHTML = '';
+}
+
+function appendThinkingTraceLine(text) {
+    const trace = document.querySelector('.typing-indicator .thinking-trace');
+    if (!trace) return;
+
+    const line = document.createElement('div');
+    line.className = 'thinking-line';
+    line.textContent = text;
+    trace.appendChild(line);
+
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
+function startThinkingTrace() {
+    stopThinkingTrace();
+    // Primeira linha imediata
+    appendThinkingTraceLine(THINKING_STEPS[0]);
+    thinkingStepIndex = 1;
+
+    thinkingTimer = setInterval(() => {
+        if (thinkingStepIndex >= THINKING_STEPS.length) return;
+        appendThinkingTraceLine(THINKING_STEPS[thinkingStepIndex]);
+        thinkingStepIndex++;
+    }, 1800);
+}
+
+function stopThinkingTrace() {
+    if (thinkingTimer) {
+        clearInterval(thinkingTimer);
+        thinkingTimer = null;
     }
 }
 

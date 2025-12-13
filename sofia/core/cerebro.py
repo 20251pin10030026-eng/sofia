@@ -310,6 +310,8 @@ def perguntar(
     usuario: str = "",
     cancel_callback: Optional[Callable[[], bool]] = None,
     profile_id: Optional[str] = None,
+    *,
+    progress_callback: Optional[Callable[[str, str], None]] = None,
 ) -> str:
     """
     Função principal chamada pela interface para conversar com Sofia.
@@ -323,6 +325,15 @@ def perguntar(
     historico = historico or []
     if not usuario:
         usuario = "Usuário"
+
+    def _progress(stage: str, detail: str = ""):
+        try:
+            if progress_callback:
+                progress_callback(stage, detail)
+        except Exception:
+            pass
+
+    _progress("início", "Recebi sua pergunta")
 
     escopo_memoria = os.getenv("SOFIA_ESCOPO_MEMORIA", "").strip() or None
 
@@ -378,6 +389,7 @@ def perguntar(
         return "⏹️ Processamento cancelado pelo usuário."
 
     # -------------------- Visão / PDFs --------------------
+    _progress("visão", "Verificando anexos/imagem/PDF")
     prompt_base = texto
     contexto_visual = ""
     if visao is not None:
@@ -392,6 +404,7 @@ def perguntar(
             print(f"[DEBUG] Erro em visao: {e}")
 
     # -------------------- Web search --------------------
+    _progress("web", "Checando modo web e links")
     contexto_web = ""
     resultados_web: List[Dict[str, Any]] = []
     if _tem_web and web_search is not None:
@@ -418,6 +431,7 @@ def perguntar(
             print(f"[DEBUG] Erro em web_search: {e}")
 
     # -------------------- Processamento interno subitemocional --------------------
+    _progress("interno", "Processando estado interno")
     contexto_oculto: str = ""
     metadata: Dict[str, Any] = {}
     try:
@@ -456,6 +470,7 @@ def perguntar(
     resolved_profile_id = profiles.resolver_profile_id(profile_id)
 
     # -------------------- Montagem do prompt final (porteiro TSMP) --------------------
+    _progress("tsmp", "Aplicando memória seletiva (TSMP)")
     prompt_final = _preparar_prompt_local(
         pergunta=texto,
         prompt_base=prompt_base,
@@ -470,6 +485,7 @@ def perguntar(
     )
 
     # -------------------- Chamada ao modelo --------------------
+    _progress("modelo", "Gerando resposta")
 
     if not _model_available(OLLAMA_HOST):
         return (
@@ -501,6 +517,7 @@ def perguntar(
                     timeout_s=SOFIA_GPT_OSS_TIMEOUT_S,
                 )
             except requests.exceptions.Timeout:
+                _progress("fallback", f"Timeout > {SOFIA_GPT_OSS_TIMEOUT_S}s; usando {SOFIA_FALLBACK_MODEL}")
                 print(
                     f"[WARN] gpt-oss timeout (> {SOFIA_GPT_OSS_TIMEOUT_S}s). "
                     f"Usando fallback: {SOFIA_FALLBACK_MODEL}"
@@ -532,6 +549,7 @@ def perguntar(
     finally:
         dur = time.time() - inicio
         print(f"[DEBUG] Tempo de geração ({modelo_local}): {dur:.1f}s")
+        _progress("modelo", f"Concluído em {dur:.1f}s (modelo={modelo_local})")
 
     # Salvar resposta na memória, se aplicável
     sentimento = "neutro"
@@ -544,6 +562,7 @@ def perguntar(
         )
 
     if resposta:
+        _progress("memória", "Salvando resposta e logs")
         # PASSO 4 — Feedback de volta para a memória (ciclo fechado)
         try:
             if usuario and texto:
