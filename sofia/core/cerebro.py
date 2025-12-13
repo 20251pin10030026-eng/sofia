@@ -13,6 +13,7 @@ Núcleo leve da Sofia:
 from __future__ import annotations
 import os
 import json
+import time
 import requests
 from typing import Any, Dict, List, Optional, Callable
 
@@ -67,6 +68,10 @@ except Exception:
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gpt-oss:20b")
 
+# Timeout de ponte (gpt-oss → fallback)
+SOFIA_GPT_OSS_TIMEOUT_S = int(os.getenv("SOFIA_GPT_OSS_TIMEOUT_S", str(9 * 60)))
+SOFIA_FALLBACK_MODEL = os.getenv("SOFIA_FALLBACK_MODEL", "llama3.1:8b")
+
 
 def _perfil_local() -> str:
     """Retorna o perfil local atual: FAST ou QUALITY."""
@@ -120,6 +125,35 @@ def _resolver_opcoes_ollama(modelo: str) -> Dict[str, Any]:
     # Permite override por modelo específico, se quiser:
     # SOFIA_OLLAMA_NUM_BATCH_LLAMA3_1_8B=... etc (opcional)
     return defaults
+
+
+def _ollama_generate(
+    *,
+    model: str,
+    prompt: str,
+    system: str,
+    options: Dict[str, Any],
+    timeout_s: int,
+) -> str:
+    payload: Dict[str, Any] = {
+        "model": model,
+        "prompt": prompt,
+        "stream": False,
+        "system": system,
+        "options": options,
+    }
+
+    resp = requests.post(
+        f"{OLLAMA_HOST}/api/generate",
+        json=payload,
+        timeout=timeout_s,
+    )
+
+    if resp.status_code != 200:
+        raise RuntimeError(f"HTTP {resp.status_code}")
+
+    dados = resp.json()
+    return str(dados.get("response", "")).strip()
 
 
 # ---------------------- Funções auxiliares ----------------------
@@ -447,31 +481,52 @@ def perguntar(
     modelo_local = _resolver_modelo_local()
     opcoes_ollama = _resolver_opcoes_ollama(modelo_local)
 
-    payload: Dict[str, Any] = {
-        "model": modelo_local,
-        "prompt": prompt_final,
-        "stream": False,
-        "system": system_text,
-        "options": opcoes_ollama,
-    }
-
+    # Ponte: se o gpt-oss:20b demorar mais de 9 min, responde com llama3.1:8b.
+    # Regra: NÃO esperar mais do que o limite; faz fallback no timeout.
+    resposta = ""
+    inicio = time.time()
     try:
-        resp = requests.post(
-            f"{OLLAMA_HOST}/api/generate",
-            json=payload,
-            timeout=600,
-        )
+        if str(modelo_local).lower().startswith("gpt-oss"):
+            try:
+                resposta = _ollama_generate(
+                    model=modelo_local,
+                    prompt=prompt_final,
+                    system=system_text,
+                    options=opcoes_ollama,
+                    timeout_s=SOFIA_GPT_OSS_TIMEOUT_S,
+                )
+            except requests.exceptions.Timeout:
+                print(
+                    f"[WARN] gpt-oss timeout (> {SOFIA_GPT_OSS_TIMEOUT_S}s). "
+                    f"Usando fallback: {SOFIA_FALLBACK_MODEL}"
+                )
+                fallback_options = _resolver_opcoes_ollama(SOFIA_FALLBACK_MODEL)
+                resposta = _ollama_generate(
+                    model=SOFIA_FALLBACK_MODEL,
+                    prompt=prompt_final,
+                    system=system_text,
+                    options=fallback_options,
+                    timeout_s=600,
+                )
+                modelo_local = SOFIA_FALLBACK_MODEL
+        else:
+            resposta = _ollama_generate(
+                model=modelo_local,
+                prompt=prompt_final,
+                system=system_text,
+                options=opcoes_ollama,
+                timeout_s=600,
+            )
     except requests.exceptions.RequestException as e:
         return (
             "❌ Erro ao conectar com o serviço de modelo local.\n"
             f"Detalhe técnico: {e}"
         )
-
-    if resp.status_code != 200:
-        return f"❌ Erro ao processar a mensagem (status HTTP {resp.status_code})."
-
-    dados = resp.json()
-    resposta = str(dados.get("response", "")).strip()
+    except Exception as e:
+        return f"❌ Erro ao processar a mensagem (detalhe: {e})."
+    finally:
+        dur = time.time() - inicio
+        print(f"[DEBUG] Tempo de geração ({modelo_local}): {dur:.1f}s")
 
     # Salvar resposta na memória, se aplicável
     sentimento = "neutro"

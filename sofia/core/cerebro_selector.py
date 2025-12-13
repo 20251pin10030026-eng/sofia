@@ -5,10 +5,34 @@ com suporte a troca em tempo real via API
 """
 
 import os
+import sys
+import importlib.util
+from pathlib import Path
 from typing import Optional, List, Dict, Any, Callable
 
-# Importar ambos os cerebros
-from . import cerebro as cerebro_local
+# Importar ambos os cérebros
+# Obs: `sofia.core.__init__` expõe `cerebro` como alias do seletor.
+# Para evitar recursão no modo LOCAL, carregamos o módulo local diretamente do arquivo.
+def _carregar_cerebro_local():
+    nome_mod = "sofia.core._cerebro_local_impl"
+    existente = sys.modules.get(nome_mod)
+    if existente is not None:
+        return existente
+
+    caminho = Path(__file__).with_name("cerebro.py")
+    spec = importlib.util.spec_from_file_location(nome_mod, str(caminho))
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Não foi possível carregar o cérebro local em {caminho}")
+
+    mod = importlib.util.module_from_spec(spec)
+    # Garante que imports relativos dentro do cérebro local funcionem.
+    mod.__package__ = __package__
+    sys.modules[nome_mod] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+cerebro_local = _carregar_cerebro_local()
 from . import cerebro_cloud
 
 # Estado do modo - pode ser alterado em runtime
