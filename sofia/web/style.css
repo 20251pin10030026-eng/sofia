@@ -440,56 +440,6 @@ body {
     color: var(--text-color);
 }
 
-.typing-indicator .thinking-tabs {
-    width: 100%;
-    margin-top: 0.75rem;
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-}
-
-.typing-indicator .thinking-tab {
-    appearance: none;
-    border: 1px solid var(--border-color);
-    background: var(--bg-color);
-    color: var(--text-color);
-    padding: 0.4rem 0.65rem;
-    border-radius: 10px;
-    cursor: pointer;
-    font-size: 0.85rem;
-}
-
-.typing-indicator .thinking-tab.active {
-    border-color: var(--primary-color);
-}
-
-.typing-indicator .thinking-panels {
-    width: 100%;
-    margin-top: 0.5rem;
-}
-
-.typing-indicator .thinking-panel {
-    display: none;
-}
-
-.typing-indicator .thinking-panel.active {
-    display: block;
-}
-
-.typing-indicator .thinking-pre {
-    margin: 0;
-    width: 100%;
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    line-height: 1.35;
-    white-space: pre-wrap;
-    word-break: break-word;
-    padding: 0.75rem;
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    background: var(--surface-color);
-}
-
 .typing-dot {
     width: 8px;
     height: 8px;
