@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Optional, Callable
 # ----------------- Módulos internos da Sofia -----------------
 from . import memoria
 from . import _interno
-from .memoria import obter_contexto_aprendizados, obter_resumo_conversas_recentes, obter_contexto_subitemotions
+from . import profiles
 
 # Visão (opcional)
 try:
@@ -170,6 +170,99 @@ def _montar_system(modo_criador: bool, modo_sem_filtros: bool) -> str:
     return base
 
 
+def _preparar_prompt_local(
+    pergunta: str,
+    prompt_base: str,
+    usuario: str,
+    metadata: Dict[str, Any] | None,
+    contexto_web: str,
+    contexto_visual: str,
+    contexto_oculto: str,
+    historico: Optional[List[Dict[str, Any]]] = None,
+    escopo_memoria: Optional[str] = None,
+    profile_id: Optional[str] = None,
+) -> str:
+    """Orquestra o prompt do modo LOCAL seguindo TSMP → prompt → modelo."""
+    # Resolver/aplicar profile (control plane)
+    resolved_profile_id = profiles.resolver_profile_id(profile_id)
+    profile, md_profile = profiles.aplicar_profile(resolved_profile_id)
+
+    # Merge: profile fornece estado-base; _interno fornece estado atual dinâmico
+    md: Dict[str, Any] = dict(md_profile)
+    if metadata and isinstance(metadata, dict):
+        md.update(metadata)
+    # Garantir que o regime do profile prevalece
+    md["modo_trq_duro"] = bool(md_profile.get("modo_trq_duro") is True)
+
+    diretrizes = profiles.prompt_diretrizes(profile, md)
+
+    # Memória seletiva (porteiro)
+    contexto_memoria = ""
+    try:
+        top_k_mem, max_chars_mem = profiles.topk_maxchars(profile)
+        fontes = profiles.fontes_permitidas(profile)
+        pesos = profiles.pesos_tsmp(profile)
+        debug_tsmp = profiles.debug_tsmp(profile)
+
+        # Compatibilidade: variável antiga força o regime TRQ Duro
+        if os.getenv("SOFIA_TRQ_DURO", "0").strip() == "1":
+            md["modo_trq_duro"] = True
+
+        contexto_memoria = memoria.obter_contexto_memoria_seletiva(
+            texto_atual=pergunta,
+            metadata=md,
+            escopo_memoria=escopo_memoria,
+            max_chars=max_chars_mem,
+            top_k=top_k_mem,
+            fontes_permitidas=fontes,
+            pesos=pesos,
+            debug=debug_tsmp,
+        )
+        if contexto_memoria:
+            print(f"[DEBUG] Memória seletiva carregada: {len(contexto_memoria)} chars")
+    except Exception as e:
+        print(f"[DEBUG] Erro ao montar memória seletiva: {e}")
+
+    # Histórico automático: opcional (default OFF)
+    contexto_historico = ""
+    incluir_hist = os.getenv("SOFIA_LOCAL_INCLUDE_HISTORICO", "0").strip() == "1"
+    if incluir_hist and historico:
+        contexto_historico = "\n### HISTÓRICO RECENTE (opcional):\n"
+        for msg in historico[-6:]:
+            de = msg.get("de", "Desconhecido")
+            txt = msg.get("texto", "")
+            if len(txt) > 700:
+                txt = txt[:700] + "... [truncado]"
+            contexto_historico += f"{de}: {txt}\n"
+        contexto_historico += "###\n"
+
+    # Prompt orquestrado
+    blocos = []
+    blocos.append(f"[DIRETRIZES DE PERFIL]\n{diretrizes}\n")
+    if contexto_memoria:
+        blocos.append(contexto_memoria)
+    if contexto_historico:
+        blocos.append(contexto_historico)
+    if contexto_web:
+        blocos.append(contexto_web)
+    if contexto_visual:
+        blocos.append(contexto_visual)
+    if contexto_oculto:
+        blocos.append(contexto_oculto)
+
+    contexto = "\n\n".join([b for b in blocos if b.strip()])
+
+    prompt = (
+        "Você é Sofia.\n"
+        "Responda com clareza, coerência e fidelidade ao contexto.\n\n"
+        f"{contexto}\n\n"
+        "Pergunta atual:\n"
+        f"Usuário ({usuario}): {prompt_base}\n"
+        "Sofia:"
+    ).strip()
+    return prompt
+
+
 # ---------------------- Função principal ----------------------
 
 def perguntar(
@@ -177,6 +270,7 @@ def perguntar(
     historico: Optional[List[Dict[str, Any]]] = None,
     usuario: str = "",
     cancel_callback: Optional[Callable[[], bool]] = None,
+    profile_id: Optional[str] = None,
 ) -> str:
     """
     Função principal chamada pela interface para conversar com Sofia.
@@ -191,6 +285,8 @@ def perguntar(
     if not usuario:
         usuario = "Usuário"
 
+    escopo_memoria = os.getenv("SOFIA_ESCOPO_MEMORIA", "").strip() or None
+
     # -------------------- Toggle FAST/QUALITY (comando rápido) --------------------
     # Permite alternar sem mexer em .env
     comando = (texto or "").strip().lower()
@@ -202,6 +298,20 @@ def perguntar(
         return "✅ Perfil local definido para QUALITY (modelo: gpt-oss:20b)."
     if comando in ("perfil", "modo", "profile"):
         return f"ℹ️ Perfil local atual: {_perfil_local()} (modelo: {_resolver_modelo_local()})."
+
+    # -------------------- Toggle TRQ Duro (porteiro de laboratório) --------------------
+    # Ativação explícita (não automática por palavra-chave)
+    if comando in ("trq duro", "modo trq duro", "trqduro", "trq duro on", "trqduro on"):
+        os.environ["SOFIA_TRQ_DURO"] = "1"
+        os.environ["SOFIA_PROFILE"] = "trq_duro"
+        return "Modo TRQ Duro ativado (laboratório: entra só teoria + estado interno)."
+    if comando in ("trq normal", "modo trq normal", "trq duro off", "trqduro off"):
+        os.environ["SOFIA_TRQ_DURO"] = "0"
+        os.environ["SOFIA_PROFILE"] = "conversacional"
+        return "Modo TRQ Duro desativado (TSMP volta ao modo normal)."
+    if comando in ("trq status", "status trq", "status trq duro"):
+        ativo = os.getenv("SOFIA_TRQ_DURO", "0").strip() == "1"
+        return f"ℹ️ TRQ Duro: {'ATIVO' if ativo else 'DESATIVADO'}."
 
     # Cancelamento inicial
     if cancel_callback and cancel_callback():
@@ -223,10 +333,6 @@ def perguntar(
     except Exception:
         modo_criador = False
         modo_sem_filtros = False
-
-    # Registrar mensagem do usuário na memória
-    if usuario and texto:
-        memoria.adicionar(usuario, texto)
 
     # Cancelamento
     if cancel_callback and cancel_callback():
@@ -272,18 +378,6 @@ def perguntar(
         except Exception as e:
             print(f"[DEBUG] Erro em web_search: {e}")
 
-    # -------------------- Histórico --------------------
-    contexto_historico = ""
-    if historico:
-        contexto_historico = "\n### HISTÓRICO RECENTE:\n"
-        for msg in historico[-10:]:
-            de = msg.get("de", "Desconhecido")
-            txt = msg.get("texto", "")
-            if len(txt) > 1000:
-                txt = txt[:1000] + "... [truncado]"
-            contexto_historico += f"{de}: {txt}\n"
-        contexto_historico += "###\n"
-
     # -------------------- Processamento interno subitemocional --------------------
     contexto_oculto: str = ""
     metadata: Dict[str, Any] = {}
@@ -319,38 +413,21 @@ def perguntar(
     except Exception as e:
         print(f"[DEBUG] Erro ao exibir estado quântico: {e}")
 
-    # -------------------- Carregar aprendizados de longo prazo --------------------
-    contexto_aprendizados = ""
-    try:
-        contexto_aprendizados = obter_contexto_aprendizados(max_chars=6000)
-        if contexto_aprendizados:
-            print(f"[DEBUG] Aprendizados carregados: {len(contexto_aprendizados)} chars")
-    except Exception as e:
-        print(f"[DEBUG] Erro ao carregar aprendizados: {e}")
+    # -------------------- Resolver Profile Cognitivo --------------------
+    resolved_profile_id = profiles.resolver_profile_id(profile_id)
 
-    # -------------------- Carregar histórico de subitemotions --------------------
-    contexto_subitemotions = ""
-    try:
-        contexto_subitemotions = obter_contexto_subitemotions(max_registros=10, max_chars=2000)
-        if contexto_subitemotions:
-            print(f"[DEBUG] Subitemotions carregados: {len(contexto_subitemotions)} chars")
-    except Exception as e:
-        print(f"[DEBUG] Erro ao carregar subitemotions: {e}")
-
-    # -------------------- Montagem do prompt final --------------------
-    bloco_contexto = (
-        contexto_aprendizados + "\n\n" +  # Aprendizados primeiro (mais importante)
-        contexto_subitemotions + "\n\n" +  # Histórico emocional/TRQ
-        contexto_historico +
-        contexto_web +
-        contexto_visual +
-        contexto_oculto
-    )
-
-    prompt_final = (
-        f"{bloco_contexto}\n\n"
-        f"Usuário ({usuario}): {prompt_base}\n"
-        f"Sofia:"
+    # -------------------- Montagem do prompt final (porteiro TSMP) --------------------
+    prompt_final = _preparar_prompt_local(
+        pergunta=texto,
+        prompt_base=prompt_base,
+        usuario=usuario,
+        metadata=metadata,
+        contexto_web=contexto_web,
+        contexto_visual=contexto_visual,
+        contexto_oculto=contexto_oculto,
+        historico=historico,
+        escopo_memoria=escopo_memoria,
+        profile_id=resolved_profile_id,
     )
 
     # -------------------- Chamada ao modelo --------------------
@@ -407,6 +484,17 @@ def perguntar(
         )
 
     if resposta:
+        # PASSO 4 — Feedback de volta para a memória (ciclo fechado)
+        try:
+            if usuario and texto:
+                memoria.adicionar(
+                    usuario,
+                    texto,
+                    contexto={"escopo_memoria": escopo_memoria} if escopo_memoria else {},
+                )
+        except Exception:
+            pass
+
         try:
             memoria.adicionar_resposta_sofia(resposta, sentimento)
         except Exception:

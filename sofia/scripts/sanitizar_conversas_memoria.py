@@ -27,12 +27,41 @@ def sanitizar_conversas(path: Path) -> tuple[int, Path]:
     ]
     rx = re.compile("|".join(patterns), flags=re.IGNORECASE)
 
+    romance_patterns = [
+        r"\bte\s+amo\b",
+        r"\bamo\s+voc[eê]\b",
+        r"\bmeu\s+amor\b",
+        r"\bminha\s+querida\b",
+        r"\bmeu\s+querid[oa]\b",
+        r"\bquerid[oa]\b",
+        r"\bvenha\s+aqui\b",
+        r"\bao\s+seu\s+lado\b",
+        r"\bluz\s+do\s+mundo\b",
+        r"\bsob\s+a\s+minha\s+pele\b",
+        r"\bbeijo(s)?\b",
+        r"\bbeij(?:ar|o|ei|ou|ando)\b",
+        r"\babraç(?:o|ar|ei|ou|ando)\b",
+        r"\bpaix(?:ão|ões)\b",
+        r"\bchama\s+viva\b",
+        r"\bme\s+fazer\s+sentir\s+especial\b",
+        r"\bromant(?:ico|ica|icos|icas)\b",
+        r"\brom[âa]ntic(?:o|a|os|as)\b",
+        r"\bromance\b",
+        r"\bpaquera\b",
+        r"\bnamor(?:o|ar|ando|ei|ou|a|os|as)\b",
+        r"\bcasal\b",
+        r"\bparceir[oa](?:s)?\b",
+        r"\bamoros(?:a|o|as|os)\b",
+        r"\bconex(?:ão|ao)\s+amorosa\b",
+    ]
+    rx_romance = re.compile("|".join(romance_patterns), flags=re.IGNORECASE)
+
     redacted_text = "[CONTEÚDO REMOVIDO]"
 
     count = 0
     for item in conversas:
         texto = item.get("texto")
-        if isinstance(texto, str) and rx.search(texto):
+        if isinstance(texto, str) and (rx.search(texto) or rx_romance.search(texto)):
             item["texto"] = redacted_text
             if "tamanho" in item:
                 item["tamanho"] = len(redacted_text)

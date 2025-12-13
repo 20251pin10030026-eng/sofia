@@ -512,7 +512,8 @@ body {
     border-color: var(--primary-color);
 }
 
-.web-search-btn {
+.web-search-btn,
+.trq-duro-btn {
     width: 48px;
     height: 48px;
     border-radius: 12px;
@@ -527,14 +528,16 @@ body {
     flex-shrink: 0;
 }
 
-.web-search-btn:hover {
+.web-search-btn:hover,
+.trq-duro-btn:hover {
     background: var(--border-color);
     border-color: var(--primary-color);
     color: var(--primary-color);
     transform: scale(1.05);
 }
 
-.web-search-btn.active {
+.web-search-btn.active,
+.trq-duro-btn.active {
     background: var(--sofia-gradient);
     border-color: var(--primary-color);
     color: white;
@@ -1332,6 +1335,7 @@ body {
     
     .attach-btn,
     .web-search-btn,
+    .trq-duro-btn,
     .send-btn {
         padding: 0.5rem;
         min-width: 40px;

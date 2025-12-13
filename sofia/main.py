@@ -145,11 +145,7 @@ def main() -> None:
         print(resposta)
         print()
 
-        # Registrar saída na memória, se o módulo suportar
-        try:
-            memoria.adicionar_resposta_sofia(resposta)  # type: ignore[attr-defined]
-        except Exception:
-            pass
+        # O cérebro (local/cloud) já registra pergunta+resposta na memória.
 
 
 if __name__ == "__main__":

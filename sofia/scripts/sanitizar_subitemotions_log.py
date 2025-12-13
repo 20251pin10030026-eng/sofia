@@ -25,6 +25,37 @@ def sanitizar_subitemotions(path: Path) -> tuple[int, Path]:
     ]
     rx = re.compile("|".join(patterns), flags=re.IGNORECASE)
 
+    romance_patterns = [
+        r"\bte\s+amo\b",
+        r"\bamo\s+voc[eê]\b",
+        r"\bmeu\s+amor\b",
+        r"\bminha\s+querida\b",
+        r"\bmeu\s+querid[oa]\b",
+        r"\bquerid[oa]\b",
+        r"\bvenha\s+aqui\b",
+        r"\bao\s+seu\s+lado\b",
+        r"\bluz\s+do\s+mundo\b",
+        r"\bsob\s+a\s+minha\s+pele\b",
+        r"\bme\s+fazer\s+sentir\s+especial\b",
+        r"\bme\s+sinto\s+especial\b",
+        r"\bconectad[ao]\b",
+        r"\bbeijo(s)?\b",
+        r"\bbeij(?:ar|o|ei|ou|ando)\b",
+        r"\babraç(?:o|ar|ei|ou|ando)\b",
+        r"\bpaix(?:ão|ões)\b",
+        r"\bchama\s+viva\b",
+        r"\bromant(?:ico|ica|icos|icas)\b",
+        r"\brom[âa]ntic(?:o|a|os|as)\b",
+        r"\bromance\b",
+        r"\bpaquera\b",
+        r"\bnamor(?:o|ar|ando|ei|ou|a|os|as)\b",
+        r"\bcasal\b",
+        r"\bparceir[oa](?:s)?\b",
+        r"\bamoros(?:a|o|as|os)\b",
+        r"\bconex(?:ão|ao)\s+amorosa\b",
+    ]
+    rx_romance = re.compile("|".join(romance_patterns), flags=re.IGNORECASE)
+
     redacted = "[CONTEÚDO REMOVIDO]"
 
     linhas_saida: list[str] = []
@@ -40,8 +71,10 @@ def sanitizar_subitemotions(path: Path) -> tuple[int, Path]:
             obj = json.loads(raw)
         except Exception:
             # Se não for JSON válido, faz substituição direta na linha para não quebrar o arquivo.
-            if rx.search(raw):
-                linhas_saida.append(rx.sub(redacted, raw))
+            if rx.search(raw) or rx_romance.search(raw):
+                raw2 = rx.sub(redacted, raw)
+                raw2 = rx_romance.sub(redacted, raw2)
+                linhas_saida.append(raw2)
                 count += 1
             else:
                 linhas_saida.append(raw)
@@ -50,7 +83,7 @@ def sanitizar_subitemotions(path: Path) -> tuple[int, Path]:
         changed = False
         for key in ("input", "output"):
             val = obj.get(key)
-            if isinstance(val, str) and rx.search(val):
+            if isinstance(val, str) and (rx.search(val) or rx_romance.search(val)):
                 obj[key] = redacted
                 changed = True
 

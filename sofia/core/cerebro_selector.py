@@ -41,6 +41,7 @@ def perguntar(
     historico: Optional[List[Dict[str, Any]]] = None,
     usuario: str = "",
     cancel_callback: Optional[Callable[[], bool]] = None,
+    profile_id: Optional[str] = None,
 ) -> str:
     """
     Função principal - roteia para o cérebro apropriado
@@ -56,6 +57,7 @@ def perguntar(
         # cerebro_cloud usa: (texto, contexto, modelo, imagens, metadata_extra)
         metadata_extra = {
             "usuario": usuario or "Usuário",
+            "profile_id": profile_id,
         }
         # Converter histórico para contexto string se existir
         contexto = None
@@ -67,7 +69,7 @@ def perguntar(
         return cerebro_cloud.perguntar(texto, contexto=contexto, metadata_extra=metadata_extra)
     else:
         # Local usa a assinatura completa
-        return cerebro_local.perguntar(texto, historico, usuario, cancel_callback)
+        return cerebro_local.perguntar(texto, historico, usuario, cancel_callback, profile_id)
 
 # Inicializar e mostrar modo
 _current_mode = _detect_initial_mode()

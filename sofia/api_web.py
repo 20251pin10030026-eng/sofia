@@ -19,6 +19,7 @@ from sofia.core import cerebro, memoria, identidade
 from sofia.core.cerebro_selector import get_mode, set_mode
 import os
 from sofia.core.monitor_execucao import LOG_DIR as LOGS_EXEC_DIR
+from sofia.core import profiles
 
 
 # Configuração da API
@@ -45,6 +46,9 @@ class Session:
         self.historico: List[Dict] = []
         self.created_at = None
         self.cancel_flag = False  # Flag para cancelar processamento
+        self.profile_id: str = profiles.DEFAULT_PROFILE_ID
+        self.escopo_memoria: Optional[str] = None
+        self.estado_dinamico: Dict = {}
         
 sessions: Dict[str, Session] = {}
 
@@ -53,6 +57,8 @@ class ChatRequest(BaseModel):
     mensagem: str
     session_id: Optional[str] = None
     user_name: Optional[str] = "Usuário"
+    trq_duro_mode: Optional[bool] = False
+    profile_id: Optional[str] = None
 
 class ChatResponse(BaseModel):
     resposta: str
@@ -63,6 +69,16 @@ class SessionInfo(BaseModel):
     session_id: str
     user_name: str
     total_mensagens: int
+
+class ProfileRequest(BaseModel):
+    session_id: str
+    profile_id: str
+
+class ProfileResponse(BaseModel):
+    ok: bool
+    session_id: str
+    profile_id: str
+    descricao: str
 
 # ==================== ENDPOINTS REST ====================
 @app.get("/", response_class=HTMLResponse)
@@ -178,6 +194,51 @@ async def api_create_session():
         session_id=session_id,
         user_name="Usuário",
         total_mensagens=0
+    )
+
+
+@app.post("/api/profile", response_model=ProfileResponse)
+async def set_profile(request: ProfileRequest):
+    """Define o profile cognitivo de uma sessão (governança por sessão)."""
+    sid = (request.session_id or "").strip()
+    pid = (request.profile_id or "").strip().lower()
+
+    if not sid or sid not in sessions:
+        raise HTTPException(status_code=400, detail="sessao_invalida")
+    if pid not in profiles.PROFILES:
+        raise HTTPException(status_code=400, detail="profile_invalido")
+
+    session = sessions[sid]
+    session.profile_id = pid
+
+    prof = profiles.PROFILES[pid]
+    return ProfileResponse(
+        ok=True,
+        session_id=sid,
+        profile_id=pid,
+        descricao=str(prof.get("descricao") or ""),
+    )
+
+
+@app.get("/api/profile", response_model=ProfileResponse)
+async def get_profile(session_id: str):
+    """Retorna o profile cognitivo atual de uma sessão."""
+    sid = (session_id or "").strip()
+    if not sid or sid not in sessions:
+        raise HTTPException(status_code=400, detail="sessao_invalida")
+
+    session = sessions[sid]
+    pid = (session.profile_id or "").strip().lower() or profiles.DEFAULT_PROFILE_ID
+    if pid not in profiles.PROFILES:
+        pid = profiles.DEFAULT_PROFILE_ID
+        session.profile_id = pid
+
+    prof = profiles.PROFILES[pid]
+    return ProfileResponse(
+        ok=True,
+        session_id=sid,
+        profile_id=pid,
+        descricao=str(prof.get("descricao") or ""),
     )
 
 @app.get("/api/session/{session_id}", response_model=SessionInfo)
@@ -343,6 +404,16 @@ async def chat_endpoint(request: ChatRequest):
         session_id = request.session_id
     
     session = sessions[session_id]
+
+    # Se o request trouxer profile_id, atualiza a sessão (equivalente a /api/profile)
+    if request.profile_id:
+        pid = str(request.profile_id).strip().lower()
+        if pid not in profiles.PROFILES:
+            raise HTTPException(status_code=400, detail="profile_invalido")
+        session.profile_id = pid
+    elif request.trq_duro_mode:
+        # compat: mantém o atalho TRQ duro
+        session.profile_id = "trq_duro"
     
     # Adicionar mensagem ao histórico da sessão
     session.historico.append({
@@ -356,7 +427,8 @@ async def chat_endpoint(request: ChatRequest):
         resposta = cerebro.perguntar(
             request.mensagem,
             historico=session.historico,
-            usuario=session.user_name
+            usuario=session.user_name,
+            profile_id=session.profile_id,
         )
     except Exception as e:
         resposta = f"❌ Erro ao processar mensagem: {str(e)}"
@@ -604,9 +676,12 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     """
     await manager.connect(websocket, session_id)
     
-    # Sempre inicia como novo usuário
-    sessions[session_id] = Session(session_id, user_name="Usuário")
+    # Sessão vive no servidor: não sobrescrever se já existir (preserva profile_id)
+    if session_id not in sessions:
+        sessions[session_id] = Session(session_id, user_name="Usuário")
     session = sessions[session_id]
+    # Mantém política atual: nome padrão, sem destruir o profile/histórico
+    session.user_name = "Usuário"
     
     # Enviar mensagem de boas-vindas
     await manager.send_message({
@@ -648,9 +723,29 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 user_message = data.get("content", "")
                 user_name = data.get("user_name", session.user_name)
                 web_search_mode = data.get("web_search_mode", False)
+                trq_duro_mode = data.get("trq_duro_mode", False)
+                requested_profile_id = data.get("profile_id")
                 
                 print(f"💬 Processando: '{user_message}' de {user_name}")  # DEBUG
                 print(f"🌐 Modo Web: {web_search_mode}")  # DEBUG
+                print(f"♦ TRQ Duro: {trq_duro_mode}")  # DEBUG
+
+                # Governança por sessão: profile vive na sessão.
+                # Se o cliente pedir profile_id (ou usar o atalho trq_duro_mode), atualiza a sessão.
+                if requested_profile_id:
+                    pid = str(requested_profile_id).strip().lower()
+                    if pid not in profiles.PROFILES:
+                        await manager.send_message({
+                            "type": "error",
+                            "content": "❌ profile_invalido",
+                            "session_id": session_id,
+                        }, session_id)
+                        continue
+                    session.profile_id = pid
+                elif trq_duro_mode:
+                    session.profile_id = "trq_duro"
+
+                print(f"🧠 Profile(sessão): {session.profile_id}")  # DEBUG
                 
                 # Atualizar nome do usuário se fornecido
                 session.user_name = user_name
@@ -663,7 +758,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 else:
                     os.environ["SOFIA_MODO_WEB"] = "0"
                     print("🌍 Modo web DESATIVADO")  # DEBUG
-                
+
                 # Adicionar ao histórico da sessão
                 session.historico.append({
                     "de": user_name,
@@ -701,7 +796,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                             user_message,
                             session.historico,
                             user_name,
-                            check_cancelled  # ← Passa callback de cancelamento
+                            check_cancelled,  # ← Passa callback de cancelamento
+                            session.profile_id,
                         )
                         print(f"✅ Resposta gerada: {len(resposta)} chars")  # DEBUG
                         

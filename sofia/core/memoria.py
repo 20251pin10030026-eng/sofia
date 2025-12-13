@@ -8,6 +8,10 @@ Agora com suporte a ESCOPOS DE MEMÓRIA:
 """
 
 import json
+import os
+import math
+import re
+import unicodedata
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Any, Optional
@@ -23,6 +27,491 @@ MAX_CHARS_POR_MENSAGEM = 100000  # Máximo de 100.000 caracteres por mensagem in
 # Memória em RAM (cache)
 historico: List[Dict[str, Any]] = []
 aprendizados: Dict[str, Dict[str, Any]] = {}
+
+
+_STOPWORDS_PT = {
+    "a", "o", "os", "as", "um", "uma", "uns", "umas",
+    "de", "do", "da", "dos", "das", "em", "no", "na", "nos", "nas",
+    "por", "para", "com", "sem", "sobre", "entre", "até", "após",
+    "e", "ou", "mas", "porque", "que", "se", "como", "quando", "onde",
+    "eu", "tu", "você", "vc", "ele", "ela", "eles", "elas", "nós", "nos", "vocês",
+    "me", "te", "se", "lhe", "lhes", "minha", "meu", "seu", "sua", "nossa", "nosso",
+    "isso", "isto", "aquilo", "aqui", "ali", "lá",
+}
+
+
+def _normalizar_texto_basico(texto: str) -> str:
+    if not texto:
+        return ""
+    texto = texto.strip().lower()
+    texto = unicodedata.normalize("NFKD", texto)
+    texto = "".join(c for c in texto if not unicodedata.combining(c))
+    return texto
+
+
+def _tokenizar(texto: str) -> set[str]:
+    texto = _normalizar_texto_basico(texto)
+    if not texto:
+        return set()
+    # mantém letras/números e alguns separadores comuns; remove o resto
+    texto = re.sub(r"[^a-z0-9\s\-_/]", " ", texto)
+    partes = re.split(r"\s+", texto)
+    tokens = {p for p in partes if p and p not in _STOPWORDS_PT and len(p) >= 3}
+    return tokens
+
+
+def _split_paragrafos(texto: str, max_partes: int = 20) -> List[str]:
+    if not texto:
+        return []
+    # Quebra por marcadores comuns de PDFs e por linhas em branco
+    bruto = texto.replace("\r\n", "\n")
+    bruto = bruto.replace("\r", "\n")
+    bruto = re.sub(r"\n{3,}", "\n\n", bruto)
+    partes: List[str] = []
+    # primeiro, quebra por páginas para reduzir ruído
+    for bloco in re.split(r"(?=\=\=\=\s*PÁGINA\s*\d+\s*\=\=\=)", bruto, flags=re.IGNORECASE):
+        bloco = bloco.strip()
+        if not bloco:
+            continue
+        for p in bloco.split("\n\n"):
+            p = p.strip()
+            if len(p) < 40:
+                continue
+            partes.append(p)
+            if len(partes) >= max_partes:
+                return partes
+    return partes[:max_partes]
+
+
+def _score_chunk(
+    consulta_tokens: set[str],
+    chunk_texto: str,
+    peso_base: float,
+    metadata: Dict[str, Any] | None,
+) -> float:
+    if not chunk_texto:
+        return -1.0
+    chunk_tokens = _tokenizar(chunk_texto)
+    if not chunk_tokens:
+        return -1.0
+
+    comuns = len(chunk_tokens & consulta_tokens)
+    if comuns == 0:
+        return -1.0
+
+    # Similaridade leve (evita vetores/embeddings): overlap normalizado + peso_base
+    sim = comuns / (math.sqrt(len(chunk_tokens)) + 1e-6)
+
+    # Penaliza custo cognitivo: textos longos tendem a entrar menos
+    custo = min(1.0, len(chunk_texto) / 2000.0)
+
+    bonus = 0.0
+    if metadata and isinstance(metadata, dict):
+        estado = str(metadata.get("estado") or "").strip().lower()
+        ajuste = str(metadata.get("ajuste_trq") or "").strip().lower()
+
+        # Se o estado/ajuste aparecem no chunk, aumenta ressonância
+        if estado and estado in _normalizar_texto_basico(chunk_texto):
+            bonus += 0.15
+        if ajuste and ajuste in _normalizar_texto_basico(chunk_texto):
+            bonus += 0.10
+
+        # Se estamos em modo TRQ (curvatura_trq presente) e o chunk fala de TRQ/NQC
+        if metadata.get("curvatura_trq") is not None:
+            nt = _normalizar_texto_basico(chunk_texto)
+            if "trq" in nt or "nqc" in nt or "regionalidade" in nt:
+                bonus += 0.20
+
+        # Se há alta ressonância no estado atual, aumenta levemente seletividade
+        try:
+            res_atual = float(metadata.get("ressonancia") or 0.0)
+            bonus += max(0.0, min(0.25, res_atual * 0.05))
+        except Exception:
+            pass
+
+    return (sim + peso_base + bonus) - (0.35 * custo)
+
+
+def _carregar_conversas_tail_disco(
+    max_mensagens: int = 250,
+    max_bytes_arquivo: int = 5 * 1024 * 1024,
+) -> List[Dict[str, Any]]:
+    """Lê o conversas.json do disco e retorna somente o tail.
+
+    Salvaguarda: se o arquivo estiver muito grande, retorna vazio para evitar custo.
+    """
+    try:
+        if not MEMORIA_ARQUIVO.exists():
+            return []
+        try:
+            if MEMORIA_ARQUIVO.stat().st_size > max_bytes_arquivo:
+                return []
+        except Exception:
+            pass
+
+        with open(MEMORIA_ARQUIVO, "r", encoding="utf-8") as f:
+            dados = json.load(f)
+        conversas = dados.get("conversas", [])
+        if not isinstance(conversas, list) or not conversas:
+            return []
+        return [c for c in conversas[-max_mensagens:] if isinstance(c, dict)]
+    except Exception:
+        return []
+
+
+def _ler_ultimas_linhas_tail(path: Path, max_linhas: int = 200, max_bytes: int = 65536) -> List[str]:
+    if not path.exists():
+        return []
+    try:
+        with open(path, "rb") as f:
+            f.seek(0, 2)
+            tamanho = f.tell()
+            offset = min(tamanho, max_bytes)
+            if offset <= 0:
+                return []
+            f.seek(-offset, 2)
+            dados = f.read(offset)
+        texto = dados.decode("utf-8", errors="ignore")
+        linhas = texto.splitlines()
+        return linhas[-max_linhas:]
+    except Exception:
+        return []
+
+
+def obter_contexto_memoria_seletiva(
+    texto_atual: str,
+    metadata: Dict[str, Any] | None = None,
+    escopo_memoria: Optional[str] = None,
+    max_chars: int = 2500,
+    top_k: int = 8,
+    fontes_permitidas: Optional[set[str] | List[str]] = None,
+    pesos: Optional[Dict[str, float]] = None,
+    debug: bool = False,
+) -> str:
+    """
+    Recuperação seletiva de memória (TSMP/GMAR-TRQ) para uso no modo LOCAL.
+
+    Objetivo: evitar "varrer" e despejar toda a memória no prompt. Em vez disso,
+    ativa apenas NQCs/trechos relevantes ao texto atual, ao estado interno e à
+    ressonância temporal, com custo cognitivo mínimo.
+
+    Observação: função adicionada sem alterar o comportamento do cloud.
+    """
+    texto_atual = (texto_atual or "").strip()
+    if not texto_atual:
+        return ""
+
+    # Tokens da consulta incluem texto + alguns sinais do estado interno
+    consulta_enriquecida = texto_atual
+    if metadata and isinstance(metadata, dict):
+        sinais = []
+        for k in ("estado", "ajuste_trq"):
+            v = metadata.get(k)
+            if v:
+                sinais.append(str(v))
+        consulta_enriquecida = f"{texto_atual} " + " ".join(sinais)
+
+    consulta_tokens = _tokenizar(consulta_enriquecida)
+    if not consulta_tokens:
+        return ""
+
+    consulta_norm = _normalizar_texto_basico(consulta_enriquecida)
+    porteiro_duro = bool(metadata and metadata.get("modo_trq_duro") is True)
+    if metadata and isinstance(metadata, dict) and bool(metadata.get("tsmp_debug") is True):
+        debug = True
+
+    # Normalizar política de fontes
+    if fontes_permitidas is not None and not isinstance(fontes_permitidas, set):
+        try:
+            fontes_permitidas = set(str(x) for x in fontes_permitidas)  # type: ignore[arg-type]
+        except Exception:
+            fontes_permitidas = None
+
+    def _fonte_permitida(fonte: str) -> bool:
+        if fontes_permitidas is None:
+            return True
+        if "*" in fontes_permitidas:
+            return True
+
+        # mapeamento de aliases de profile → fontes reais
+        if fonte == "subitemotions":
+            return "subitemotions" in fontes_permitidas
+        if fonte.startswith("conversa/"):
+            return fonte in fontes_permitidas
+        if fonte.startswith("aprendizados/"):
+            # exemplos: aprendizados/teorias_cientificas/..., aprendizados/documentos_sofia/...
+            partes = fonte.split("/", 2)
+            if len(partes) >= 2:
+                categoria = partes[1]
+                return categoria in fontes_permitidas
+        return False
+
+    pesos = pesos if isinstance(pesos, dict) else {}
+
+    def _fator_peso(fonte: str) -> float:
+        # pesos são fatores multiplicativos aplicados ao peso_base
+        try:
+            if fonte == "subitemotions":
+                return float(pesos.get("subitemotions", 1.0))
+            if fonte.startswith("conversa/"):
+                return float(pesos.get("conversa", 1.0))
+            if fonte.startswith("aprendizados/teorias_cientificas"):
+                return float(pesos.get("teorias", 1.0))
+        except Exception:
+            return 1.0
+        return 1.0
+    consulta_trq = any(
+        k in consulta_norm
+        for k in (
+            "trq",
+            "nqc",
+            "regionalidade",
+            "curvatura",
+            "resson",
+            "hubble",
+            "rgfq",
+        )
+    )
+    # No modo laboratório, tratamos como domínio TRQ por decisão de orquestração.
+    if porteiro_duro:
+        consulta_trq = True
+        top_k = min(top_k, 4)
+        max_chars = min(max_chars, 1400)
+
+    candidatos: List[Dict[str, Any]] = []
+
+    # 1) Aprendizados (longo prazo) — sem despejar tudo; quebra em trechos
+    if not aprendizados:
+        _carregar_aprendizados()
+
+    if isinstance(aprendizados, dict) and aprendizados:
+        for categoria, itens in aprendizados.items():
+            if not isinstance(itens, dict):
+                continue
+
+            # pesos base por categoria
+            if porteiro_duro:
+                # Laboratório TRQ: teoria + estado interno dominam; evita ruído episódico/identidade longa
+                if categoria == "teorias_cientificas":
+                    peso_cat = 0.98
+                elif categoria == "documentos_sofia":
+                    peso_cat = 0.45
+                elif categoria == "usuario":
+                    peso_cat = 0.20
+                else:
+                    peso_cat = 0.18
+            else:
+                if categoria == "documentos_sofia":
+                    peso_cat = 0.78 if consulta_trq else 0.70
+                elif categoria == "teorias_cientificas":
+                    peso_cat = 0.88 if consulta_trq else 0.60
+                elif categoria == "usuario":
+                    peso_cat = 0.35 if consulta_trq else 0.45
+                else:
+                    peso_cat = 0.25 if consulta_trq else 0.35
+
+            for chave, dados in itens.items():
+                if not isinstance(dados, dict):
+                    continue
+                valor = dados.get("valor")
+
+                # formato de documento (com conteudo)
+                if isinstance(valor, dict) and isinstance(valor.get("conteudo"), str):
+                    conteudo = valor.get("conteudo", "")
+                    for p in _split_paragrafos(conteudo, max_partes=14):
+                        # Se a consulta é TRQ, prioriza parágrafos com TRQ/NQC e afins
+                        if consulta_trq:
+                            pn = _normalizar_texto_basico(p)
+                            if not any(k in pn for k in ("trq", "nqc", "regionalidade", "curvatura", "hubble")):
+                                # ainda entra como candidato, mas com peso menor
+                                peso_local = max(0.10, peso_cat - 0.35)
+                            else:
+                                peso_local = peso_cat
+                        else:
+                            peso_local = peso_cat
+                        candidatos.append(
+                            {
+                                "fonte": f"aprendizados/{categoria}/{chave}",
+                                "texto": p,
+                                "peso_base": peso_local,
+                            }
+                        )
+                    continue
+
+                # formato simples (valor string/número)
+                if valor is not None:
+                    candidatos.append(
+                        {
+                            "fonte": f"aprendizados/{categoria}/{chave}",
+                            "texto": f"{chave}: {valor}",
+                            "peso_base": peso_cat,
+                        }
+                    )
+
+    # 2) Conversas no DISCO (conversas.json) — desativado no laboratório TRQ
+    if not porteiro_duro:
+        max_disk_msgs = int(os.getenv("SOFIA_TSMP_MAX_DISK_MSGS", "260"))
+        max_disk_bytes = int(os.getenv("SOFIA_TSMP_MAX_DISK_BYTES", str(5 * 1024 * 1024)))
+        for msg in _carregar_conversas_tail_disco(max_mensagens=max_disk_msgs, max_bytes_arquivo=max_disk_bytes):
+            if not _mesmo_escopo(msg, escopo_memoria):
+                continue
+            de = msg.get("de", "?")
+            txt = msg.get("texto", "")
+            if not txt:
+                continue
+            if not _fonte_permitida("conversa/arquivo"):
+                continue
+            candidatos.append(
+                {
+                    "fonte": "conversa/arquivo",
+                    "texto": f"{de}: {txt}",
+                    "peso_base": 0.42 if consulta_trq else 0.50,
+                }
+            )
+
+    # 3) Conversas recentes em RAM — desativado no laboratório TRQ
+    if not porteiro_duro:
+        if not historico:
+            _carregar_memoria()
+
+        if isinstance(historico, list) and historico:
+            msgs = [m for m in historico if isinstance(m, dict) and _mesmo_escopo(m, escopo_memoria)]
+            pool = msgs[:-10] if len(msgs) > 10 else []
+            # varre no máximo 120 mensagens (mais recentes primeiro)
+            for msg in reversed(pool[-120:]):
+                de = msg.get("de", "?")
+                txt = msg.get("texto", "")
+                if not txt:
+                    continue
+                if not _fonte_permitida("conversa/recente"):
+                    continue
+                candidatos.append(
+                    {
+                        "fonte": "conversa/recente",
+                        "texto": f"{de}: {txt}",
+                        "peso_base": 0.35 if consulta_trq else 0.55,
+                    }
+                )
+
+    # 4) Subitemotions (tail) — usa só as últimas linhas do arquivo
+    log_path = Path(__file__).resolve().parents[1] / ".sofia_internal" / "subitemotions.log"
+    if _fonte_permitida("subitemotions"):
+        ler_subitemotions = True
+    else:
+        ler_subitemotions = False
+
+    if ler_subitemotions:
+        for linha in _ler_ultimas_linhas_tail(log_path, max_linhas=120, max_bytes=65536):
+            try:
+                registro = json.loads(linha.strip())
+            except Exception:
+                continue
+
+            if not isinstance(registro, dict):
+                continue
+
+            estado = registro.get("estado")
+            entrada = str(registro.get("input") or "")
+            resson = registro.get("ressonancia")
+
+            trecho = entrada
+            if len(trecho) > 180:
+                trecho = trecho[:180] + "..."
+
+            base = 0.35
+            try:
+                base += max(0.0, min(0.35, float(resson or 0.0) * 0.10))
+            except Exception:
+                pass
+
+            candidatos.append(
+                {
+                    "fonte": "subitemotions",
+                    "texto": f"estado={estado} ress={resson} entrada=\"{trecho}\"",
+                    "peso_base": base,
+                }
+            )
+
+    # Pontuar e selecionar
+    pontuados: List[tuple[float, Dict[str, Any]]] = []
+    for c in candidatos:
+        t = str(c.get("texto") or "")
+        fonte_c = str(c.get("fonte") or "")
+        if fonte_c and not _fonte_permitida(fonte_c):
+            continue
+
+        peso = float(c.get("peso_base") or 0.0)
+        peso *= _fator_peso(fonte_c)
+        s = _score_chunk(consulta_tokens, t, peso, metadata)
+
+        # No laboratório TRQ, o estado interno pode ser útil mesmo sem overlap textual.
+        if porteiro_duro and s <= 0 and fonte_c == "subitemotions":
+            try:
+                # base mínima + bônus pela ressonância registrada
+                res = float((t.split("ress=")[-1].split()[0]).strip().replace('"', ""))  # best-effort
+            except Exception:
+                res = 0.0
+            s = 0.15 + max(0.0, min(0.10, res * 0.02))
+
+        if porteiro_duro:
+            if fonte_c.startswith("aprendizados/teorias_cientificas"):
+                s += 0.25
+            if fonte_c == "subitemotions":
+                s += 0.15
+
+        if consulta_trq:
+            tn = _normalizar_texto_basico(t)
+            if not any(k in tn for k in ("trq", "nqc", "regionalidade", "curvatura", "hubble", "rgfq")):
+                s -= 0.18
+        if s > 0:
+            pontuados.append((s, c))
+
+    if not pontuados:
+        return ""
+
+    pontuados.sort(key=lambda x: x[0], reverse=True)
+
+    partes: List[str] = ["📌 MEMÓRIA SELETIVA (TSMP/GMAR-TRQ):"]
+    chars = len(partes[0])
+    usados = 0
+    vistos: set[str] = set()
+
+    for score, c in pontuados:
+        if usados >= top_k or chars >= max_chars:
+            break
+
+        fonte = str(c.get("fonte") or "memoria")
+        texto = str(c.get("texto") or "").strip()
+        if not texto:
+            continue
+
+        # dedup leve
+        chave_dedup = _normalizar_texto_basico(texto)[:200]
+        if chave_dedup in vistos:
+            continue
+        vistos.add(chave_dedup)
+
+        # normaliza whitespace e reduz tamanho do snippet
+        snippet = re.sub(r"\s+", " ", texto)
+        limite_snippet = 360 if consulta_trq else 460
+        if len(snippet) > limite_snippet:
+            snippet = snippet[:limite_snippet] + "..."
+
+        if debug:
+            linha = f"- {fonte} (score={score:.3f}): {snippet}"
+        else:
+            linha = f"- {fonte}: {snippet}"
+        if chars + len(linha) + 1 > max_chars:
+            continue
+
+        partes.append(linha)
+        chars += len(linha) + 1
+        usados += 1
+
+    if len(partes) == 1:
+        return ""
+
+    return "\n".join(partes)
 
 
 def _garantir_diretorio():

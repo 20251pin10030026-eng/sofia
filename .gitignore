@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtualenv
+.venv/
+venv/
+env/
+ENV/
+
+# Build artifacts
+*.egg-info/
+dist/
+build/
+
+# Sofia internal / runtime (não versionar)
+.sofia_internal/
+sofia/.sofia_internal/
+sofia/core/estado_monitor.json
+sofia/core/logs_execucao/
+*.log
+ngrok.log
+
+# Segredos / configs locais
+.env
+sofia/.env
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
