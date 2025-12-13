@@ -37,7 +37,11 @@ jobs:
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          # Se o token não existir (ex.: secrets não configurados ainda), não falhar o workflow.
+          # Isso evita o erro mostrado no log: "deployment_token was not provided".
+          skip_deploy_on_missing_secrets: true
+          # Fallback: aceita tanto o secret genérico quanto o secret específico gerado pelo Azure.
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN || secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_AMBITIOUS_DESERT_09ADBB10F }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
           ###### Configuração do App ######
@@ -60,5 +64,6 @@ jobs:
         id: closepullrequest
         uses: Azure/static-web-apps-deploy@v1
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          skip_deploy_on_missing_secrets: true
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN || secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_AMBITIOUS_DESERT_09ADBB10F }}
           action: "close"
