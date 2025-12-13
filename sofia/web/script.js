@@ -1,8 +1,8 @@
 // API Configuration
 // Cloud = GitHub Models API (servidor), Local = Ollama (local)
 // Ambos usam o mesmo servidor backend, mas o backend alterna entre as IAs
-const API_URL = 'https://de81dcae7eb4.ngrok-free.app';
-const WS_URL = 'wss://de81dcae7eb4.ngrok-free.app';
+const API_URL = 'https://66f085ec8b3e.ngrok-free.app';
+const WS_URL = 'wss://66f085ec8b3e.ngrok-free.app';
 
 // Injeta header para bypass do aviso do ngrok quando necessário
 const _nativeFetch = window.fetch.bind(window);
@@ -137,11 +137,43 @@ async function createSession() {
         const data = await response.json();
         sessionId = data.session_id;
         console.log('Sessão criada:', sessionId);
+
+        // Sincroniza profile da sessão (governança no servidor)
+        await syncProfileFromServer();
+
         return sessionId;
     } catch (error) {
         console.error('Erro ao criar sessão:', error);
         updateStatus('connecting', 'Pensando...');
         throw error;
+    }
+}
+
+async function syncProfileFromServer() {
+    if (!sessionId) return;
+
+    try {
+        const response = await fetch(`${API_URL}/api/profile?session_id=${encodeURIComponent(sessionId)}`);
+        if (!response.ok) return;
+
+        const data = await response.json().catch(() => null);
+        const pid = (data && data.profile_id) ? String(data.profile_id).toLowerCase() : null;
+        if (!pid) return;
+
+        // Hoje o UI mínimo controla só TRQ duro vs conversacional
+        const nextTrq = pid === 'trq_duro';
+        trqDuroMode = nextTrq;
+        if (trqDuroBtn) {
+            if (trqDuroMode) {
+                trqDuroBtn.classList.add('active');
+                trqDuroBtn.title = 'TRQ Duro ATIVO - Clique para desativar';
+            } else {
+                trqDuroBtn.classList.remove('active');
+                trqDuroBtn.title = 'TRQ Duro (isolamento de memória)';
+            }
+        }
+    } catch (error) {
+        console.warn('Falha ao sincronizar profile:', error);
     }
 }
 
@@ -173,6 +205,8 @@ function connectWebSocket() {
             isConnected = true;
             reconnectAttempts = 0;
             updateStatus('connected', 'Online');
+            // Em reconexões, a UI precisa refletir o profile vigente no servidor (governança por sessão).
+            syncProfileFromServer();
             processMessageQueue();
         };
 
