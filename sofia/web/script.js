@@ -1,8 +1,8 @@
 // API Configuration
 // Cloud = GitHub Models API (servidor), Local = Ollama (local)
 // Ambos usam o mesmo servidor backend, mas o backend alterna entre as IAs
-const API_URL = 'https://c127bf9fa12f.ngrok-free.app';
-const WS_URL = 'wss://c127bf9fa12f.ngrok-free.app';
+const API_URL = 'https://de81dcae7eb4.ngrok-free.app';
+const WS_URL = 'wss://de81dcae7eb4.ngrok-free.app';
 
 // Injeta header para bypass do aviso do ngrok quando necessário
 const _nativeFetch = window.fetch.bind(window);
@@ -592,11 +592,45 @@ function toggleWebSearchMode() {
 }
 
 // Toggle TRQ Duro Mode
-function toggleTrqDuroMode() {
-    trqDuroMode = !trqDuroMode;
+async function setProfileForSession(profileId) {
+    if (!sessionId) {
+        console.warn('sessionId não disponível para setProfile');
+        return false;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/api/profile`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                session_id: sessionId,
+                profile_id: profileId
+            })
+        });
+
+        if (!response.ok) {
+            const errText = await response.text().catch(() => '');
+            console.error('Falha ao setar profile:', response.status, errText);
+            return false;
+        }
+
+        const data = await response.json().catch(() => null);
+        console.log('🧠 Profile setado na sessão:', data);
+        return true;
+    } catch (error) {
+        console.error('Erro ao chamar /api/profile:', error);
+        return false;
+    }
+}
+
+async function toggleTrqDuroMode() {
+    const next = !trqDuroMode;
+    const nextProfileId = next ? 'trq_duro' : 'conversacional';
 
     if (!trqDuroBtn) return;
 
+    // Atualiza UI otimisticamente
+    trqDuroMode = next;
     if (trqDuroMode) {
         trqDuroBtn.classList.add('active');
         trqDuroBtn.title = 'TRQ Duro ATIVO - Clique para desativar';
@@ -605,6 +639,20 @@ function toggleTrqDuroMode() {
         trqDuroBtn.classList.remove('active');
         trqDuroBtn.title = 'TRQ Duro (isolamento de memória)';
         showNotification('♦ TRQ Duro DESATIVADO', 'info');
+    }
+
+    const ok = await setProfileForSession(nextProfileId);
+    if (!ok) {
+        // Reverte se falhar
+        trqDuroMode = !next;
+        if (trqDuroMode) {
+            trqDuroBtn.classList.add('active');
+            trqDuroBtn.title = 'TRQ Duro ATIVO - Clique para desativar';
+        } else {
+            trqDuroBtn.classList.remove('active');
+            trqDuroBtn.title = 'TRQ Duro (isolamento de memória)';
+        }
+        showNotification('❌ Falha ao aplicar profile na sessão', 'error');
     }
 }
 
@@ -649,12 +697,11 @@ async function sendMessage() {
             type: 'message',
             content: fullMessage,
             user_name: 'Usuário',
-            web_search_mode: webSearchMode,  // Incluir estado do modo web
-            trq_duro_mode: trqDuroMode        // Incluir estado do TRQ Duro
+            web_search_mode: webSearchMode  // Incluir estado do modo web
         };
 
         console.log('📤 Tentando enviar:', wsMessage);
-        console.log('🌐 Modo:', endpointMode, '| Web Search:', webSearchMode, '| TRQ Duro:', trqDuroMode);
+        console.log('🌐 Modo:', endpointMode, '| Web Search:', webSearchMode, '| TRQ Duro(UI):', trqDuroMode);
         console.log('🔌 WebSocket state:', ws ? ws.readyState : 'NULL');
         console.log('✅ isConnected:', isConnected);
 
