@@ -1,8 +1,8 @@
 // API Configuration
 // Cloud = GitHub Models API (servidor), Local = Ollama (local)
 // Ambos usam o mesmo servidor backend, mas o backend alterna entre as IAs
-const API_URL = 'https://f4554323e56f.ngrok-free.app';
-const WS_URL = 'wss://f4554323e56f.ngrok-free.app';
+const API_URL = 'https://c127bf9fa12f.ngrok-free.app';
+const WS_URL = 'wss://c127bf9fa12f.ngrok-free.app';
 
 // Injeta header para bypass do aviso do ngrok quando necessário
 const _nativeFetch = window.fetch.bind(window);
@@ -36,6 +36,7 @@ const chatContainer = document.getElementById('chat-container');
 const messageInput = document.getElementById('message-input');
 const sendBtn = document.getElementById('send-btn');
 const webSearchBtn = document.getElementById('web-search-btn');
+const trqDuroBtn = document.getElementById('trq-duro-btn');
 const attachBtn = document.getElementById('attach-btn');
 const fileInputChat = document.getElementById('file-input-chat');
 const attachedFilesPreview = document.getElementById('attached-files-preview');
@@ -55,6 +56,7 @@ const metaverseModal = document.getElementById('metaverse-modal');
 let conversationHistory = [];
 let attachedFiles = []; // Array para armazenar arquivos anexados temporariamente
 let webSearchMode = false; // Estado do modo de busca web
+let trqDuroMode = false; // Estado do modo TRQ Duro (isolamento de memória)
 
 // Função para buscar modo atual do servidor
 async function fetchCurrentMode() {
@@ -352,6 +354,11 @@ sendBtn.addEventListener('click', sendMessage);
 // Web Search Button
 webSearchBtn.addEventListener('click', toggleWebSearchMode);
 
+// TRQ Duro Button
+if (trqDuroBtn) {
+    trqDuroBtn.addEventListener('click', toggleTrqDuroMode);
+}
+
 messageInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -584,6 +591,23 @@ function toggleWebSearchMode() {
     }
 }
 
+// Toggle TRQ Duro Mode
+function toggleTrqDuroMode() {
+    trqDuroMode = !trqDuroMode;
+
+    if (!trqDuroBtn) return;
+
+    if (trqDuroMode) {
+        trqDuroBtn.classList.add('active');
+        trqDuroBtn.title = 'TRQ Duro ATIVO - Clique para desativar';
+        showNotification('♦ TRQ Duro ATIVADO - Memória conversacional bloqueada', 'info');
+    } else {
+        trqDuroBtn.classList.remove('active');
+        trqDuroBtn.title = 'TRQ Duro (isolamento de memória)';
+        showNotification('♦ TRQ Duro DESATIVADO', 'info');
+    }
+}
+
 // =====================
 //  SEND MESSAGE (NOVO)
 // =====================
@@ -625,11 +649,12 @@ async function sendMessage() {
             type: 'message',
             content: fullMessage,
             user_name: 'Usuário',
-            web_search_mode: webSearchMode  // Incluir estado do modo web
+            web_search_mode: webSearchMode,  // Incluir estado do modo web
+            trq_duro_mode: trqDuroMode        // Incluir estado do TRQ Duro
         };
 
         console.log('📤 Tentando enviar:', wsMessage);
-        console.log('🌐 Modo:', endpointMode, '| Web Search:', webSearchMode);
+        console.log('🌐 Modo:', endpointMode, '| Web Search:', webSearchMode, '| TRQ Duro:', trqDuroMode);
         console.log('🔌 WebSocket state:', ws ? ws.readyState : 'NULL');
         console.log('✅ isConnected:', isConnected);
 
