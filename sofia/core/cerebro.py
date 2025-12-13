@@ -134,15 +134,93 @@ def _ollama_generate(
     system: str,
     options: Dict[str, Any],
     timeout_s: int,
+    cot_callback: Optional[Callable[[str], None]] = None,
 ) -> str:
+    """
+    Chama o Ollama. Se cot_callback for fornecido, usa streaming para
+    capturar chain-of-thought (blocos <think>...</think>) em tempo real.
+    """
     payload: Dict[str, Any] = {
         "model": model,
         "prompt": prompt,
-        "stream": False,
         "system": system,
         "options": options,
     }
 
+    # Se temos callback de CoT, usamos streaming para capturar tokens progressivamente
+    if cot_callback is not None:
+        payload["stream"] = True
+        full_response = []
+        inside_think = False
+        think_buffer = []
+
+        try:
+            with requests.post(
+                f"{OLLAMA_HOST}/api/generate",
+                json=payload,
+                timeout=timeout_s,
+                stream=True,
+            ) as resp:
+                if resp.status_code != 200:
+                    raise RuntimeError(f"HTTP {resp.status_code}")
+
+                for line in resp.iter_lines():
+                    if not line:
+                        continue
+                    try:
+                        chunk = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+
+                    token = chunk.get("response", "")
+                    if not token:
+                        continue
+
+                    full_response.append(token)
+
+                    # Detectar blocos <think>...</think> (usado por alguns modelos como Qwen3)
+                    # Também capturamos tokens normais se não houver tag (modelos que "pensam" inline)
+                    if "<think>" in token:
+                        inside_think = True
+                        # Capturar parte após <think>
+                        after = token.split("<think>", 1)[-1]
+                        if after:
+                            think_buffer.append(after)
+                            try:
+                                cot_callback(after)
+                            except Exception:
+                                pass
+                    elif "</think>" in token:
+                        # Capturar parte antes de </think>
+                        before = token.split("</think>", 1)[0]
+                        if before:
+                            think_buffer.append(before)
+                            try:
+                                cot_callback(before)
+                            except Exception:
+                                pass
+                        inside_think = False
+                    elif inside_think:
+                        think_buffer.append(token)
+                        try:
+                            cot_callback(token)
+                        except Exception:
+                            pass
+
+                    if chunk.get("done"):
+                        break
+
+        except requests.exceptions.Timeout:
+            raise
+
+        raw = "".join(full_response)
+        # Remover blocos <think>...</think> da resposta final (deixar só a resposta limpa)
+        import re
+        clean = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+        return clean if clean else raw.strip()
+
+    # Sem streaming (comportamento original)
+    payload["stream"] = False
     resp = requests.post(
         f"{OLLAMA_HOST}/api/generate",
         json=payload,
@@ -350,6 +428,7 @@ def perguntar(
     profile_id: Optional[str] = None,
     *,
     progress_callback: Optional[Callable[[str, str], None]] = None,
+    cot_callback: Optional[Callable[[str], None]] = None,
 ) -> str:
     """
     Função principal chamada pela interface para conversar com Sofia.
@@ -359,6 +438,7 @@ def perguntar(
         historico: lista de mensagens anteriores
         usuario: nome do usuário
         cancel_callback: função para cancelar processamento (se necessário)
+        cot_callback: callback para receber tokens de chain-of-thought em tempo real
     """
     historico = historico or []
     if not usuario:
@@ -584,6 +664,7 @@ def perguntar(
                     system=system_text,
                     options=opcoes_ollama,
                     timeout_s=SOFIA_GPT_OSS_TIMEOUT_S,
+                    cot_callback=cot_callback,
                 )
             except requests.exceptions.Timeout:
                 _progress("fallback", f"Timeout > {SOFIA_GPT_OSS_TIMEOUT_S}s; usando {SOFIA_FALLBACK_MODEL}")
@@ -598,6 +679,7 @@ def perguntar(
                     system=system_text,
                     options=fallback_options,
                     timeout_s=600,
+                    cot_callback=cot_callback,
                 )
                 modelo_local = SOFIA_FALLBACK_MODEL
         else:
@@ -607,6 +689,7 @@ def perguntar(
                 system=system_text,
                 options=opcoes_ollama,
                 timeout_s=600,
+                cot_callback=cot_callback,
             )
     except requests.exceptions.RequestException as e:
         return (

@@ -844,6 +844,21 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                             session_id,
                         )
 
+                        # Callback para chain-of-thought (thread-safe): envia tokens brutos para o cliente.
+                        def cot_emit(token: str):
+                            try:
+                                msg = {
+                                    "type": "cot",
+                                    "content": token,
+                                    "session_id": session_id,
+                                }
+                                asyncio.run_coroutine_threadsafe(
+                                    manager.send_message(msg, session_id),
+                                    loop,
+                                )
+                            except Exception:
+                                pass
+
                         call_cerebro = functools.partial(
                             cerebro.perguntar,
                             user_message,
@@ -852,6 +867,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                             check_cancelled,
                             session.profile_id,
                             progress_callback=progress,
+                            cot_callback=cot_emit,
                         )
                         
                         resposta = await loop.run_in_executor(None, call_cerebro)

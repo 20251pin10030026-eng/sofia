@@ -283,9 +283,19 @@ function handleWebSocketMessage(data) {
             break;
 
         case 'thinking':
-            // Não exibir telemetria no site; apenas manter o indicador visível.
+            // Telemetria de etapas (não é CoT)
             if (!document.querySelector('.typing-indicator')) {
                 showTypingIndicator();
+            }
+            break;
+
+        case 'cot':
+            // Chain-of-thought bruto do modelo (para o criador)
+            if (!document.querySelector('.typing-indicator')) {
+                showTypingIndicator();
+            }
+            if (data.content) {
+                appendChainOfThought(String(data.content));
             }
             break;
 
@@ -365,21 +375,41 @@ function updateStatus(status, text) {
     }
 }
 
-// Indicador simples de processamento (sem painel)
+// Indicador de processamento com painel de Chain-of-Thought
+let cotBuffer = '';
 
 function showTypingIndicator() {
     const existingIndicator = document.querySelector('.typing-indicator');
     if (!existingIndicator) {
+        cotBuffer = '';
         const indicator = document.createElement('div');
         indicator.className = 'typing-indicator';
         indicator.innerHTML = `
-            <div class="typing-dot"></div>
-            <div class="typing-dot"></div>
-            <div class="typing-dot"></div>
-            <span class="thinking-title" style="margin-left: 10px;">Sofia Pensando...</span>
+            <div class="typing-header">
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <span class="thinking-title" style="margin-left: 10px;">Sofia Pensando...</span>
+                <button type="button" class="cot-toggle" title="Mostrar/ocultar raciocínio interno">🧠</button>
+            </div>
+            <div class="cot-panel" style="display: none;">
+                <div class="cot-label">Chain-of-Thought (raciocínio interno bruto):</div>
+                <pre class="cot-content"></pre>
+            </div>
         `;
         chatContainer.appendChild(indicator);
         chatContainer.scrollTop = chatContainer.scrollHeight;
+
+        // Toggle do painel CoT
+        const toggleBtn = indicator.querySelector('.cot-toggle');
+        const panel = indicator.querySelector('.cot-panel');
+        if (toggleBtn && panel) {
+            toggleBtn.addEventListener('click', () => {
+                const isHidden = panel.style.display === 'none';
+                panel.style.display = isHidden ? 'block' : 'none';
+                toggleBtn.classList.toggle('active', isHidden);
+            });
+        }
     }
 }
 
@@ -387,6 +417,26 @@ function hideTypingIndicator() {
     const indicator = document.querySelector('.typing-indicator');
     if (indicator) {
         indicator.remove();
+    }
+    cotBuffer = '';
+}
+
+function appendChainOfThought(text) {
+    cotBuffer += text;
+    const indicator = document.querySelector('.typing-indicator');
+    if (!indicator) return;
+
+    const pre = indicator.querySelector('.cot-content');
+    if (pre) {
+        pre.textContent = cotBuffer;
+        // Auto-scroll dentro do painel
+        pre.scrollTop = pre.scrollHeight;
+    }
+
+    // Se o painel estiver visível, rolar o chat também
+    const panel = indicator.querySelector('.cot-panel');
+    if (panel && panel.style.display !== 'none') {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 }
 
