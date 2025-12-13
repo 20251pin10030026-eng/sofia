@@ -68,6 +68,7 @@ def perguntar(
     profile_id: Optional[str] = None,
     *,
     progress_callback: Optional[Callable[[str, str], None]] = None,
+    cot_callback: Optional[Callable[[str], None]] = None,
 ) -> str:
     """
     Função principal - roteia para o cérebro apropriado
@@ -81,6 +82,7 @@ def perguntar(
     if mode == "cloud":
         # Adaptar para assinatura do cerebro_cloud
         # cerebro_cloud usa: (texto, contexto, modelo, imagens, metadata_extra)
+        # Cloud não suporta cot_callback (não há streaming de CoT)
         metadata_extra = {
             "usuario": usuario or "Usuário",
             "profile_id": profile_id,
@@ -94,7 +96,7 @@ def perguntar(
             ])
         return cerebro_cloud.perguntar(texto, contexto=contexto, metadata_extra=metadata_extra)
     else:
-        # Local usa a assinatura completa
+        # Local usa a assinatura completa (inclui cot_callback)
         return cerebro_local.perguntar(
             texto,
             historico,
@@ -102,6 +104,7 @@ def perguntar(
             cancel_callback,
             profile_id,
             progress_callback=progress_callback,
+            cot_callback=cot_callback,
         )
 
 # Inicializar e mostrar modo
