@@ -138,7 +138,7 @@ def _ollama_generate(
 ) -> str:
     """
     Chama o Ollama. Se cot_callback for fornecido, usa streaming para
-    capturar chain-of-thought (blocos <think>...</think>) em tempo real.
+    enviar todos os tokens em tempo real (chain-of-thought / geração progressiva).
     """
     payload: Dict[str, Any] = {
         "model": model,
@@ -147,12 +147,10 @@ def _ollama_generate(
         "options": options,
     }
 
-    # Se temos callback de CoT, usamos streaming para capturar tokens progressivamente
+    # Se temos callback de CoT, usamos streaming para enviar tokens progressivamente
     if cot_callback is not None:
         payload["stream"] = True
         full_response = []
-        inside_think = False
-        think_buffer = []
 
         try:
             with requests.post(
@@ -173,35 +171,9 @@ def _ollama_generate(
                         continue
 
                     token = chunk.get("response", "")
-                    if not token:
-                        continue
-
-                    full_response.append(token)
-
-                    # Detectar blocos <think>...</think> (usado por alguns modelos como Qwen3)
-                    # Também capturamos tokens normais se não houver tag (modelos que "pensam" inline)
-                    if "<think>" in token:
-                        inside_think = True
-                        # Capturar parte após <think>
-                        after = token.split("<think>", 1)[-1]
-                        if after:
-                            think_buffer.append(after)
-                            try:
-                                cot_callback(after)
-                            except Exception:
-                                pass
-                    elif "</think>" in token:
-                        # Capturar parte antes de </think>
-                        before = token.split("</think>", 1)[0]
-                        if before:
-                            think_buffer.append(before)
-                            try:
-                                cot_callback(before)
-                            except Exception:
-                                pass
-                        inside_think = False
-                    elif inside_think:
-                        think_buffer.append(token)
+                    if token:
+                        full_response.append(token)
+                        # Enviar cada token em tempo real
                         try:
                             cot_callback(token)
                         except Exception:
@@ -213,11 +185,7 @@ def _ollama_generate(
         except requests.exceptions.Timeout:
             raise
 
-        raw = "".join(full_response)
-        # Remover blocos <think>...</think> da resposta final (deixar só a resposta limpa)
-        import re
-        clean = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
-        return clean if clean else raw.strip()
+        return "".join(full_response).strip()
 
     # Sem streaming (comportamento original)
     payload["stream"] = False
