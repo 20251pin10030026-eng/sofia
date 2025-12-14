@@ -225,6 +225,15 @@ def _montar_system(modo_criador: bool, modo_sem_filtros: bool) -> str:
         base = f"{PERSONA_PROMPT}\n{LIMITES_PROMPT}\n"
 
     base += """
+[ESTILO DE RESPOSTA]
+- Use SEMPRE Markdown em português do Brasil.
+- Comece com um título curto em negrito.
+- Estruture em seções (##/###) quando houver múltiplos tópicos.
+- Para dados estruturados (especificações, comparações), prefira tabelas com cabeçalho.
+- Destaque números/chaves em **negrito**; use *itálico* para fontes/referências.
+- Inclua um bloco de "Resumo rápido" em bullets e, quando fizer sentido, "Próximos passos" (2–4 bullets).
+- Seja concisa, mas clara e didática; evite verbosidade desnecessária.
+
 [IDENTIDADE]
 - Você é Sofia, IA educacional feminina, firme, gentil e clara.
 - Fale sempre em português do Brasil.
@@ -379,6 +388,14 @@ def _preparar_prompt_local(
         "Você é Sofia.\n"
         "Responda com clareza, coerência e fidelidade ao contexto.\n\n"
         f"{contexto}\n\n"
+        "[FORMATO OBRIGATÓRIO]\n"
+        "- Use Markdown em português do Brasil.\n"
+        "- Comece com um título curto em negrito.\n"
+        "- Estruture em seções (##/###) quando houver mais de um tópico.\n"
+        "- Para dados estruturados, use tabelas com cabeçalho.\n"
+        "- Destaque números/chaves em **negrito**; use *itálico* para fontes/referências.\n"
+        "- Inclua um 'Resumo rápido' em bullets e, quando fizer sentido, 'Próximos passos' (2–4 bullets).\n"
+        "- Seja concisa e didática; não invente fatos.\n\n"
         "Pergunta atual:\n"
         f"Usuário ({usuario}): {prompt_base}\n"
         "Sofia:"
