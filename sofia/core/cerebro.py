@@ -722,6 +722,12 @@ def perguntar(
         except Exception as e:
             print(f"[DEBUG] Erro ao salvar log subitemotions: {e}")
 
+    # Enforce layout Markdown mínimo
+    try:
+        resposta = _enforce_layout(resposta, texto)
+    except Exception:
+        pass
+
     return resposta
 
 
@@ -751,3 +757,31 @@ def _log_subitemotions(metadata: dict, entrada: str, saida: str, modelo: str):
             "model": modelo,
         }
         f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
+
+
+def _enforce_layout(resposta: str, titulo_hint: str = "Resposta") -> str:
+    """Garante um layout mínimo em Markdown: título, seção e resumo rápido."""
+    if not resposta:
+        return resposta
+
+    titulo = (titulo_hint or "Resposta").strip() or "Resposta"
+    linhas = []
+
+    # Título
+    if not resposta.lstrip().startswith("**"):
+        linhas.append(f"**{titulo}**")
+        linhas.append("")
+
+    # Corpo principal
+    linhas.append("## Resposta")
+    linhas.append(resposta.strip())
+
+    # Resumo rápido simples usando a primeira frase
+    corpo = resposta.strip()
+    primeira = corpo.split(".")[0].strip()
+    resumo = primeira + "." if primeira else titulo
+    linhas.append("")
+    linhas.append("## Resumo rápido")
+    linhas.append(f"- {resumo}")
+
+    return "\n".join(linhas).strip()
