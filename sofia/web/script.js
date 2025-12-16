@@ -807,38 +807,19 @@ function loadVoices() {
     
     voiceSelect.innerHTML = '';
     
-    // Filtrar vozes em português
-    const ptVoices = voices.filter(v => v.lang.startsWith('pt'));
-    const otherVoices = voices.filter(v => !v.lang.startsWith('pt'));
-    
-    if (ptVoices.length > 0) {
-        const ptGroup = document.createElement('optgroup');
-        ptGroup.label = 'Português';
-        ptVoices.forEach(voice => {
-            const option = document.createElement('option');
-            option.value = voice.name;
-            option.textContent = `${voice.name} (${voice.lang})`;
-            ptGroup.appendChild(option);
-        });
-        voiceSelect.appendChild(ptGroup);
-    }
-    
-    if (otherVoices.length > 0) {
-        const otherGroup = document.createElement('optgroup');
-        otherGroup.label = 'Outras Línguas';
-        otherVoices.forEach(voice => {
-            const option = document.createElement('option');
-            option.value = voice.name;
-            option.textContent = `${voice.name} (${voice.lang})`;
-            otherGroup.appendChild(option);
-        });
-        voiceSelect.appendChild(otherGroup);
-    }
+    // Listar todas as vozes disponíveis por nome
+    voices.forEach(voice => {
+        const option = document.createElement('option');
+        option.value = voice.name;
+        option.textContent = voice.name;
+        voiceSelect.appendChild(option);
+    });
     
     // Selecionar voz padrão (preferir feminina em pt-BR)
+    const ptVoices = voices.filter(v => v.lang.startsWith('pt'));
     const defaultVoice = ptVoices.find(v => v.lang === 'pt-BR' && (v.name.includes('Female') || v.name.includes('Feminina')))
                        || ptVoices.find(v => v.lang === 'pt-BR')
-                       || ptVoices[0];
+                       || voices[0];
     
     if (defaultVoice) {
         voiceSelect.value = defaultVoice.name;
