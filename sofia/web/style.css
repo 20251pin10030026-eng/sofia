@@ -716,6 +716,7 @@ body {
 .attach-btn {
     width: 43px;
     height: 43px;
+    min-height: 43px;
     border-radius: 12px;
     background: var(--bg-color);
     border: 1px solid var(--border-color);
@@ -795,6 +796,7 @@ body {
 .web-search-btn {
     width: 43px;
     height: 43px;
+    min-height: 43px;
     border-radius: 12px;
     background: transparent;
     border: 1px solid var(--border-color);
@@ -824,6 +826,7 @@ body {
 .send-btn {
     width: 43px;
     height: 43px;
+    min-height: 43px;
     border-radius: 12px;
     background: var(--sofia-gradient);
     border: none;
