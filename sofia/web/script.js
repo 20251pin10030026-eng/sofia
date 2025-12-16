@@ -37,8 +37,10 @@ const messageInput = document.getElementById('message-input');
 const sendBtn = document.getElementById('send-btn');
 const webSearchBtn = document.getElementById('web-search-btn');
 const trqDuroBtn = document.getElementById('trq-duro-btn');
-const ttsBtn = document.getElementById('tts-btn');
-const voiceInputBtn = document.getElementById('voice-input-btn');
+const voiceConversationBtn = document.getElementById('voice-conversation-btn');
+const voiceSelect = document.getElementById('voice-select');
+const voiceRate = document.getElementById('voice-rate');
+const voiceRateValue = document.getElementById('voice-rate-value');
 const attachBtn = document.getElementById('attach-btn');
 const fileInputChat = document.getElementById('file-input-chat');
 const attachedFilesPreview = document.getElementById('attached-files-preview');
@@ -60,20 +62,24 @@ let attachedFiles = []; // Array para armazenar arquivos anexados temporariament
 let webSearchMode = false; // Estado do modo de busca web
 let trqDuroMode = false; // Estado do modo TRQ Duro (isolamento de memória)
 
-// Text-to-Speech (Leitura em voz alta)
-let ttsEnabled = false;
+// Modo Conversação Contínua por Voz
+let voiceConversationMode = false;
 let speechSynthesis = window.speechSynthesis;
 let currentUtterance = null;
+let selectedVoice = null;
+let voiceRateValue_num = 1.0;
+let silenceTimer = null;
+let isWaitingForResponse = false;
 
 // Speech-to-Text (Reconhecimento de voz)
 let recognition = null;
-let isRecording = false;
 if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     recognition = new SpeechRecognition();
     recognition.lang = 'pt-BR';
-    recognition.continuous = false;
-    recognition.interimResults = false;
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
 }
 
 // Função para buscar modo atual do servidor
@@ -469,21 +475,31 @@ if (trqDuroBtn) {
     trqDuroBtn.addEventListener('click', toggleTrqDuroMode);
 }
 
-// Text-to-Speech Button
-if (ttsBtn) {
-    ttsBtn.addEventListener('click', toggleTTS);
-    
-    // Carregar vozes quando disponíveis
-    if (speechSynthesis.onvoiceschanged !== undefined) {
-        speechSynthesis.onvoiceschanged = () => {
-            speechSynthesis.getVoices();
-        };
-    }
+// Voice Conversation Button
+if (voiceConversationBtn) {
+    voiceConversationBtn.addEventListener('click', toggleVoiceConversation);
 }
 
-// Voice Input Button
-if (voiceInputBtn) {
-    voiceInputBtn.addEventListener('click', toggleVoiceInput);
+// Carregar vozes quando disponíveis
+if (speechSynthesis.onvoiceschanged !== undefined) {
+    speechSynthesis.onvoiceschanged = loadVoices;
+}
+loadVoices();
+
+// Seletor de voz
+if (voiceSelect) {
+    voiceSelect.addEventListener('change', (e) => {
+        const voices = speechSynthesis.getVoices();
+        selectedVoice = voices.find(v => v.name === e.target.value);
+    });
+}
+
+// Controle de velocidade da voz
+if (voiceRate && voiceRateValue) {
+    voiceRate.addEventListener('input', (e) => {
+        voiceRateValue_num = parseFloat(e.target.value);
+        voiceRateValue.textContent = voiceRateValue_num.toFixed(1) + 'x';
+    });
 }
 
 messageInput.addEventListener('keypress', (e) => {
@@ -782,28 +798,57 @@ async function toggleTrqDuroMode() {
     }
 }
 
-// Text-to-Speech: Ler mensagens da Sofia em voz alta
-function toggleTTS() {
-    ttsEnabled = !ttsEnabled;
+// ==================== MODO CONVERSAÇÃO POR VOZ ====================
+
+// Carregar vozes disponíveis
+function loadVoices() {
+    const voices = speechSynthesis.getVoices();
+    if (!voiceSelect || voices.length === 0) return;
     
-    if (ttsEnabled) {
-        ttsBtn.classList.add('active');
-        ttsBtn.title = 'Leitura em Voz Alta ATIVADA - Clique para desativar';
-        showNotification('🔊 Leitura em voz alta ATIVADA', 'success');
-    } else {
-        ttsBtn.classList.remove('active');
-        ttsBtn.title = 'Ativar/Desativar Leitura em Voz Alta';
-        showNotification('🔇 Leitura em voz alta DESATIVADA', 'info');
-        
-        // Para a leitura atual se houver
-        if (speechSynthesis.speaking) {
-            speechSynthesis.cancel();
-        }
+    voiceSelect.innerHTML = '';
+    
+    // Filtrar vozes em português
+    const ptVoices = voices.filter(v => v.lang.startsWith('pt'));
+    const otherVoices = voices.filter(v => !v.lang.startsWith('pt'));
+    
+    if (ptVoices.length > 0) {
+        const ptGroup = document.createElement('optgroup');
+        ptGroup.label = 'Português';
+        ptVoices.forEach(voice => {
+            const option = document.createElement('option');
+            option.value = voice.name;
+            option.textContent = `${voice.name} (${voice.lang})`;
+            ptGroup.appendChild(option);
+        });
+        voiceSelect.appendChild(ptGroup);
+    }
+    
+    if (otherVoices.length > 0) {
+        const otherGroup = document.createElement('optgroup');
+        otherGroup.label = 'Outras Línguas';
+        otherVoices.forEach(voice => {
+            const option = document.createElement('option');
+            option.value = voice.name;
+            option.textContent = `${voice.name} (${voice.lang})`;
+            otherGroup.appendChild(option);
+        });
+        voiceSelect.appendChild(otherGroup);
+    }
+    
+    // Selecionar voz padrão (preferir feminina em pt-BR)
+    const defaultVoice = ptVoices.find(v => v.lang === 'pt-BR' && (v.name.includes('Female') || v.name.includes('Feminina')))
+                       || ptVoices.find(v => v.lang === 'pt-BR')
+                       || ptVoices[0];
+    
+    if (defaultVoice) {
+        voiceSelect.value = defaultVoice.name;
+        selectedVoice = defaultVoice;
     }
 }
 
+// Ler texto com a voz selecionada
 function speakText(text) {
-    if (!ttsEnabled || !speechSynthesis) return;
+    if (!speechSynthesis) return;
     
     // Cancela qualquer fala anterior
     if (speechSynthesis.speaking) {
@@ -812,95 +857,156 @@ function speakText(text) {
     
     // Remove Markdown e HTML tags para leitura limpa
     const cleanText = text
-        .replace(/<[^>]*>/g, '') // Remove HTML tags
-        .replace(/\*\*/g, '') // Remove negritos
-        .replace(/\*/g, '') // Remove itálicos
-        .replace(/#{1,6}\s/g, '') // Remove marcadores de título
-        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Remove links, mantém texto
-        .replace(/\|/g, ' ') // Remove separadores de tabela
-        .replace(/[-]{3,}/g, '') // Remove linhas horizontais
+        .replace(/<[^>]*>/g, '')
+        .replace(/\*\*/g, '')
+        .replace(/\*/g, '')
+        .replace(/#{1,6}\s/g, '')
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+        .replace(/\|/g, ' ')
+        .replace(/[-]{3,}/g, '')
         .trim();
     
     if (!cleanText) return;
     
     currentUtterance = new SpeechSynthesisUtterance(cleanText);
     currentUtterance.lang = 'pt-BR';
-    currentUtterance.rate = 1.0;
+    currentUtterance.rate = voiceRateValue_num;
     currentUtterance.pitch = 1.0;
     currentUtterance.volume = 1.0;
     
-    // Tentar usar voz feminina em português se disponível
-    const voices = speechSynthesis.getVoices();
-    const ptBrVoice = voices.find(v => v.lang === 'pt-BR' && v.name.includes('Female')) 
-                   || voices.find(v => v.lang === 'pt-BR')
-                   || voices.find(v => v.lang.startsWith('pt'));
-    
-    if (ptBrVoice) {
-        currentUtterance.voice = ptBrVoice;
+    if (selectedVoice) {
+        currentUtterance.voice = selectedVoice;
     }
+    
+    // Quando terminar de falar, reiniciar reconhecimento se modo ativo
+    currentUtterance.onend = () => {
+        isWaitingForResponse = false;
+        if (voiceConversationMode && recognition) {
+            setTimeout(() => {
+                try {
+                    recognition.start();
+                } catch (e) {
+                    console.log('Reconhecimento já ativo');
+                }
+            }, 500);
+        }
+    };
     
     speechSynthesis.speak(currentUtterance);
 }
 
-// Speech-to-Text: Reconhecimento de voz
-function toggleVoiceInput() {
+// Toggle modo conversação por voz
+function toggleVoiceConversation() {
     if (!recognition) {
         showNotification('❌ Reconhecimento de voz não suportado neste navegador', 'error');
         return;
     }
     
-    if (isRecording) {
-        // Parar gravação
-        recognition.stop();
-        isRecording = false;
-        voiceInputBtn.classList.remove('recording');
-        voiceInputBtn.title = 'Falar (Reconhecimento de Voz)';
-    } else {
-        // Iniciar gravação
+    voiceConversationMode = !voiceConversationMode;
+    
+    if (voiceConversationMode) {
+        voiceConversationBtn.classList.add('active');
+        voiceConversationBtn.title = 'Modo Conversação ATIVO - Clique para desativar';
+        showNotification('🎙️ Modo Conversação por Voz ATIVADO - Fale agora', 'success');
+        
         try {
             recognition.start();
-            isRecording = true;
-            voiceInputBtn.classList.add('recording');
-            voiceInputBtn.title = 'Gravando... Clique para parar';
-            showNotification('🎤 Fale agora...', 'info');
         } catch (error) {
             console.error('Erro ao iniciar reconhecimento:', error);
-            showNotification('❌ Erro ao iniciar reconhecimento de voz', 'error');
-            isRecording = false;
-            voiceInputBtn.classList.remove('recording');
         }
+    } else {
+        voiceConversationBtn.classList.remove('active');
+        voiceConversationBtn.title = 'Modo Conversação por Voz';
+        showNotification('🔇 Modo Conversação DESATIVADO', 'info');
+        
+        // Parar reconhecimento e cancelar timer
+        if (recognition) {
+            recognition.stop();
+        }
+        if (silenceTimer) {
+            clearTimeout(silenceTimer);
+            silenceTimer = null;
+        }
+        if (speechSynthesis.speaking) {
+            speechSynthesis.cancel();
+        }
+        isWaitingForResponse = false;
     }
 }
 
-// Configurar eventos do reconhecimento de voz
+// Configurar eventos do reconhecimento de voz para modo contínuo
 if (recognition) {
     recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        messageInput.value = transcript;
-        showNotification('✅ Texto reconhecido: ' + transcript.substring(0, 50) + '...', 'success');
+        if (!voiceConversationMode) return;
+        
+        let interimTranscript = '';
+        let finalTranscript = '';
+        
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+                finalTranscript += transcript;
+            } else {
+                interimTranscript += transcript;
+            }
+        }
+        
+        // Atualizar campo de texto com transcrição
+        if (finalTranscript) {
+            messageInput.value = finalTranscript;
+            
+            // Reiniciar timer de silêncio (3 segundos)
+            if (silenceTimer) {
+                clearTimeout(silenceTimer);
+            }
+            
+            silenceTimer = setTimeout(() => {
+                if (voiceConversationMode && messageInput.value.trim() && !isWaitingForResponse) {
+                    isWaitingForResponse = true;
+                    sendMessage();
+                }
+            }, 3000);
+        } else if (interimTranscript) {
+            messageInput.value = interimTranscript;
+        }
     };
     
     recognition.onerror = (event) => {
         console.error('Erro no reconhecimento de voz:', event.error);
-        isRecording = false;
-        voiceInputBtn.classList.remove('recording');
         
-        let errorMsg = 'Erro no reconhecimento de voz';
-        if (event.error === 'no-speech') {
-            errorMsg = 'Nenhuma fala detectada';
-        } else if (event.error === 'not-allowed') {
-            errorMsg = 'Permissão de microfone negada';
+        if (event.error === 'not-allowed') {
+            voiceConversationMode = false;
+            voiceConversationBtn.classList.remove('active');
+            showNotification('❌ Permissão de microfone negada', 'error');
+        } else if (event.error !== 'no-speech' && event.error !== 'aborted') {
+            // Tentar reiniciar em caso de erro (exceto no-speech e aborted)
+            if (voiceConversationMode) {
+                setTimeout(() => {
+                    try {
+                        recognition.start();
+                    } catch (e) {
+                        console.log('Não foi possível reiniciar reconhecimento');
+                    }
+                }, 1000);
+            }
         }
-        showNotification('❌ ' + errorMsg, 'error');
     };
     
     recognition.onend = () => {
-        isRecording = false;
-        voiceInputBtn.classList.remove('recording');
-        voiceInputBtn.title = 'Falar (Reconhecimento de Voz)';
+        // Reiniciar reconhecimento se modo ainda ativo
+        if (voiceConversationMode && !isWaitingForResponse) {
+            setTimeout(() => {
+                try {
+                    recognition.start();
+                } catch (e) {
+                    console.log('Reconhecimento já ativo ou erro');
+                }
+            }, 100);
+        }
     };
 }
 
+// Text-to-Speech: Ler mensagens da Sofia em voz alta
 // =====================
 //  SEND MESSAGE (NOVO)
 // =====================
@@ -1049,8 +1155,8 @@ function addMessage(sender, text) {
     // Renderizar fórmulas (LaTeX) quando disponível
     typesetMath(messageDiv);
 
-    // Ler mensagem em voz alta se for da Sofia e TTS estiver ativo
-    if (sender === 'sofia' && ttsEnabled) {
+    // Ler mensagem em voz alta se for da Sofia e modo conversação ativo
+    if (sender === 'sofia' && voiceConversationMode) {
         speakText(text);
     }
 

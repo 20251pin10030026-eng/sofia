@@ -710,6 +710,7 @@ body {
     margin-bottom: 0.75rem;
     width: 100%;
     box-sizing: border-box;
+    position: relative;
 }
 
 .attach-btn {
@@ -744,12 +745,56 @@ body {
     background: var(--bg-color);
     border: 1px solid var(--border-color);
     border-radius: 12px;
-    padding: 0.75rem 1rem;
+    padding: 0.75rem 3rem 0.75rem 1rem;
     color: var(--text-color);
     font-size: 1rem;
     resize: none;
     max-height: 120px;
     font-family: inherit;
+    position: relative;
+}
+
+.voice-conversation-btn {
+    position: absolute;
+    right: 58px;
+    bottom: 12px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+    flex-shrink: 0;
+    opacity: 0.6;
+}
+
+.voice-conversation-btn:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.1);
+    transform: scale(1.05);
+}
+
+.voice-conversation-btn.active {
+    background: var(--sofia-gradient);
+    border-color: var(--primary-color);
+    color: white;
+    opacity: 1;
+    box-shadow: 0 0 20px rgba(255, 105, 180, 0.5);
+    animation: voicePulse 2s ease-in-out infinite;
+}
+
+@keyframes voicePulse {
+    0%, 100% {
+        box-shadow: 0 0 20px rgba(255, 105, 180, 0.5);
+    }
+    50% {
+        box-shadow: 0 0 30px rgba(255, 105, 180, 0.8);
+    }
 }
 
 #message-input:focus {
@@ -784,44 +829,6 @@ body {
     border-color: var(--primary-color);
     color: white;
     box-shadow: 0 4px 12px rgba(255, 105, 180, 0.3);
-}
-
-.voice-input-btn {
-    width: 43px;
-    height: 43px;
-    border-radius: 12px;
-    background: transparent;
-    border: 1px solid var(--border-color);
-    color: var(--text-color);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-    flex-shrink: 0;
-}
-
-.voice-input-btn:hover {
-    background: var(--border-color);
-    border-color: var(--primary-color);
-    color: var(--primary-color);
-    transform: scale(1.05);
-}
-
-.voice-input-btn.recording {
-    background: #ef4444;
-    border-color: #dc2626;
-    color: white;
-    animation: pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes pulse {
-    0%, 100% {
-        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
-    }
-    50% {
-        box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
-    }
 }
 
 .send-btn {
@@ -1636,7 +1643,6 @@ body {
     
     .attach-btn,
     .web-search-btn,
-    .voice-input-btn,
     .send-btn {
         width: 38px;
         height: 38px;
