@@ -1,8 +1,8 @@
 // API Configuration
 // Cloud = GitHub Models API (servidor), Local = Ollama (local)
 // Ambos usam o mesmo servidor backend, mas o backend alterna entre as IAs
-const API_URL = 'https://64fed81edf6b.ngrok-free.app';
-const WS_URL = 'wss://64fed81edf6b.ngrok-free.app';
+const API_URL = 'https://351ab16315bb.ngrok-free.app';
+const WS_URL = 'wss://351ab16315bb.ngrok-free.app';
 
 // Injeta header para bypass do aviso do ngrok quando necessário
 const _nativeFetch = window.fetch.bind(window);
