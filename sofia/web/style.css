@@ -756,7 +756,7 @@ body {
 
 .voice-conversation-btn {
     position: absolute;
-    right: 120px;
+    right: 135px;
     top: 50%;
     transform: translateY(-50%);
     width: 36px;
