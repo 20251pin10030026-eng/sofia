@@ -896,11 +896,32 @@ function typesetMath(rootEl) {
 }
 
 function formatMessage(text) {
-    // Simple markdown-like formatting
+    // Se Marked.js está disponível, renderiza Markdown completo (tabelas, títulos, listas, negritos, etc.)
+    if (typeof marked !== 'undefined' && marked.parse) {
+        try {
+            // Configura Marked para tabelas, quebras de linha, etc.
+            marked.setOptions({
+                breaks: true,
+                gfm: true, // GitHub Flavored Markdown (tabelas)
+                headerIds: false,
+                mangle: false
+            });
+            return marked.parse(text);
+        } catch (error) {
+            console.error('Erro ao processar Markdown:', error);
+            // Fallback: formatação simples
+            return text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/\n/g, '<br>');
+        }
+    }
+    
+    // Fallback se Marked.js não estiver carregado
     return text
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    ;
+        .replace(/\n/g, '<br>');
 }
 
 // Função para parar a resposta da Sofia
