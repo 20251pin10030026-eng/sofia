@@ -825,13 +825,29 @@ function addMessage(sender, text) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${sender}`;
 
+    const content = document.createElement('div');
+    content.className = 'message-content';
+
+    // Criar header da mensagem com avatar e nome
+    const messageHeader = document.createElement('div');
+    messageHeader.className = 'message-header';
+
     const avatar = document.createElement('div');
     avatar.className = 'message-avatar';
     avatar.textContent = sender === 'sofia' ? '🌸' : '👤';
 
-    const content = document.createElement('div');
-    content.className = 'message-content';
-    content.innerHTML = formatMessage(text);
+    const senderName = document.createElement('span');
+    senderName.style.fontWeight = '600';
+    senderName.style.fontSize = '0.9rem';
+    senderName.textContent = sender === 'sofia' ? 'Sofia' : 'Você';
+
+    messageHeader.appendChild(avatar);
+    messageHeader.appendChild(senderName);
+
+    // Criar body da mensagem com o conteúdo
+    const messageBody = document.createElement('div');
+    messageBody.className = 'message-body';
+    messageBody.innerHTML = formatMessage(text);
 
     // Criar container para hora + ícones
     const timeContainer = document.createElement('div');
@@ -870,9 +886,10 @@ function addMessage(sender, text) {
         timeContainer.appendChild(iconsDiv);
     }
 
-    content.appendChild(timeContainer);
+    messageBody.appendChild(timeContainer);
 
-    messageDiv.appendChild(avatar);
+    content.appendChild(messageHeader);
+    content.appendChild(messageBody);
     messageDiv.appendChild(content);
     chatContainer.appendChild(messageDiv);
 
