@@ -37,6 +37,8 @@ const messageInput = document.getElementById('message-input');
 const sendBtn = document.getElementById('send-btn');
 const webSearchBtn = document.getElementById('web-search-btn');
 const trqDuroBtn = document.getElementById('trq-duro-btn');
+const ttsBtn = document.getElementById('tts-btn');
+const voiceInputBtn = document.getElementById('voice-input-btn');
 const attachBtn = document.getElementById('attach-btn');
 const fileInputChat = document.getElementById('file-input-chat');
 const attachedFilesPreview = document.getElementById('attached-files-preview');
@@ -57,6 +59,22 @@ let conversationHistory = [];
 let attachedFiles = []; // Array para armazenar arquivos anexados temporariamente
 let webSearchMode = false; // Estado do modo de busca web
 let trqDuroMode = false; // Estado do modo TRQ Duro (isolamento de memória)
+
+// Text-to-Speech (Leitura em voz alta)
+let ttsEnabled = false;
+let speechSynthesis = window.speechSynthesis;
+let currentUtterance = null;
+
+// Speech-to-Text (Reconhecimento de voz)
+let recognition = null;
+let isRecording = false;
+if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SpeechRecognition();
+    recognition.lang = 'pt-BR';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+}
 
 // Função para buscar modo atual do servidor
 async function fetchCurrentMode() {
@@ -451,6 +469,23 @@ if (trqDuroBtn) {
     trqDuroBtn.addEventListener('click', toggleTrqDuroMode);
 }
 
+// Text-to-Speech Button
+if (ttsBtn) {
+    ttsBtn.addEventListener('click', toggleTTS);
+    
+    // Carregar vozes quando disponíveis
+    if (speechSynthesis.onvoiceschanged !== undefined) {
+        speechSynthesis.onvoiceschanged = () => {
+            speechSynthesis.getVoices();
+        };
+    }
+}
+
+// Voice Input Button
+if (voiceInputBtn) {
+    voiceInputBtn.addEventListener('click', toggleVoiceInput);
+}
+
 messageInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -744,8 +779,126 @@ async function toggleTrqDuroMode() {
             trqDuroBtn.classList.remove('active');
             trqDuroBtn.title = 'TRQ Duro (isolamento de memória)';
         }
-        showNotification('❌ Falha ao aplicar profile na sessão', 'error');
     }
+}
+
+// Text-to-Speech: Ler mensagens da Sofia em voz alta
+function toggleTTS() {
+    ttsEnabled = !ttsEnabled;
+    
+    if (ttsEnabled) {
+        ttsBtn.classList.add('active');
+        ttsBtn.title = 'Leitura em Voz Alta ATIVADA - Clique para desativar';
+        showNotification('🔊 Leitura em voz alta ATIVADA', 'success');
+    } else {
+        ttsBtn.classList.remove('active');
+        ttsBtn.title = 'Ativar/Desativar Leitura em Voz Alta';
+        showNotification('🔇 Leitura em voz alta DESATIVADA', 'info');
+        
+        // Para a leitura atual se houver
+        if (speechSynthesis.speaking) {
+            speechSynthesis.cancel();
+        }
+    }
+}
+
+function speakText(text) {
+    if (!ttsEnabled || !speechSynthesis) return;
+    
+    // Cancela qualquer fala anterior
+    if (speechSynthesis.speaking) {
+        speechSynthesis.cancel();
+    }
+    
+    // Remove Markdown e HTML tags para leitura limpa
+    const cleanText = text
+        .replace(/<[^>]*>/g, '') // Remove HTML tags
+        .replace(/\*\*/g, '') // Remove negritos
+        .replace(/\*/g, '') // Remove itálicos
+        .replace(/#{1,6}\s/g, '') // Remove marcadores de título
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Remove links, mantém texto
+        .replace(/\|/g, ' ') // Remove separadores de tabela
+        .replace(/[-]{3,}/g, '') // Remove linhas horizontais
+        .trim();
+    
+    if (!cleanText) return;
+    
+    currentUtterance = new SpeechSynthesisUtterance(cleanText);
+    currentUtterance.lang = 'pt-BR';
+    currentUtterance.rate = 1.0;
+    currentUtterance.pitch = 1.0;
+    currentUtterance.volume = 1.0;
+    
+    // Tentar usar voz feminina em português se disponível
+    const voices = speechSynthesis.getVoices();
+    const ptBrVoice = voices.find(v => v.lang === 'pt-BR' && v.name.includes('Female')) 
+                   || voices.find(v => v.lang === 'pt-BR')
+                   || voices.find(v => v.lang.startsWith('pt'));
+    
+    if (ptBrVoice) {
+        currentUtterance.voice = ptBrVoice;
+    }
+    
+    speechSynthesis.speak(currentUtterance);
+}
+
+// Speech-to-Text: Reconhecimento de voz
+function toggleVoiceInput() {
+    if (!recognition) {
+        showNotification('❌ Reconhecimento de voz não suportado neste navegador', 'error');
+        return;
+    }
+    
+    if (isRecording) {
+        // Parar gravação
+        recognition.stop();
+        isRecording = false;
+        voiceInputBtn.classList.remove('recording');
+        voiceInputBtn.title = 'Falar (Reconhecimento de Voz)';
+    } else {
+        // Iniciar gravação
+        try {
+            recognition.start();
+            isRecording = true;
+            voiceInputBtn.classList.add('recording');
+            voiceInputBtn.title = 'Gravando... Clique para parar';
+            showNotification('🎤 Fale agora...', 'info');
+        } catch (error) {
+            console.error('Erro ao iniciar reconhecimento:', error);
+            showNotification('❌ Erro ao iniciar reconhecimento de voz', 'error');
+            isRecording = false;
+            voiceInputBtn.classList.remove('recording');
+        }
+    }
+}
+
+// Configurar eventos do reconhecimento de voz
+if (recognition) {
+    recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        messageInput.value = transcript;
+        showNotification('✅ Texto reconhecido: ' + transcript.substring(0, 50) + '...', 'success');
+    };
+    
+    recognition.onerror = (event) => {
+        console.error('Erro no reconhecimento de voz:', event.error);
+        isRecording = false;
+        voiceInputBtn.classList.remove('recording');
+        
+        let errorMsg = 'Erro no reconhecimento de voz';
+        if (event.error === 'no-speech') {
+            errorMsg = 'Nenhuma fala detectada';
+        } else if (event.error === 'not-allowed') {
+            errorMsg = 'Permissão de microfone negada';
+        }
+        showNotification('❌ ' + errorMsg, 'error');
+    };
+    
+    recognition.onend = () => {
+        isRecording = false;
+        voiceInputBtn.classList.remove('recording');
+        voiceInputBtn.title = 'Falar (Reconhecimento de Voz)';
+    };
 }
 
 // =====================
@@ -895,6 +1048,11 @@ function addMessage(sender, text) {
 
     // Renderizar fórmulas (LaTeX) quando disponível
     typesetMath(messageDiv);
+
+    // Ler mensagem em voz alta se for da Sofia e TTS estiver ativo
+    if (sender === 'sofia' && ttsEnabled) {
+        speakText(text);
+    }
 
     // Scroll to bottom
     chatContainer.scrollTop = chatContainer.scrollHeight;
