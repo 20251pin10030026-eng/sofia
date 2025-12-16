@@ -705,8 +705,8 @@ body {
 
 .input-container {
     display: flex;
-    gap: 0.75rem;
-    align-items: flex-end;
+    gap: 0.5rem;
+    align-items: center;
     margin-bottom: 0.75rem;
     width: 100%;
     box-sizing: border-box;
