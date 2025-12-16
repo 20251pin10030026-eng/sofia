@@ -787,16 +787,6 @@ body {
     color: white;
     opacity: 1;
     box-shadow: 0 0 20px rgba(255, 105, 180, 0.5);
-    animation: voicePulse 2s ease-in-out infinite;
-}
-
-@keyframes voicePulse {
-    0%, 100% {
-        box-shadow: 0 0 20px rgba(255, 105, 180, 0.5);
-    }
-    50% {
-        box-shadow: 0 0 30px rgba(255, 105, 180, 0.8);
-    }
 }
 
 #message-input:focus {
