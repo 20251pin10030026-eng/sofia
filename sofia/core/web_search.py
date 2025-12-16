@@ -7,7 +7,7 @@ import re
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
-from typing import Optional, Dict, List, Any
+from typing import Optional, Dict, List, Any, Iterable
 import os
 
 def _is_url(texto: str) -> bool:
@@ -221,7 +221,13 @@ def buscar_web(query: str, num_resultados: int = 3) -> Optional[List[Dict[str, s
         tokens = _tokenizar_consulta(query)
         
         ddgs = DDGS()
-        resultados_raw = list(ddgs.text(query, max_results=num_resultados * 3))
+        search_fn = getattr(ddgs, "text", None) or getattr(ddgs, "search", None)
+        if not callable(search_fn):
+            raise AttributeError("Instância DDGS não expõe métodos 'text' ou 'search'")
+        resultados_brutos = search_fn(query, max_results=num_resultados * 3)
+        if not isinstance(resultados_brutos, Iterable):
+            return None
+        resultados_raw = list(resultados_brutos)
         
         if not resultados_raw:
             return None
