@@ -951,10 +951,17 @@ if (recognition) {
             }
         }
         
-        // Atualizar campo de texto com transcrição
+        // Mostrar texto instantaneamente (interim ou final)
+        const currentText = finalTranscript || interimTranscript;
+        if (currentText) {
+            messageInput.value = currentText;
+            // Ajustar altura do textarea automaticamente
+            messageInput.style.height = 'auto';
+            messageInput.style.height = messageInput.scrollHeight + 'px';
+        }
+        
+        // Se for transcrição final, iniciar timer de silêncio
         if (finalTranscript) {
-            messageInput.value = finalTranscript;
-            
             // Reiniciar timer de silêncio (3 segundos)
             if (silenceTimer) {
                 clearTimeout(silenceTimer);
@@ -966,8 +973,6 @@ if (recognition) {
                     sendMessage();
                 }
             }, 3000);
-        } else if (interimTranscript) {
-            messageInput.value = interimTranscript;
         }
     };
     

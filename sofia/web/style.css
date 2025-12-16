@@ -757,7 +757,8 @@ body {
 .voice-conversation-btn {
     position: absolute;
     right: 120px;
-    bottom: 8px;
+    top: 50%;
+    transform: translateY(-50%);
     width: 36px;
     height: 36px;
     border-radius: 50%;
@@ -1652,7 +1653,8 @@ body {
 
     .voice-conversation-btn {
         right: 95px;
-        bottom: 6px;
+        top: 50%;
+        transform: translateY(-50%);
         width: 32px;
         height: 32px;
     }
