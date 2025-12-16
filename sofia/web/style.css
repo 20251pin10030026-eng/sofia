@@ -769,7 +769,6 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.3s;
     flex-shrink: 0;
     opacity: 0.6;
     z-index: 10;
@@ -778,7 +777,6 @@ body {
 .voice-conversation-btn:hover {
     opacity: 1;
     background: rgba(255, 255, 255, 0.1);
-    transform: scale(1.05);
 }
 
 .voice-conversation-btn.active {
