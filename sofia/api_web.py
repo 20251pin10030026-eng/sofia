@@ -55,6 +55,7 @@ class Session:
         self.profile_id: str = profiles.DEFAULT_PROFILE_ID
         self.escopo_memoria: Optional[str] = None
         self.estado_dinamico: Dict = {}
+        self.request_seq: int = 0  # Incrementa a cada nova mensagem/stop (corta callbacks antigos)
         
 sessions: Dict[str, Session] = {}
 
@@ -656,10 +657,42 @@ class ConnectionManager:
             if not task.done():
                 print(f"⏹️ Cancelando tarefa para sessão {session_id[:8]}...")
                 task.cancel()
+                try:
+                    del self.active_tasks[session_id]
+                except Exception:
+                    pass
                 return True
         return False
 
 manager = ConnectionManager()
+
+
+@app.post("/api/stop")
+async def api_stop(session_id: str):
+    """Cancela o processamento em andamento de uma sessão (fallback REST)."""
+    if not session_id or session_id not in sessions:
+        raise HTTPException(status_code=404, detail="Sessão não encontrada")
+
+    session = sessions[session_id]
+    session.cancel_flag = True
+    session.request_seq += 1
+
+    cancelled = manager.cancel_task(session_id)
+
+    # Se houver WebSocket conectado, também notifica imediatamente o cliente
+    try:
+        await manager.send_message(
+            {
+                "type": "cancelled",
+                "content": "⏹️ Processamento cancelado",
+                "session_id": session_id,
+            },
+            session_id,
+        )
+    except Exception:
+        pass
+
+    return {"success": True, "cancelled": bool(cancelled), "session_id": session_id}
 
 @app.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
@@ -707,6 +740,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 print(f"⏹️ Comando STOP recebido para sessão {session_id[:8]}...")
                 # Marcar flag de cancelamento
                 session.cancel_flag = True
+                session.request_seq += 1
                 # Cancelar tarefa em andamento
                 cancelled = manager.cancel_task(session_id)
                 if cancelled:
@@ -735,6 +769,15 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 print(f"💬 Processando: '{user_message}' de {user_name}")  # DEBUG
                 print(f"🌐 Modo Web: {web_search_mode}")  # DEBUG
                 print(f"♦ TRQ Duro: {trq_duro_mode}")  # DEBUG
+
+                # Se já existe uma tarefa rodando, cancela antes de iniciar outra (evita respostas cruzadas)
+                if session_id in manager.active_tasks:
+                    try:
+                        session.cancel_flag = True
+                        session.request_seq += 1
+                        manager.cancel_task(session_id)
+                    except Exception:
+                        pass
 
                 # Governança por sessão: profile vive na sessão.
                 # Se o cliente pedir profile_id (ou usar o atalho trq_duro_mode), atualiza a sessão.
@@ -774,7 +817,9 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 print(f"📝 Histórico atualizado: {len(session.historico)} mensagens")  # DEBUG
                 print(f"📝 Últimas 3 mensagens: {session.historico[-3:]}")  # DEBUG
                 
-                # Resetar flag de cancelamento
+                # Novo request: incrementa o contador e reseta flag
+                session.request_seq += 1
+                current_req = session.request_seq
                 session.cancel_flag = False
                 
                 # Enviar confirmação de recebimento
@@ -813,6 +858,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         # Callback de progresso (thread-safe): emite etapas para o cliente.
                         def progress(stage: str, detail: str = ""):
                             try:
+                                if session.cancel_flag or session.request_seq != current_req:
+                                    return
                                 mode = _thinking_mode_from_stage(stage)
                                 msg = {
                                     "type": "thinking",
@@ -830,7 +877,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         
                         # 🛑 Callback para verificar cancelamento
                         def check_cancelled():
-                            return session.cancel_flag
+                            return session.cancel_flag or session.request_seq != current_req
 
                         # Primeira etapa visível no cliente
                         await manager.send_message(
@@ -847,6 +894,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         # Callback para chain-of-thought (thread-safe): envia tokens brutos para o cliente.
                         def cot_emit(token: str):
                             try:
+                                if session.cancel_flag or session.request_seq != current_req:
+                                    return
                                 msg = {
                                     "type": "cot",
                                     "content": token,
@@ -872,9 +921,9 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         
                         resposta = await loop.run_in_executor(None, call_cerebro)
                         print(f"✅ Resposta gerada: {len(resposta)} chars")  # DEBUG
-                        
+                         
                         # 🛑 Verificar se foi cancelado após processar
-                        if session.cancel_flag:
+                        if session.cancel_flag or session.request_seq != current_req:
                             print(f"⏹️ Processamento cancelado - resposta descartada")
                             return  # Não envia resposta
                         

@@ -325,6 +325,7 @@ function handleWebSocketMessage(data) {
 
         case 'response':
             hideTypingIndicator();
+            isWaitingForResponse = false;
             addMessage('sofia', data.content);
 
             // Se estiver no metaverso, também adicionar lá
@@ -371,12 +372,14 @@ function handleWebSocketMessage(data) {
 
         case 'cancelled':
             hideTypingIndicator();
+            isWaitingForResponse = false;
             console.log('⏹️ Processamento cancelado:', data.content);
             showNotification(data.content, 'warning');
             break;
 
         case 'error':
             hideTypingIndicator();
+            isWaitingForResponse = false;
             showNotification(data.content, 'error');
             break;
 
@@ -1033,6 +1036,7 @@ async function sendMessage() {
     updateAttachedFilesUI();
 
     try {
+        isWaitingForResponse = true;
         // Prepara mensagem incluindo contexto dos arquivos
         let fullMessage = message || 'Veja os arquivos que enviei.';
 
@@ -1063,11 +1067,12 @@ async function sendMessage() {
 
         // Atualiza histórico local com a mensagem do usuário
         conversationHistory.push(
-            { de: 'Usuário', texto: message }
+            { de: 'Usuário', texto: displayMessage }
         );
 
     } catch (error) {
         hideTypingIndicator();
+        isWaitingForResponse = false;
         addMessage('sofia', '❌ Não foi possível enviar a mensagem. Tentando reconectar...');
         console.error('Erro:', error);
     }
@@ -1210,29 +1215,35 @@ function formatMessage(text) {
 
 // Função para parar a resposta da Sofia
 function stopResponse() {
+    hideTypingIndicator();
+    isWaitingForResponse = false;
+
+    const payload = {
+        type: 'stop',
+        session_id: sessionId
+    };
+
+    // Preferência: mandar STOP pelo WebSocket (mais rápido e já notifica "cancelled")
     if (ws && ws.readyState === WebSocket.OPEN) {
-        // Envia comando de stop para o servidor
         try {
-            ws.send(JSON.stringify({
-                type: 'stop',
-                session_id: sessionId
-            }));
+            ws.send(JSON.stringify(payload));
+            showNotification('⏹️ Cancelando processamento...', 'warning');
+            return;
         } catch (error) {
-            console.error('Erro ao enviar comando de stop:', error);
+            console.error('Erro ao enviar comando de stop via WebSocket:', error);
         }
+    }
 
-        // Fecha a conexão WebSocket para forçar interrupção
-        ws.close();
-        hideTypingIndicator();
-        showNotification('⏹️ Processamento interrompido', 'warning');
-
-        // Reconecta após 500ms
-        setTimeout(() => {
-            connectWebSocket();
-        }, 500);
+    // Fallback: chamar endpoint REST de STOP (funciona mesmo se o WS caiu)
+    if (sessionId) {
+        fetch(`${API_URL}/api/stop?session_id=${encodeURIComponent(sessionId)}`, { method: 'POST' })
+            .then(() => showNotification('⏹️ Cancelando processamento...', 'warning'))
+            .catch((e) => {
+                console.error('Erro ao enviar comando de stop via REST:', e);
+                showNotification('❌ Não foi possível cancelar agora', 'error');
+            });
     } else {
-        hideTypingIndicator();
-        showNotification('⏹️ Resposta cancelada', 'info');
+        showNotification('⏹️ Nenhuma sessão ativa', 'info');
     }
 }
 

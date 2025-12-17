@@ -73,6 +73,10 @@ SOFIA_GPT_OSS_TIMEOUT_S = int(os.getenv("SOFIA_GPT_OSS_TIMEOUT_S", str(9 * 60)))
 SOFIA_FALLBACK_MODEL = os.getenv("SOFIA_FALLBACK_MODEL", "llama3.1:8b")
 
 
+class _UserCancelled(Exception):
+    pass
+
+
 def _perfil_local() -> str:
     """Retorna o perfil local atual: FAST ou QUALITY."""
     return os.getenv("SOFIA_LOCAL_PROFILE", "QUALITY").strip().upper() or "QUALITY"
@@ -135,6 +139,7 @@ def _ollama_generate(
     options: Dict[str, Any],
     timeout_s: int,
     cot_callback: Optional[Callable[[str], None]] = None,
+    cancel_callback: Optional[Callable[[], bool]] = None,
 ) -> str:
     """
     Chama o Ollama. Se cot_callback for fornecido, usa streaming para
@@ -162,6 +167,9 @@ def _ollama_generate(
                 if resp.status_code != 200:
                     raise RuntimeError(f"HTTP {resp.status_code}")
 
+                if cancel_callback and cancel_callback():
+                    raise _UserCancelled()
+
                 for line in resp.iter_lines():
                     if not line:
                         continue
@@ -178,6 +186,13 @@ def _ollama_generate(
                             cot_callback(token)
                         except Exception:
                             pass
+
+                    if cancel_callback and cancel_callback():
+                        try:
+                            resp.close()
+                        except Exception:
+                            pass
+                        raise _UserCancelled()
 
                     if chunk.get("done"):
                         break
@@ -468,7 +483,7 @@ def perguntar(
 
     # Cancelamento inicial
     if cancel_callback and cancel_callback():
-        return "⏹️ Processamento cancelado pelo usuário."
+        return ""
 
     # Detectar modo criador / sem filtros
     modo_criador = False
@@ -489,7 +504,7 @@ def perguntar(
 
     # Cancelamento
     if cancel_callback and cancel_callback():
-        return "⏹️ Processamento cancelado pelo usuário."
+        return ""
 
     # -------------------- Visão / PDFs --------------------
     _progress("visão", "Verificando anexos/imagem/PDF")
@@ -629,7 +644,7 @@ def perguntar(
         )
 
     if cancel_callback and cancel_callback():
-        return "⏹️ Processamento cancelado pelo usuário."
+        return ""
 
     system_text = _montar_system(modo_criador, modo_sem_filtros)
 
@@ -650,6 +665,7 @@ def perguntar(
                     options=opcoes_ollama,
                     timeout_s=SOFIA_GPT_OSS_TIMEOUT_S,
                     cot_callback=cot_callback,
+                    cancel_callback=cancel_callback,
                 )
             except requests.exceptions.Timeout:
                 _progress("fallback", f"Timeout > {SOFIA_GPT_OSS_TIMEOUT_S}s; usando {SOFIA_FALLBACK_MODEL}")
@@ -665,6 +681,7 @@ def perguntar(
                     options=fallback_options,
                     timeout_s=600,
                     cot_callback=cot_callback,
+                    cancel_callback=cancel_callback,
                 )
                 modelo_local = SOFIA_FALLBACK_MODEL
         else:
@@ -675,7 +692,10 @@ def perguntar(
                 options=opcoes_ollama,
                 timeout_s=600,
                 cot_callback=cot_callback,
+                cancel_callback=cancel_callback,
             )
+    except _UserCancelled:
+        return ""
     except requests.exceptions.RequestException as e:
         return (
             "❌ Erro ao conectar com o serviço de modelo local.\n"
