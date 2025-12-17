@@ -23,21 +23,29 @@ REM Configurar variaveis de ambiente
 set PYTHONPATH=D:\A.I_GitHUB
 set SOFIA_AUTORIDADE_DECLARADA=1
 
-REM Forçar modo LOCAL (Ollama)
-set SOFIA_USE_CLOUD=false
-set GITHUB_TOKEN=
-set GITHUB_MODEL=
+REM Forcar modo CLOUD (GitHub Models)
+set SOFIA_USE_CLOUD=true
+set GITHUB_MODEL=gpt-4o
+REM GITHUB_TOKEN deve ficar fora do repositório.
+REM Opcional: salve o token em %USERPROFILE%\.sofia_token (1ª linha) ou defina antes de rodar.
 
-REM Escolher modelo do Ollama para ser o cérebro da Sofia
-set OLLAMA_MODEL=gpt-oss:20b
+REM Carregar token de arquivo seguro, se não estiver definido
+if not defined GITHUB_TOKEN (
+    if exist "%USERPROFILE%\.sofia_token" (
+        for /f "usebackq delims=" %%A in ("%USERPROFILE%\.sofia_token") do (
+            if not defined GITHUB_TOKEN set "GITHUB_TOKEN=%%A"
+        )
+    )
+)
 
-REM (Opcional) ajustes de performance para o 20B – pode ir testando:
-REM set OLLAMA_NUM_GPU=10
-REM set OLLAMA_NUM_THREAD=20
-REM set OLLAMA_NUM_BATCH=64
-REM set OLLAMA_NUM_PARALLEL=1
+REM Validar se o token está presente
+if not defined GITHUB_TOKEN (
+    echo ERRO: GITHUB_TOKEN não definido. Crie %USERPROFILE%\.sofia_token com o token ou exporte antes de rodar.
+    pause
+    exit /b 1
+)
 
-echo [1/4] Ambiente configurado (Cloud + GPT-4o)
+echo [1/4] Ambiente configurado (Cloud + GitHub Models)
 timeout /t 1 /nobreak >nul
 
 echo [2/4] Instalando/Verificando PyPDF2...

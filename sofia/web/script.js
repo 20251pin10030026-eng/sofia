@@ -1,8 +1,8 @@
 // API Configuration
 // Cloud = GitHub Models API (servidor), Local = Ollama (local)
 // Ambos usam o mesmo servidor backend, mas o backend alterna entre as IAs
-const API_URL = 'https://c2ab55bb2a9f.ngrok-free.app';
-const WS_URL = 'wss://c2ab55bb2a9f.ngrok-free.app';
+const API_URL = 'https://493e6ce2a33c.ngrok-free.app';
+const WS_URL = 'wss://493e6ce2a33c.ngrok-free.app';
 
 // Injeta header para bypass do aviso do ngrok quando necessário
 const _nativeFetch = window.fetch.bind(window);
@@ -1100,6 +1100,7 @@ function addMessage(sender, text) {
     const messageBody = document.createElement('div');
     messageBody.className = 'message-body';
     messageBody.innerHTML = formatMessage(text);
+    forceLinksNewTab(messageBody);
 
     // Criar container para hora + ícones
     const timeContainer = document.createElement('div');
@@ -1155,6 +1156,15 @@ function addMessage(sender, text) {
 
     // Scroll to bottom
     chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
+function forceLinksNewTab(rootEl) {
+    if (!rootEl || typeof rootEl.querySelectorAll !== 'function') return;
+    const links = rootEl.querySelectorAll('a[href]');
+    links.forEach((a) => {
+        a.setAttribute('target', '_blank');
+        a.setAttribute('rel', 'noopener noreferrer');
+    });
 }
 
 function typesetMath(rootEl) {
@@ -1318,6 +1328,7 @@ function cancelEdit(messageDiv, originalText) {
 
     // Restaura o conteúdo original
     contentDiv.innerHTML = formatMessage(originalText);
+    forceLinksNewTab(contentDiv);
 
     // Recria container de hora + ícones
     const timeContainer = document.createElement('div');
