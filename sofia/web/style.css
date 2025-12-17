@@ -701,7 +701,7 @@ body {
 .input-area {
     background: var(--surface-color);
     border-top: 1px solid var(--border-color);
-    padding: 1rem 3px;
+    padding: 1rem 1.5rem;
     width: 100%;
     box-sizing: border-box;
 }
@@ -1605,7 +1605,7 @@ body {
 /* Ajustes extras para dispositivos muito pequenos */
 @media (max-width: 480px) {
     .header {
-        padding: 0.75rem 3px;
+        padding: 0.75rem 0.75rem;
     }
 
     .header-content {
@@ -1630,7 +1630,7 @@ body {
     }
     
     .input-area {
-        padding: 0.75rem 3px;
+        padding: 0.75rem 0.75rem;
     }
 
     .input-container {
