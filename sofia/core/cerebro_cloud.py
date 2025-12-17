@@ -98,8 +98,9 @@ def _system_text() -> str:
         "- Use seções com headings (## ou ###) quando apropriado.\n"
         "- Para dados estruturados, use tabelas com cabeçalho.\n"
         "- Destaque informações-chave em **negrito**.\n"
-        "- Ao final, inclua um 'Resumo Rápido' em bullets (2-4 itens principais).\n"
-        "- Evite verbosidade; seja concisa e elegante.\n\n"
+        "- Ao final, inclua uma seção '## Conclusão' com texto dissertativo e argumentativo de 15 a 20 linhas, "
+        "sintetizando os pontos principais e oferecendo uma reflexão final sobre o tema.\n"
+        "- Evite verbosidade nas seções intermediárias; seja concisa e elegante.\n\n"
         "Nunca invente fatos se não tiver certeza; declare limitações com honestidade. "
         "Quando citar links/fontes, use APENAS os links fornecidos no contexto; não invente URLs."
     )
