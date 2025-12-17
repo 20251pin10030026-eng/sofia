@@ -1,8 +1,8 @@
 // API Configuration
 // Cloud = GitHub Models API (servidor), Local = Ollama (local)
 // Ambos usam o mesmo servidor backend, mas o backend alterna entre as IAs
-const API_URL = 'https://cb61a68d9232.ngrok-free.app';
-const WS_URL = 'wss://cb61a68d9232.ngrok-free.app';
+const API_URL = 'https://c2ab55bb2a9f.ngrok-free.app';
+const WS_URL = 'wss://c2ab55bb2a9f.ngrok-free.app';
 
 // Injeta header para bypass do aviso do ngrok quando necessário
 const _nativeFetch = window.fetch.bind(window);
@@ -815,10 +815,17 @@ function loadVoices() {
         voiceSelect.appendChild(option);
     });
     
-    // Selecionar voz padrão (preferir feminina em pt-BR)
-    const ptVoices = voices.filter(v => v.lang.startsWith('pt'));
-    const defaultVoice = ptVoices.find(v => v.lang === 'pt-BR' && (v.name.includes('Female') || v.name.includes('Feminina')))
-                       || ptVoices.find(v => v.lang === 'pt-BR')
+    // Selecionar voz padrão (prioriza Google pt-BR; depois pt-BR feminina; depois pt-BR; fallback primeira)
+    const ptVoices = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('pt'));
+    const defaultVoice = ptVoices.find(v =>
+                            v.lang.toLowerCase() === 'pt-br' &&
+                            v.name.toLowerCase().includes('google')
+                        )
+                       || ptVoices.find(v =>
+                            v.lang.toLowerCase() === 'pt-br' &&
+                            (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('feminina'))
+                        )
+                       || ptVoices.find(v => v.lang.toLowerCase() === 'pt-br')
                        || voices[0];
     
     if (defaultVoice) {
