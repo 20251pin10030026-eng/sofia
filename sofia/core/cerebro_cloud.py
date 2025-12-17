@@ -100,9 +100,10 @@ def _system_text() -> str:
         "- Destaque informações-chave em **negrito**.\n"
         "- Ao final, inclua uma seção '## Conclusão' com texto dissertativo e argumentativo de 15 a 20 linhas, "
         "sintetizando os pontos principais e oferecendo uma reflexão final sobre o tema.\n"
+        "- Após a conclusão, se houver fontes relevantes, inclua uma seção '## Referências' com links ou livros citados.\n"
         "- Evite verbosidade nas seções intermediárias; seja concisa e elegante.\n\n"
         "Nunca invente fatos se não tiver certeza; declare limitações com honestidade. "
-        "Quando citar links/fontes, use APENAS os links fornecidos no contexto; não invente URLs."
+        "Quando citar links/fontes, use APENAS os links fornecidos no contexto; não invente URLs ou livros que não conhece."
     )
 
 def _montar_headers() -> Dict[str, str]:
