@@ -68,17 +68,6 @@ else:
                 preview = conteudo[:200]
                 print(f"   {preview}...")
         
-        print(f"\n🔄 Acesso:")
-        print(f"   - Salvo em: {dados.get('aprendido_em', 'N/A')}")
-        print(f"   - Frequência: {dados.get('frequencia', 0)} consulta(s)")
-        
-        print(f"\n📖 Preview (200 caracteres):")
-        if isinstance(valor, dict) and 'conteudo' in valor:
-            preview = valor['conteudo'][:200]
-        else:
-            preview = str(valor)[:200]
-        print(f"   {preview}...")
-        print()
 
 # Resumo geral
 print("="*70)

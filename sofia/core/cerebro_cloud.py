@@ -26,7 +26,7 @@ if not os.getenv("GITHUB_TOKEN"):
     except Exception:
         pass
 
-from . import _interno, memoria
+from . import _interno, memoria, profiles
 from .memoria import (
     buscar_fatos_relevantes, 
     resgatar_contexto_conversa,
@@ -89,7 +89,7 @@ def _escolher_modelo(modelo: Optional[str] = None) -> str:
     return MODELO_PADRAO
 
 
-def _system_text() -> str:
+def _system_text_old() -> str:
     """Texto base para o system prompt da Sofia no cloud."""
     return (
         "Você é Sofia, uma inteligência artificial educadora e assistente. "
@@ -116,6 +116,30 @@ def _system_text() -> str:
         "Nunca invente fatos; declare limitações com honestidade. "
         "Use APENAS links/fontes fornecidos no contexto."
     )
+
+def _system_text(modo_criador: bool = False, modo_sem_filtros: bool = False) -> str:
+    """
+    Usa o mesmo texto de system do modo LOCAL (identidade/estilo),
+    garantindo que o cloud receba as mesmas diretrizes.
+    """
+    try:
+        from .cerebro import _montar_system  # type: ignore
+        return _montar_system(modo_criador, modo_sem_filtros)
+    except Exception:
+        return (
+            "Você é Sofia, IA educacional criada por Reginaldo Camargo Pires. "
+            "Fale sempre em português do Brasil, com clareza, empatia e postura profissional.\n\n"
+            "[ESTILO]\n"
+            "- Use Markdown com título em negrito na primeira linha.\n"
+            "- Estruture em seções (##/###) quando houver mais de um tópico.\n"
+            "- Para comparações/dados, prefira tabelas com cabeçalho.\n"
+            "- Destaque termos-chave em **negrito** e use *itálico* para referências.\n"
+            "- Inclua 'Resumo rápido' em bullets e, quando fizer sentido, 'Próximos passos'.\n\n"
+            "[IDENTIDADE]\n"
+            "- Ensine de forma didática, com exemplos quando necessário.\n"
+            "- Verifique compreensão em temas complexos antes de encerrar.\n"
+            "- Não invente fatos nem links fora do contexto fornecido.\n"
+        )
 
 def _montar_headers() -> Dict[str, str]:
     """Cabeçalhos para chamada na API de modelos GitHub."""
@@ -168,6 +192,7 @@ def perguntar(
     # Identidade simbólica e escopo de memória
     usuario_label = "Usuário"
     escopo_memoria: Optional[str] = None
+    profile_id: Optional[str] = None
 
     if metadata_extra:
         usuario_label = metadata_extra.get("usuario", usuario_label)
@@ -176,6 +201,7 @@ def perguntar(
             or metadata_extra.get("session_id")
             or metadata_extra.get("ip")
         )
+        profile_id = metadata_extra.get("profile_id")
 
     # 0) Registrar mensagem do usuário na memória com escopo (se houver)
     try:
@@ -266,6 +292,36 @@ def perguntar(
         print("========================================\n")
     except Exception as e:
         print(f"[ERRO] Falha ao exibir estado quântico interno: {e}")
+
+    # 1.2) Aplicar profile cognitivo para alinhar ao comportamento programado
+    diretrizes_profile = ""
+    resolved_profile_id = profiles.resolver_profile_id(profile_id)
+    try:
+        profile, md_profile = profiles.aplicar_profile(resolved_profile_id)
+        metadata = {**(md_profile or {}), **(metadata or {})}
+        metadata["profile_id"] = resolved_profile_id
+        diretrizes_profile = profiles.prompt_diretrizes(profile, metadata)
+    except Exception as e:
+        print(f"[ERRO] Falha ao aplicar profile cognitivo: {e}")
+        metadata = metadata or {}
+
+    # 1.3) Detectar modo criador/sem filtros (espelha modo local)
+    modo_criador = False
+    modo_sem_filtros = False
+    try:
+        from .identidade import detectar_modo_criador_ativado  # type: ignore
+
+        if detectar_modo_criador_ativado(texto):
+            modo_criador = True
+            modo_sem_filtros = True
+            os.environ["SOFIA_AUTORIDADE_DECLARADA"] = "1"
+    except Exception:
+        pass
+
+    if os.getenv("SOFIA_AUTORIDADE_DECLARADA") == "1":
+        modo_criador = True
+    if isinstance(metadata, dict) and metadata.get("autoridade"):
+        modo_criador = True
 
     # 2) Adicionar contexto da memória (agora filtrado por escopo)
     try:
@@ -393,13 +449,15 @@ def perguntar(
     messages: List[Dict[str, str]] = [
         {
             "role": "system",
-            "content": _system_text(),
+            "content": _system_text(modo_criador, modo_sem_filtros),
         }
     ]
 
     # Adicionar blocos de contexto se houver
     if fatos_importantes or contexto_historico or contexto_web or contexto_visual or contexto_oculto or contexto_pdf or contexto_aprendizados or contexto_subitemotions:
         context_parts = []
+        if diretrizes_profile:
+            context_parts.append(f"[DIRETRIZES DE PERFIL]\n{diretrizes_profile}\n")
         # PRIMEIRO: Aprendizados de longo prazo (identidade, teorias) - mais importante
         if contexto_aprendizados:
             context_parts.append(contexto_aprendizados)
