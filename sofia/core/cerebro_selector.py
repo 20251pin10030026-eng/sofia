@@ -41,8 +41,9 @@ _current_mode = None
 def _detect_initial_mode():
     """Detecta o modo inicial baseado nas variáveis de ambiente"""
     use_cloud = os.getenv("SOFIA_USE_CLOUD", "false").lower() == "true"
-    github_token = os.getenv("GITHUB_TOKEN", "")
-    return "cloud" if (use_cloud or github_token) else "local"
+    # Importar o módulo cloud pode carregar .env e preencher GITHUB_TOKEN.
+    # Isso não deve forçar modo cloud automaticamente.
+    return "cloud" if use_cloud else "local"
 
 def get_mode():
     """Retorna o modo atual (cloud ou local)"""

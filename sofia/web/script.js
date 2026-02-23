@@ -1,8 +1,8 @@
 // API Configuration
 // Cloud = GitHub Models API (servidor), Local = Ollama (local)
 // Ambos usam o mesmo servidor backend, mas o backend alterna entre as IAs
-const API_URL = 'https://2695-189-46-151-10.ngrok-free.app';
-const WS_URL = 'wss://2695-189-46-151-10.ngrok-free.app';
+const API_URL = window.location.origin;
+const WS_URL = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`;
 
 // Injeta header para bypass do aviso do ngrok quando necessário
 const _nativeFetch = window.fetch.bind(window);
@@ -30,6 +30,7 @@ let reconnectAttempts = 0;
 let maxReconnectAttempts = 5;
 let reconnectDelay = 2000;
 let messageQueue = [];
+const SHOW_COT_PANEL = false;
 
 // DOM Elements
 const chatContainer = document.getElementById('chat-container');
@@ -315,6 +316,9 @@ function handleWebSocketMessage(data) {
 
         case 'cot':
             // Chain-of-thought bruto do modelo (para o criador)
+            if (!SHOW_COT_PANEL) {
+                break;
+            }
             if (!document.querySelector('.typing-indicator')) {
                 showTypingIndicator();
             }
@@ -411,18 +415,28 @@ function showTypingIndicator() {
         cotBuffer = '';
         const indicator = document.createElement('div');
         indicator.className = 'typing-indicator';
+        const cotControls = SHOW_COT_PANEL
+            ? `
+                <button type="button" class="cot-toggle" title="Mostrar/ocultar raciocínio interno">🧠</button>
+              `
+            : '';
+        const cotPanel = SHOW_COT_PANEL
+            ? `
+            <div class="cot-panel" style="display: none;">
+                <div class="cot-label">Chain-of-Thought (raciocínio interno bruto):</div>
+                <pre class="cot-content"></pre>
+            </div>
+              `
+            : '';
         indicator.innerHTML = `
             <div class="typing-header">
                 <div class="typing-dot"></div>
                 <div class="typing-dot"></div>
                 <div class="typing-dot"></div>
                 <span class="thinking-title" style="margin-left: 10px;">Sofia Pensando...</span>
-                <button type="button" class="cot-toggle" title="Mostrar/ocultar raciocínio interno">🧠</button>
+                ${cotControls}
             </div>
-            <div class="cot-panel" style="display: none;">
-                <div class="cot-label">Chain-of-Thought (raciocínio interno bruto):</div>
-                <pre class="cot-content"></pre>
-            </div>
+            ${cotPanel}
         `;
         chatContainer.appendChild(indicator);
         chatContainer.scrollTop = chatContainer.scrollHeight;
@@ -430,7 +444,7 @@ function showTypingIndicator() {
         // Toggle do painel CoT
         const toggleBtn = indicator.querySelector('.cot-toggle');
         const panel = indicator.querySelector('.cot-panel');
-        if (toggleBtn && panel) {
+        if (SHOW_COT_PANEL && toggleBtn && panel) {
             toggleBtn.addEventListener('click', () => {
                 const isHidden = panel.style.display === 'none';
                 panel.style.display = isHidden ? 'block' : 'none';

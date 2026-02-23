@@ -766,9 +766,9 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 trq_duro_mode = data.get("trq_duro_mode", False)
                 requested_profile_id = data.get("profile_id")
                 
-                print(f"💬 Processando: '{user_message}' de {user_name}")  # DEBUG
-                print(f"🌐 Modo Web: {web_search_mode}")  # DEBUG
-                print(f"♦ TRQ Duro: {trq_duro_mode}")  # DEBUG
+                print(f"[CHAT] Processando: '{user_message}' de {user_name}")  # DEBUG
+                print(f"[CHAT] Modo Web: {web_search_mode}")  # DEBUG
+                print(f"[CHAT] TRQ Duro: {trq_duro_mode}")  # DEBUG
 
                 # Se já existe uma tarefa rodando, cancela antes de iniciar outra (evita respostas cruzadas)
                 if session_id in manager.active_tasks:
@@ -794,7 +794,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 elif trq_duro_mode:
                     session.profile_id = "trq_duro"
 
-                print(f"🧠 Profile(sessão): {session.profile_id}")  # DEBUG
+                print(f"[CHAT] Profile(sessao): {session.profile_id}")  # DEBUG
                 
                 # Atualizar nome do usuário se fornecido
                 session.user_name = user_name
@@ -803,10 +803,10 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 import os
                 if web_search_mode:
                     os.environ["SOFIA_MODO_WEB"] = "1"
-                    print("🌍 Modo web ATIVADO")  # DEBUG
+                    print("[CHAT] Modo web ATIVADO")  # DEBUG
                 else:
                     os.environ["SOFIA_MODO_WEB"] = "0"
-                    print("🌍 Modo web DESATIVADO")  # DEBUG
+                    print("[CHAT] Modo web DESATIVADO")  # DEBUG
 
                 # Adicionar ao histórico da sessão
                 session.historico.append({
@@ -814,8 +814,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                     "texto": user_message,
                     "tipo": "user"
                 })
-                print(f"📝 Histórico atualizado: {len(session.historico)} mensagens")  # DEBUG
-                print(f"📝 Últimas 3 mensagens: {session.historico[-3:]}")  # DEBUG
+                print(f"[CHAT] Historico atualizado: {len(session.historico)} mensagens")  # DEBUG
+                print(f"[CHAT] Ultimas 3 mensagens: {session.historico[-3:]}")  # DEBUG
                 
                 # Novo request: incrementa o contador e reseta flag
                 session.request_seq += 1
@@ -832,8 +832,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 # Criar e rastrear tarefa de processamento
                 async def process_message():
                     try:
-                        print(f"🧠 Iniciando processamento...")  # DEBUG
-                        print(f"📊 Histórico sendo passado: {len(session.historico)} mensagens")  # DEBUG
+                        print("[CHAT] Iniciando processamento...")  # DEBUG
+                        print(f"[CHAT] Historico sendo passado: {len(session.historico)} mensagens")  # DEBUG
                         # Executar em thread separada para não bloquear
                         loop = asyncio.get_event_loop()
 
@@ -891,9 +891,14 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                             session_id,
                         )
 
+                        # CoT bruto do modelo fica DESLIGADO por padrão.
+                        enable_cot = os.getenv("SOFIA_EXIBIR_COT", "0").strip() == "1"
+
                         # Callback para chain-of-thought (thread-safe): envia tokens brutos para o cliente.
                         def cot_emit(token: str):
                             try:
+                                if not enable_cot:
+                                    return
                                 if session.cancel_flag or session.request_seq != current_req:
                                     return
                                 msg = {
@@ -916,15 +921,15 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                             check_cancelled,
                             session.profile_id,
                             progress_callback=progress,
-                            cot_callback=cot_emit,
+                            cot_callback=(cot_emit if enable_cot else None),
                         )
                         
                         resposta = await loop.run_in_executor(None, call_cerebro)
-                        print(f"✅ Resposta gerada: {len(resposta)} chars")  # DEBUG
+                        print(f"[CHAT] Resposta gerada: {len(resposta)} chars")  # DEBUG
                          
                         # 🛑 Verificar se foi cancelado após processar
                         if session.cancel_flag or session.request_seq != current_req:
-                            print(f"⏹️ Processamento cancelado - resposta descartada")
+                            print("[CHAT] Processamento cancelado - resposta descartada")
                             return  # Não envia resposta
                         
                         # Adicionar resposta ao histórico
@@ -943,10 +948,10 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         }, session_id)
                         
                     except asyncio.CancelledError:
-                        print(f"⏹️ Processamento cancelado pelo usuário")
+                        print("[CHAT] Processamento cancelado pelo usuario")
                         raise  # Re-raise para limpar a tarefa
                     except Exception as e:
-                        print(f"❌ Erro ao processar: {e}")  # DEBUG
+                        print(f"[CHAT] Erro ao processar: {e}")  # DEBUG
                         await manager.send_message({
                             "type": "error",
                             "content": f"❌ Erro: {str(e)}",
@@ -961,7 +966,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 try:
                     await task
                 except asyncio.CancelledError:
-                    print(f"⏹️ Tarefa foi cancelada")
+                    print("[CHAT] Tarefa foi cancelada")
                 finally:
                     # Limpar tarefa concluída
                     if session_id in manager.active_tasks:
@@ -975,9 +980,9 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     
     except WebSocketDisconnect:
         manager.disconnect(session_id)
-        print(f"🔌 WebSocket desconectado: {session_id[:8]}...")
+        print(f"[WS] Desconectado: {session_id[:8]}...")
     except Exception as e:
-        print(f"❌ Erro no WebSocket: {e}")
+        print(f"[WS] Erro no WebSocket: {e}")
         manager.disconnect(session_id)
 # ==================== TELEMETRIA TRQ + QWEN ====================
 
@@ -1043,17 +1048,17 @@ if web_dir.exists():
 async def startup_event():
     """Executado quando a API inicia"""
     print("=" * 60)
-    print("🌸 Sofia API iniciada!")
+    print("Sofia API iniciada.")
     print("=" * 60)
-    print("📍 Acesse: http://localhost:8000")
-    print("📚 Documentação: http://localhost:8000/docs")
-    print("🔌 WebSocket: ws://localhost:8000/ws/{session_id}")
+    print("Acesse: http://localhost:8000")
+    print("Documentacao: http://localhost:8000/docs")
+    print("WebSocket: ws://localhost:8000/ws/{session_id}")
     print("=" * 60)
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Executado quando a API é encerrada"""
-    print("\n🌸 Sofia API encerrada. Até logo!")
+    print("\nSofia API encerrada. Ate logo.")
 
 # ==================== MAIN ====================
 

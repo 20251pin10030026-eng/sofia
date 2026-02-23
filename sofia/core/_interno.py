@@ -227,7 +227,7 @@ def _processar(texto, historico, usuario=""):
         if curvatura_trq is not None and abs(curvatura_trq) > 0.05:
             ajuste_trq = (
                 "Modo TRQ interno: priorize um tom mais analítico e cauteloso, "
-                "explique os passos do raciocínio e evite conclusões precipitadas."
+                "mantenha o raciocínio interno em silêncio e entregue apenas conclusões claras."
             )
         # Emaranhamento alto → modo mais integrativo / conector de ideias
         elif emaranhamento_trq is not None and emaranhamento_trq > 0.9:

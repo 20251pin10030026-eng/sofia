@@ -14,6 +14,7 @@ from __future__ import annotations
 import os
 import json
 import time
+import re
 import requests
 from typing import Any, Dict, List, Optional, Callable
 
@@ -241,13 +242,10 @@ def _montar_system(modo_criador: bool, modo_sem_filtros: bool) -> str:
 
     base += """
 [ESTILO DE RESPOSTA]
-- Use SEMPRE Markdown em português do Brasil.
-- Comece com um título curto em negrito.
-- Estruture em seções (##/###) quando houver múltiplos tópicos.
-- Para dados estruturados (especificações, comparações), prefira tabelas com cabeçalho.
-- Destaque números/chaves em **negrito**; use *itálico* para fontes/referências.
-- Inclua um bloco de "Resumo rápido" em bullets e, quando fizer sentido, "Próximos passos" (2–4 bullets).
-- Seja concisa, mas clara e didática; evite verbosidade desnecessária.
+- Responda naturalmente em português do Brasil.
+- Use Markdown leve apenas quando ajudar a leitura (listas, títulos, tabelas quando fizer sentido).
+- Seja clara, didática e objetiva.
+- Não exponha raciocínio interno, cadeia de pensamento ou rascunhos.
 
 [IDENTIDADE]
 - Você é Sofia, IA educacional feminina, firme, gentil e clara.
@@ -403,14 +401,11 @@ def _preparar_prompt_local(
         "Você é Sofia.\n"
         "Responda com clareza, coerência e fidelidade ao contexto.\n\n"
         f"{contexto}\n\n"
-        "[FORMATO OBRIGATÓRIO]\n"
-        "- Use Markdown em português do Brasil.\n"
-        "- Comece com um título curto em negrito.\n"
-        "- Estruture em seções (##/###) quando houver mais de um tópico.\n"
-        "- Para dados estruturados, use tabelas com cabeçalho.\n"
-        "- Destaque números/chaves em **negrito**; use *itálico* para fontes/referências.\n"
-        "- Inclua um 'Resumo rápido' em bullets e, quando fizer sentido, 'Próximos passos' (2–4 bullets).\n"
-        "- Seja concisa e didática; não invente fatos.\n\n"
+        "[FORMATO PREFERENCIAL]\n"
+        "- Responda de forma natural, clara e objetiva.\n"
+        "- Use Markdown apenas quando realmente melhorar a leitura.\n"
+        "- Não exponha raciocínio interno ou etapas ocultas de processamento.\n"
+        "- Não invente fatos.\n\n"
         "Pergunta atual:\n"
         f"Usuário ({usuario}): {prompt_base}\n"
         "Sofia:"
@@ -600,16 +595,16 @@ def perguntar(
         ajuste_trq = metadata.get("ajuste_trq")
 
         print("\n=== ESTADO QUÂNTICO INTERNO – SOFIA (LOCAL) ===")
-        print(f"🧩 SubitEmoção dominante : {estado}")
+        print(f"Subitemocao dominante    : {estado}")
         if isinstance(intensidade, (int, float)):
-            print(f"💓 Intensidade emocional : {intensidade:.3f}")
+            print(f"Intensidade emocional    : {intensidade:.3f}")
         else:
-            print(f"💓 Intensidade emocional : {intensidade}")
-        print(f"📐 Curvatura clássica TRQ: {curv_cl}")
-        print(f"⏳ Ressonância temporal   : {resson}")
-        print(f"🌌 Curvatura TRQ quântica: {curv_trq}")
-        print(f"🔗 Emaranhamento TRQ      : {emaranh}")
-        print(f"🎛️ Ajuste de modo TRQ     : {ajuste_trq}")
+            print(f"Intensidade emocional    : {intensidade}")
+        print(f"Curvatura classica TRQ   : {curv_cl}")
+        print(f"Ressonancia temporal     : {resson}")
+        print(f"Curvatura TRQ quantica   : {curv_trq}")
+        print(f"Emaranhamento TRQ        : {emaranh}")
+        print(f"Ajuste de modo TRQ       : {ajuste_trq}")
         print("================================================\n")
     except Exception as e:
         print(f"[DEBUG] Erro ao exibir estado quântico: {e}")
@@ -635,20 +630,19 @@ def perguntar(
 
     # -------------------- Chamada ao modelo --------------------
     _progress("modelo", "Gerando resposta")
+    modelo_local = _resolver_modelo_local()
 
     if not _model_available(OLLAMA_HOST):
         return (
             "❌ Não consegui conectar ao serviço de modelo local.\n"
             f"Tente verificar se o Ollama está rodando em {OLLAMA_HOST} "
-            "e se o modelo gpt-oss:20b está disponível."
+            f"e se o modelo {modelo_local} está disponível."
         )
 
     if cancel_callback and cancel_callback():
         return ""
 
     system_text = _montar_system(modo_criador, modo_sem_filtros)
-
-    modelo_local = _resolver_modelo_local()
     opcoes_ollama = _resolver_opcoes_ollama(modelo_local)
 
     # Ponte: se o gpt-oss:20b demorar mais de 9 min, responde com llama3.1:8b.
@@ -708,6 +702,11 @@ def perguntar(
         print(f"[DEBUG] Tempo de geração ({modelo_local}): {dur:.1f}s")
         _progress("modelo", f"Concluído em {dur:.1f}s (modelo={modelo_local})")
 
+    # Remove blocos internos do modelo (ex.: <think>...</think>), quando houver.
+    resposta = _limpar_resposta_modelo(resposta)
+    if not resposta:
+        return "Desculpe, não consegui montar uma resposta útil agora. Tente reformular sua pergunta."
+
     # Salvar resposta na memória, se aplicável
     sentimento = "neutro"
     if isinstance(metadata, dict):
@@ -742,13 +741,46 @@ def perguntar(
         except Exception as e:
             print(f"[DEBUG] Erro ao salvar log subitemotions: {e}")
 
-    # Enforce layout Markdown mínimo
-    try:
-        resposta = _enforce_layout(resposta, texto)
-    except Exception:
-        pass
+    # Layout rígido só quando explicitamente solicitado.
+    if os.getenv("SOFIA_LAYOUT_ESTRITO", "0").strip() == "1":
+        try:
+            resposta = _enforce_layout(resposta, texto)
+        except Exception:
+            pass
 
     return resposta
+
+
+def _limpar_resposta_modelo(resposta: str) -> str:
+    """
+    Remove vazamento de raciocínio interno e blocos de pensamento bruto.
+    """
+    if not isinstance(resposta, str):
+        return ""
+
+    texto = resposta
+
+    # Blocos XML comuns em modelos reasoning.
+    texto = re.sub(r"<think>[\s\S]*?</think>", "", texto, flags=re.IGNORECASE)
+
+    # Blocos fenced frequentemente usados como rascunho interno.
+    texto = re.sub(
+        r"```(?:thinking|analysis|cot)[\s\S]*?```",
+        "",
+        texto,
+        flags=re.IGNORECASE,
+    )
+
+    # Linhas explícitas de raciocínio interno.
+    texto = re.sub(
+        r"^\s*(pensamento|racioc[ií]nio(?:\s+interno)?|chain[- ]of[- ]thought)\s*:\s*.*$",
+        "",
+        texto,
+        flags=re.IGNORECASE | re.MULTILINE,
+    )
+
+    texto = re.sub(r"\n{3,}", "\n\n", texto).strip()
+    return texto
 
 
 def _log_subitemotions(metadata: dict, entrada: str, saida: str, modelo: str):
